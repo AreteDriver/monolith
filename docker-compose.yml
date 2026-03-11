@@ -1,0 +1,15 @@
+services:
+  monolith:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - monolith-data:/data
+    environment:
+      - MONOLITH_DATABASE_PATH=/data/monolith.db
+      - MONOLITH_ANTHROPIC_API_KEY=${MONOLITH_ANTHROPIC_API_KEY:-}
+      - MONOLITH_DISCORD_WEBHOOK_URL=${MONOLITH_DISCORD_WEBHOOK_URL:-}
+    restart: unless-stopped
+
+volumes:
+  monolith-data:

@@ -8,10 +8,12 @@ import contextlib
 import logging
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.alerts.discord import send_alert
 from backend.api.anomalies import router as anomalies_router
@@ -199,3 +201,9 @@ def health() -> dict:
         "last_event_time": last_event_time,
         "row_counts": counts,
     }
+
+
+# Serve frontend static files (production build)
+_frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if _frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")

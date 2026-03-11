@@ -14,7 +14,8 @@ venv/
 *.db-shm
 
 .env
-.env.*
+.env.local
+.env.production
 
 node_modules/
 frontend/dist/

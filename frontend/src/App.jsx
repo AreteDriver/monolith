@@ -1,6 +1,7 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import AnomalyDetail from './pages/AnomalyDetail'
 import AnomalyFeed from './pages/AnomalyFeed'
+import Landing from './pages/Landing'
 import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
 import StatsPanel from './pages/StatsPanel'
@@ -12,7 +13,7 @@ function Nav() {
       <Link to="/" className="text-[#f59e0b] font-bold text-lg tracking-wider no-underline">
         MONOLITH
       </Link>
-      <Link to="/" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
+      <Link to="/anomalies" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Anomalies
       </Link>
       <Link to="/stats" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
@@ -32,7 +33,8 @@ export default function App() {
         <Nav />
         <main className="max-w-7xl mx-auto px-6 py-6">
           <Routes>
-            <Route path="/" element={<AnomalyFeed />} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/anomalies" element={<AnomalyFeed />} />
             <Route path="/anomalies/:id" element={<AnomalyDetail />} />
             <Route path="/reports/:id" element={<ReportView />} />
             <Route path="/objects/:id" element={<ObjectTracker />} />
