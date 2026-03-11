@@ -1,0 +1,26 @@
+app = 'monolith-evefrontier'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  MONOLITH_DATABASE_PATH = '/data/monolith.db'
+  MONOLITH_HOST = '0.0.0.0'
+  MONOLITH_PORT = '8000'
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[mounts]
+  source = 'monolith_data'
+  destination = '/data'
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
