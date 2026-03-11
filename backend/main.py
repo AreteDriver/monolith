@@ -20,6 +20,7 @@ from backend.api.stats import router as stats_router
 from backend.api.submit import router as submit_router
 from backend.config import get_settings
 from backend.db.database import get_row_counts, init_db
+from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_reader import ChainReader
 from backend.ingestion.state_snapshotter import StateSnapshotter
 from backend.ingestion.world_poller import WorldPoller
@@ -72,6 +73,27 @@ async def snapshot_loop(snapshotter: StateSnapshotter, interval: int) -> None:
         await asyncio.sleep(interval)
 
 
+async def detection_loop(engine: DetectionEngine, interval: int) -> None:
+    """Background task: run detection engine on interval."""
+    # Wait for initial data ingestion before first detection run
+    await asyncio.sleep(30)
+    while True:
+        try:
+            new_anomalies = engine.run_cycle()
+            if new_anomalies:
+                for a in new_anomalies:
+                    logger.warning(
+                        "ANOMALY [%s] %s — %s: %s",
+                        a["severity"],
+                        a["anomaly_type"],
+                        a["object_id"][:20],
+                        a["evidence"].get("description", "")[:80],
+                    )
+        except Exception:
+            logger.exception("Detection engine error")
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan — init DB, start pollers, close on shutdown."""
@@ -86,15 +108,18 @@ async def lifespan(app: FastAPI):
         conn, settings.chain_rpc_url, settings.world_contract, settings.chain_rpc_timeout
     )
     snapshotter = StateSnapshotter(conn)
+    detection_engine = DetectionEngine(conn)
     app.state.world_poller = world_poller
     app.state.chain_reader = chain_reader
     app.state.snapshotter = snapshotter
+    app.state.detection_engine = detection_engine
 
-    # Start background polling tasks
+    # Start background tasks
     tasks = [
         asyncio.create_task(world_poll_loop(world_poller, settings.world_poll_interval)),
         asyncio.create_task(chain_poll_loop(chain_reader, settings.world_poll_interval)),
         asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
+        asyncio.create_task(detection_loop(detection_engine, settings.detection_interval)),
     ]
 
     logger.info("Monolith started — database: %s", settings.database_path)
