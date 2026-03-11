@@ -13,6 +13,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.alerts.discord import send_alert
 from backend.api.anomalies import router as anomalies_router
 from backend.api.objects import router as objects_router
 from backend.api.reports import router as reports_router
@@ -73,10 +74,16 @@ async def snapshot_loop(snapshotter: StateSnapshotter, interval: int) -> None:
         await asyncio.sleep(interval)
 
 
-async def detection_loop(engine: DetectionEngine, interval: int) -> None:
+async def detection_loop(
+    engine: DetectionEngine,
+    interval: int,
+    settings=None,
+) -> None:
     """Background task: run detection engine on interval."""
     # Wait for initial data ingestion before first detection run
     await asyncio.sleep(30)
+    webhook_url = settings.discord_webhook_url if settings else ""
+    rate_limit = settings.discord_rate_limit if settings else 5
     while True:
         try:
             new_anomalies = engine.run_cycle()
@@ -89,6 +96,9 @@ async def detection_loop(engine: DetectionEngine, interval: int) -> None:
                         a["object_id"][:20],
                         a["evidence"].get("description", "")[:80],
                     )
+                    # Fire Discord alert for CRITICAL/HIGH
+                    if webhook_url and a["severity"] in ("CRITICAL", "HIGH"):
+                        await send_alert(webhook_url, a, rate_limit)
         except Exception:
             logger.exception("Detection engine error")
         await asyncio.sleep(interval)
@@ -119,7 +129,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(world_poll_loop(world_poller, settings.world_poll_interval)),
         asyncio.create_task(chain_poll_loop(chain_reader, settings.world_poll_interval)),
         asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
-        asyncio.create_task(detection_loop(detection_engine, settings.detection_interval)),
+        asyncio.create_task(
+            detection_loop(detection_engine, settings.detection_interval, settings)
+        ),
     ]
 
     logger.info("Monolith started — database: %s", settings.database_path)
