@@ -9,11 +9,21 @@ class Settings(BaseSettings):
     # Database
     database_path: str = "monolith.db"
 
-    # EVE Frontier World API
-    world_api_base: str = "https://blockchain-gateway-nova.nursery.reitnorf.com"
+    # EVE Frontier World API (stillness environment — only live gateway)
+    world_api_base: str = "https://blockchain-gateway-stillness.live.tech.evefrontier.com"
     world_api_timeout: int = 30
 
-    # Sui RPC
+    # Chain RPC — currently OP Sepolia (chain ID 11155420), will migrate to Sui
+    chain_rpc_url: str = "https://op-sepolia-ext-sync-node-rpc.live.tech.evefrontier.com"
+    chain_rpc_timeout: int = 30
+
+    # World contract address (OP Sepolia MUD)
+    world_contract: str = "0x1dacc0b64b7da0cc6e2b2fe1bd72f58ebd37363c"
+
+    # GraphQL indexer (MUD state queries)
+    graphql_url: str = "https://graphql-stillness-internal.live.evefrontier.tech/v1/graphql"
+
+    # Sui RPC (for when migration happens)
     sui_rpc_url: str = "https://fullnode.mainnet.sui.io:443"
     sui_rpc_timeout: int = 30
 

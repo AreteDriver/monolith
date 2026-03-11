@@ -3,6 +3,11 @@
 
 Run this FIRST before building the main ingestion loop.
 Saves samples to docs/chain-samples/ for reference.
+
+Current state (March 2026):
+- World API: stillness environment on OP Sepolia (chain ID 11155420)
+- Sui migration in progress but NOT live yet
+- GraphQL indexer available for MUD state queries
 """
 
 import asyncio
@@ -12,40 +17,66 @@ from pathlib import Path
 
 import httpx
 
-WORLD_API = "https://blockchain-gateway-nova.nursery.reitnorf.com"
-SUI_RPC = "https://fullnode.mainnet.sui.io:443"
+WORLD_API = "https://blockchain-gateway-stillness.live.tech.evefrontier.com"
+CHAIN_RPC = "https://op-sepolia-ext-sync-node-rpc.live.tech.evefrontier.com"
+GRAPHQL = "https://graphql-stillness-internal.live.evefrontier.tech/v1/graphql"
+WORLD_CONTRACT = "0x1dacc0b64b7da0cc6e2b2fe1bd72f58ebd37363c"
 SAMPLE_DIR = Path("docs/chain-samples")
 
 
 async def explore_world_api(client: httpx.AsyncClient) -> None:
-    """Hit all known World API endpoints and save responses."""
-    endpoints = {
-        "smartassemblies": "/smartassemblies",
-        "characters": "/characters",
-        "solarsystems": "/solarsystems",
-        "types": "/types",
-        "killmails": "/killmails",
-    }
-
+    """Hit all known World API v2 endpoints and save responses."""
+    # First check health
     print("\n=== EVE Frontier World API ===")
     print(f"Base: {WORLD_API}\n")
+
+    try:
+        resp = await client.get(f"{WORLD_API}/health", timeout=15)
+        print(f"  Health: {resp.json()}")
+    except Exception as e:
+        print(f"  Health check failed: {e}")
+        return
+
+    # Get config for chain details
+    try:
+        resp = await client.get(f"{WORLD_API}/config", timeout=15)
+        config = resp.json()
+        sample_path = SAMPLE_DIR / "world_config.json"
+        sample_path.write_text(json.dumps(config, indent=2))
+        print(f"  Config saved: {sample_path}")
+        if isinstance(config, dict):
+            chain_id = config.get("chainId", config.get("chain_id", "unknown"))
+            print(f"  Chain ID: {chain_id}")
+    except Exception as e:
+        print(f"  Config fetch failed: {e}")
+
+    # V2 endpoints
+    endpoints = {
+        "smartassemblies": "/v2/smartassemblies",
+        "smartcharacters": "/v2/smartcharacters",
+        "solarsystems": "/v2/solarsystems",
+        "types": "/v2/types",
+        "killmails": "/v2/killmails",
+        "tribes": "/v2/tribes",
+        "fuels": "/v2/fuels",
+    }
 
     for name, path in endpoints.items():
         url = f"{WORLD_API}{path}"
         try:
             resp = await client.get(url, timeout=30)
-            print(f"  {name}: HTTP {resp.status_code}")
+            print(f"\n  {name}: HTTP {resp.status_code}")
 
             if resp.status_code == 200:
                 data = resp.json()
                 sample_path = SAMPLE_DIR / f"world_{name}.json"
 
-                # Save first few items as sample
                 if isinstance(data, dict) and "data" in data:
                     items = data["data"][:3]
                     metadata = data.get("metadata", {})
                     sample = {"data": items, "metadata": metadata}
-                    print(f"    Items: {len(data['data'])}, Metadata: {metadata}")
+                    total = metadata.get("total", len(data["data"]))
+                    print(f"    Total: {total}, Metadata: {metadata}")
                     if items:
                         print(f"    Fields: {list(items[0].keys())}")
                 elif isinstance(data, list):
@@ -65,74 +96,125 @@ async def explore_world_api(client: httpx.AsyncClient) -> None:
         except Exception as e:
             print(f"  {name}: ERROR — {e}")
 
+    # Try fetching a single assembly detail
+    try:
+        resp = await client.get(f"{WORLD_API}/v2/smartassemblies", timeout=30)
+        if resp.status_code == 200:
+            data = resp.json()
+            items = data.get("data", data) if isinstance(data, dict) else data
+            if items and len(items) > 0:
+                first_id = items[0].get(
+                    "id", items[0].get("address", items[0].get("smartAssemblyId", ""))
+                )
+                if first_id:
+                    detail_resp = await client.get(
+                        f"{WORLD_API}/v2/smartassemblies/{first_id}", timeout=30
+                    )
+                    if detail_resp.status_code == 200:
+                        detail = detail_resp.json()
+                        (SAMPLE_DIR / "world_assembly_detail.json").write_text(
+                            json.dumps(detail, indent=2)
+                        )
+                        print(f"\n  Assembly detail saved (ID: {first_id})")
+                        if isinstance(detail, dict):
+                            print(f"    Detail fields: {list(detail.keys())}")
+    except Exception as e:
+        print(f"\n  Assembly detail fetch failed: {e}")
 
-async def explore_sui_rpc(client: httpx.AsyncClient) -> None:
-    """Attempt Sui RPC connection and discover capabilities."""
-    print("\n=== Sui RPC ===")
-    print(f"URL: {SUI_RPC}\n")
 
-    # Check connectivity
+async def explore_chain_rpc(client: httpx.AsyncClient) -> None:
+    """Check OP Sepolia RPC connectivity and get chain state."""
+    print("\n\n=== Chain RPC (OP Sepolia) ===")
+    print(f"URL: {CHAIN_RPC}\n")
+
+    # eth_chainId
+    try:
+        payload = {"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}
+        resp = await client.post(CHAIN_RPC, json=payload, timeout=15)
+        data = resp.json()
+        chain_id = int(data.get("result", "0x0"), 16)
+        print(f"  Chain ID: {chain_id}")
+        (SAMPLE_DIR / "chain_id.json").write_text(json.dumps(data, indent=2))
+    except Exception as e:
+        print(f"  eth_chainId failed: {e}")
+
+    # eth_blockNumber
+    try:
+        payload = {"jsonrpc": "2.0", "id": 2, "method": "eth_blockNumber", "params": []}
+        resp = await client.post(CHAIN_RPC, json=payload, timeout=15)
+        data = resp.json()
+        block_num = int(data.get("result", "0x0"), 16)
+        print(f"  Latest block: {block_num}")
+    except Exception as e:
+        print(f"  eth_blockNumber failed: {e}")
+
+    # Get recent logs from world contract
     try:
         payload = {
             "jsonrpc": "2.0",
-            "id": 1,
-            "method": "sui_getLatestCheckpointSequenceNumber",
+            "id": 3,
+            "method": "eth_getLogs",
+            "params": [
+                {
+                    "address": WORLD_CONTRACT,
+                    "fromBlock": "latest",
+                    "toBlock": "latest",
+                }
+            ],
         }
-        resp = await client.post(SUI_RPC, json=payload, timeout=30)
+        resp = await client.post(CHAIN_RPC, json=payload, timeout=30)
         data = resp.json()
-        print(f"  Latest checkpoint: {data.get('result')}")
-        (SAMPLE_DIR / "sui_checkpoint.json").write_text(json.dumps(data, indent=2))
+        logs = data.get("result", [])
+        print(f"  Logs in latest block: {len(logs)}")
+        if logs:
+            (SAMPLE_DIR / "chain_logs_sample.json").write_text(json.dumps(logs[:5], indent=2))
+            print(f"    Saved: {SAMPLE_DIR / 'chain_logs_sample.json'}")
+            # Show unique topics
+            topics = set()
+            for log_entry in logs:
+                if log_entry.get("topics"):
+                    topics.add(log_entry["topics"][0])
+            print(f"    Unique event topics: {len(topics)}")
+            for topic in list(topics)[:5]:
+                print(f"      {topic}")
     except Exception as e:
-        print(f"  Checkpoint query failed: {e}")
+        print(f"  eth_getLogs failed: {e}")
 
-    # Try querying recent events
-    try:
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "suix_queryEvents",
-            "params": [{"All": []}, None, 5, True],
+
+async def explore_graphql(client: httpx.AsyncClient) -> None:
+    """Query the MUD GraphQL indexer for table schema."""
+    print("\n\n=== GraphQL Indexer (MUD) ===")
+    print(f"URL: {GRAPHQL}\n")
+
+    # Introspection query — get available tables
+    introspection = {
+        "query": """
+        {
+          __schema {
+            queryType {
+              fields {
+                name
+                description
+              }
+            }
+          }
         }
-        resp = await client.post(SUI_RPC, json=payload, timeout=30)
-        data = resp.json()
-        events = data.get("result", {}).get("data", [])
-        print(f"  Recent events: {len(events)}")
-        if events:
-            sample_path = SAMPLE_DIR / "sui_events_sample.json"
-            sample_path.write_text(json.dumps(events[:3], indent=2))
-            print(f"    Saved: {sample_path}")
-            for evt in events[:3]:
-                print(f"    Type: {evt.get('type', 'unknown')}")
-                print(f"    Tx: {evt.get('id', {}).get('txDigest', 'unknown')}")
-    except Exception as e:
-        print(f"  Event query failed: {e}")
-
-    # Get node info
+        """
+    }
     try:
-        payload = {"jsonrpc": "2.0", "id": 3, "method": "rpc.discover"}
-        resp = await client.post(SUI_RPC, json=payload, timeout=30)
-        data = resp.json()
-        methods = [m.get("name", "") for m in data.get("result", {}).get("methods", [])]
-        print(f"  Available RPC methods: {len(methods)}")
-        if methods:
-            (SAMPLE_DIR / "sui_methods.json").write_text(json.dumps(sorted(methods), indent=2))
-            print(f"    Saved: {SAMPLE_DIR / 'sui_methods.json'}")
+        resp = await client.post(GRAPHQL, json=introspection, timeout=30)
+        if resp.status_code == 200:
+            data = resp.json()
+            fields = data.get("data", {}).get("__schema", {}).get("queryType", {}).get("fields", [])
+            print(f"  Available query fields: {len(fields)}")
+            (SAMPLE_DIR / "graphql_schema.json").write_text(json.dumps(fields, indent=2))
+            print(f"    Saved: {SAMPLE_DIR / 'graphql_schema.json'}")
+            for f in fields[:20]:
+                print(f"    {f['name']}: {f.get('description', '')[:60]}")
+        else:
+            print(f"  HTTP {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
-        print(f"  RPC discovery failed: {e}")
-
-
-async def explore_pyrope(client: httpx.AsyncClient) -> None:
-    """Check Pyrope Explorer API availability."""
-    pyrope_base = "https://pyrope.nursery.reitnorf.com"
-    print("\n=== Pyrope Explorer ===")
-    print(f"URL: {pyrope_base}\n")
-
-    try:
-        resp = await client.get(pyrope_base, timeout=30, follow_redirects=True)
-        print(f"  Status: {resp.status_code}")
-        print(f"  Content-Type: {resp.headers.get('content-type', 'unknown')}")
-    except Exception as e:
-        print(f"  Connection failed: {e}")
+        print(f"  GraphQL introspection failed: {e}")
 
 
 async def main() -> None:
@@ -144,8 +226,8 @@ async def main() -> None:
 
     async with httpx.AsyncClient() as client:
         await explore_world_api(client)
-        await explore_sui_rpc(client)
-        await explore_pyrope(client)
+        await explore_chain_rpc(client)
+        await explore_graphql(client)
 
     print("\n" + "=" * 60)
     print(f"Samples saved to {SAMPLE_DIR}/")

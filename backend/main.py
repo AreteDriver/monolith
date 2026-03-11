@@ -1,12 +1,15 @@
 """Monolith — EVE Frontier Blockchain Anomaly Detector.
 
-FastAPI application entry point.
+FastAPI application entry point with background polling tasks.
 """
 
+import asyncio
+import contextlib
 import logging
 import time
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,6 +20,9 @@ from backend.api.stats import router as stats_router
 from backend.api.submit import router as submit_router
 from backend.config import get_settings
 from backend.db.database import get_row_counts, init_db
+from backend.ingestion.chain_reader import ChainReader
+from backend.ingestion.state_snapshotter import StateSnapshotter
+from backend.ingestion.world_poller import WorldPoller
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,15 +33,80 @@ logger = logging.getLogger(__name__)
 START_TIME = time.time()
 
 
+async def world_poll_loop(poller: WorldPoller, interval: int) -> None:
+    """Background task: poll World API on interval."""
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                counts = await poller.poll_all(client)
+                total = sum(counts.values())
+                if total > 0:
+                    logger.info("World poll: %d objects across %d endpoints", total, len(counts))
+            except Exception:
+                logger.exception("World poll error")
+            await asyncio.sleep(interval)
+
+
+async def chain_poll_loop(reader: ChainReader, interval: int) -> None:
+    """Background task: poll chain logs on interval."""
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                stored = await reader.poll(client)
+                if stored > 0:
+                    logger.info("Chain poll: %d new logs", stored)
+            except Exception:
+                logger.exception("Chain poll error")
+            await asyncio.sleep(interval)
+
+
+async def snapshot_loop(snapshotter: StateSnapshotter, interval: int) -> None:
+    """Background task: compute state deltas on interval."""
+    while True:
+        try:
+            deltas = snapshotter.process_all_objects()
+            if deltas > 0:
+                logger.info("Snapshotter: %d state deltas", deltas)
+        except Exception:
+            logger.exception("Snapshotter error")
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan — init DB on startup, close on shutdown."""
+    """Application lifespan — init DB, start pollers, close on shutdown."""
     settings = get_settings()
     conn = init_db(settings.database_path)
     app.state.db = conn
     app.state.settings = settings
+
+    # Initialize ingestion components
+    world_poller = WorldPoller(conn, settings.world_api_base, settings.world_api_timeout)
+    chain_reader = ChainReader(
+        conn, settings.chain_rpc_url, settings.world_contract, settings.chain_rpc_timeout
+    )
+    snapshotter = StateSnapshotter(conn)
+    app.state.world_poller = world_poller
+    app.state.chain_reader = chain_reader
+    app.state.snapshotter = snapshotter
+
+    # Start background polling tasks
+    tasks = [
+        asyncio.create_task(world_poll_loop(world_poller, settings.world_poll_interval)),
+        asyncio.create_task(chain_poll_loop(chain_reader, settings.world_poll_interval)),
+        asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
+    ]
+
     logger.info("Monolith started — database: %s", settings.database_path)
     yield
+
+    # Cancel background tasks on shutdown
+    for task in tasks:
+        task.cancel()
+    for task in tasks:
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
     conn.close()
     logger.info("Monolith shutdown")
 

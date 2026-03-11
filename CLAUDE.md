@@ -1,16 +1,49 @@
 # Monolith — Blockchain Anomaly Detector for EVE Frontier
 
 ## What This Is
-Blockchain integrity monitor for EVE Frontier on Sui. Reads on-chain events and World API state, detects anomalies, generates structured bug reports for CCP/Sui engineers.
+Blockchain integrity monitor for EVE Frontier. Reads on-chain events and World API state, detects anomalies, generates structured bug reports for CCP/Sui engineers.
 
 ## Tech Stack
 - **Backend**: FastAPI + uvicorn, Python 3.11+
 - **Database**: SQLite WAL + FTS5
-- **Chain**: Sui RPC + EVE Frontier World API REST
+- **Chain**: OP Sepolia (current) → Sui (pending migration)
+- **World API**: `blockchain-gateway-stillness.live.tech.evefrontier.com` (v2 endpoints)
 - **Detection**: Pure Python rule engine (deterministic, auditable)
 - **LLM**: Anthropic API (claude-sonnet-4-5) — narration ONLY, never detection
 - **Frontend**: React + Tailwind
 - **Alerts**: Discord webhooks
+
+## Chain State (March 2026)
+- **Current chain**: OP Sepolia (chain ID 11155420) with MUD framework
+- **Sui migration**: In progress but NOT live yet
+- **World contract**: `0x1dacc0b64b7da0cc6e2b2fe1bd72f58ebd37363c`
+- Architecture supports both chains — detection rules are chain-agnostic
+
+## Key URLs
+- World API: `https://blockchain-gateway-stillness.live.tech.evefrontier.com`
+- Chain RPC: `https://op-sepolia-ext-sync-node-rpc.live.tech.evefrontier.com`
+- Block Explorer: `https://sepolia-optimism.etherscan.io`
+- Old URLs (DEAD): `*.nursery.reitnorf.com` — all replaced by `*.live.tech.evefrontier.com`
+
+## World API Data (v2 endpoints)
+- `/v2/smartassemblies` — 35,808 items (NetworkNode, Manufacturing, SmartGate, SmartTurret, SmartStorageUnit)
+- `/v2/smartcharacters` — 5,172 characters
+- `/v2/killmails` — 4,853 kill records
+- `/v2/tribes` — 47 tribes
+- `/v2/solarsystems` — 24,502 systems
+- `/v2/types` — 336 item types
+- `/v2/fuels` — 6 fuel types
+
+## Assembly Fields (from API)
+- List: `id, type, name, state, solarSystem{id,name}, owner{address,name,id}, energyUsage, typeId`
+- Detail adds: `typeDetails, description, dappURL, location{x,y,z}, networkNode{fuel,burn,energy}`
+- States: `unanchored`, `online`, `offline`, `anchored`
+- Types: `NetworkNode`, `Manufacturing`, `SmartGate`, `SmartTurret`, `SmartStorageUnit`
+
+## MUD System IDs (from /config)
+Key contract calls: `createCharacter`, `bringOnline`, `bringOffline`, `depositFuel`,
+`withdrawFuel`, `destroyDeployable`, `unanchor`, `reportKill`, `transfer`,
+`createAndDepositItemsToInventory`, `withdrawFromInventory`
 
 ## Architecture Principles
 - Detection rules are pure functions: `(events, states) → anomaly | None`
@@ -21,11 +54,6 @@ Blockchain integrity monitor for EVE Frontier on Sui. Reads on-chain events and 
 - False positive rate matters — rules must have low noise
 - Prefer false negatives over false positives
 
-## Key URLs
-- World API: `https://blockchain-gateway-nova.nursery.reitnorf.com`
-- Pyrope Explorer: `https://pyrope.nursery.reitnorf.com`
-- Sui Explorer: `https://suiscan.xyz`
-
 ## Project Structure
 ```
 monolith/
@@ -35,9 +63,9 @@ monolith/
 │   ├── db/
 │   │   └── database.py      — SQLite setup, schema, WAL
 │   ├── ingestion/
-│   │   ├── chain_reader.py  — Sui RPC client
-│   │   ├── world_poller.py  — World API REST polling
-│   │   ├── event_stream.py  — MUD event stream
+│   │   ├── chain_reader.py  — OP Sepolia RPC + log reader
+│   │   ├── world_poller.py  — World API v2 REST polling
+│   │   ├── event_stream.py  — MUD event stream (placeholder)
 │   │   └── state_snapshotter.py — periodic state deltas
 │   ├── detection/
 │   │   ├── engine.py        — orchestrates all checkers
