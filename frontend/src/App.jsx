@@ -46,6 +46,14 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 pb-8">
           <AegisEcosystem />
         </div>
+        <footer className="border-t border-[#2a2a2a] px-6 py-4 mt-8">
+          <div className="max-w-7xl mx-auto text-center text-xs text-[#6b7280] space-y-1">
+            <div>Monolith — Blockchain Integrity Monitor — EVE Frontier Hackathon 2026</div>
+            <div style={{ fontFamily: "'Share Tech Mono', monospace", color: '#7F77DD', letterSpacing: '0.15em' }}>
+              POWERED BY AEGIS STACK
+            </div>
+          </div>
+        </footer>
       </div>
     </BrowserRouter>
   )
