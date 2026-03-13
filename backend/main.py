@@ -37,20 +37,6 @@ logger = logging.getLogger(__name__)
 START_TIME = time.time()
 
 
-async def world_poll_loop(poller: WorldPoller, interval: int) -> None:
-    """Background task: poll World API on interval."""
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                counts = await poller.poll_all(client)
-                total = sum(counts.values())
-                if total > 0:
-                    logger.info("World poll: %d objects across %d endpoints", total, len(counts))
-            except Exception:
-                logger.exception("World poll error")
-            await asyncio.sleep(interval)
-
-
 async def chain_poll_loop(reader: ChainReader, interval: int) -> None:
     """Background task: poll chain logs on interval."""
     async with httpx.AsyncClient() as client:
@@ -115,9 +101,9 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
 
     # Initialize ingestion components
-    world_poller = WorldPoller(conn, settings.world_api_base, settings.world_api_timeout)
+    world_poller = WorldPoller(conn)  # Stubbed — World API offline since Sui migration
     chain_reader = ChainReader(
-        conn, settings.chain_rpc_url, settings.world_contract, settings.chain_rpc_timeout
+        conn, settings.sui_rpc_url, settings.sui_package_id, settings.sui_rpc_timeout
     )
     snapshotter = StateSnapshotter(conn)
     detection_engine = DetectionEngine(conn)
@@ -126,10 +112,15 @@ async def lifespan(app: FastAPI):
     app.state.snapshotter = snapshotter
     app.state.detection_engine = detection_engine
 
+    if not settings.sui_package_id:
+        logger.warning(
+            "MONOLITH_SUI_PACKAGE_ID not set — chain polling disabled. "
+            "Set this env var to the current cycle's Move package ID."
+        )
+
     # Start background tasks
     tasks = [
-        asyncio.create_task(world_poll_loop(world_poller, settings.world_poll_interval)),
-        asyncio.create_task(chain_poll_loop(chain_reader, settings.world_poll_interval)),
+        asyncio.create_task(chain_poll_loop(chain_reader, settings.chain_poll_interval)),
         asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
         asyncio.create_task(
             detection_loop(detection_engine, settings.detection_interval, settings)

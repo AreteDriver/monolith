@@ -1,7 +1,8 @@
-"""Chain reader — reads on-chain logs from OP Sepolia via eth_getLogs.
+"""Chain reader — reads on-chain events from Sui via suix_queryEvents.
 
-Currently targets the MUD world contract on OP Sepolia (chain ID 11155420).
-Architecture supports swapping to Sui RPC when migration happens.
+Targets the EVE Frontier world contracts deployed on Sui (Cycle 5+).
+Each event type is polled independently with cursor persistence for
+resumable ingestion across restarts.
 """
 
 import json
@@ -13,81 +14,131 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# How many blocks to scan per poll cycle (avoid huge RPC responses)
-BLOCK_RANGE = 1000
+# Sui event query page size (max 50 per Sui RPC spec)
+PAGE_SIZE = 50
+
+# Event types to subscribe to, keyed by module::EventName.
+# {pkg} is replaced with the live package ID at init time.
+EVENT_TYPES = [
+    "{pkg}::killmail::KillmailCreatedEvent",
+    "{pkg}::gate::JumpEvent",
+    "{pkg}::status::StatusChangedEvent",
+    "{pkg}::inventory::ItemMintedEvent",
+    "{pkg}::inventory::ItemBurnedEvent",
+    "{pkg}::inventory::ItemDepositedEvent",
+    "{pkg}::inventory::ItemWithdrawnEvent",
+    "{pkg}::inventory::ItemDestroyedEvent",
+    "{pkg}::fuel::FuelEvent",
+    "{pkg}::access_control::OwnerCapTransferred",
+    "{pkg}::assembly::AssemblyCreatedEvent",
+    "{pkg}::character::CharacterCreatedEvent",
+]
+
+# Maps module name to the field in parsedJson that holds the primary object ID.
+# Fallback: use the first field ending in "id" or "_id".
+OBJECT_ID_FIELDS: dict[str, str] = {
+    "killmail": "victim_id",
+    "gate": "source_gate_id",
+    "status": "assembly_id",
+    "inventory": "assembly_id",
+    "fuel": "assembly_id",
+    "access_control": "authorized_object_id",
+    "assembly": "assembly_id",
+    "character": "character_id",
+    "network_node": "network_node_id",
+    "energy": "energy_source_id",
+    "storage_unit": "assembly_id",
+    "turret": "assembly_id",
+}
 
 
 class ChainReader:
-    """Reads events from OP Sepolia RPC and writes to chain_events table."""
+    """Reads events from Sui RPC and writes to chain_events table."""
 
     def __init__(
         self,
         conn: sqlite3.Connection,
         rpc_url: str,
-        world_contract: str,
+        package_id: str,
         timeout: int = 30,
     ):
         self.conn = conn
         self.rpc_url = rpc_url
-        self.world_contract = world_contract
+        self.package_id = package_id
         self.timeout = timeout
-        self._last_block: int | None = None
+        # Resolve event type strings with the live package ID
+        self.events = [e.replace("{pkg}", package_id) for e in EVENT_TYPES]
 
-    async def get_block_number(self, client: httpx.AsyncClient) -> int:
-        """Get the latest block number from the chain."""
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "eth_blockNumber",
-            "params": [],
-        }
-        resp = await client.post(self.rpc_url, json=payload, timeout=self.timeout)
-        resp.raise_for_status()
-        result = resp.json().get("result", "0x0")
-        return int(result, 16)
-
-    async def get_logs(
+    async def query_events(
         self,
         client: httpx.AsyncClient,
-        from_block: int,
-        to_block: int,
-    ) -> list[dict]:
-        """Fetch logs from the world contract in the given block range."""
+        event_type: str,
+        cursor: dict | None = None,
+        limit: int = PAGE_SIZE,
+    ) -> tuple[list[dict], dict | None, bool]:
+        """Query Sui events by type. Returns (events, next_cursor, has_next_page)."""
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
-            "method": "eth_getLogs",
+            "method": "suix_queryEvents",
             "params": [
-                {
-                    "address": self.world_contract,
-                    "fromBlock": hex(from_block),
-                    "toBlock": hex(to_block),
-                }
+                {"MoveEventType": event_type},
+                cursor,  # None = start from beginning
+                limit,
+                False,  # ascending (oldest first)
             ],
         }
         resp = await client.post(self.rpc_url, json=payload, timeout=self.timeout)
         resp.raise_for_status()
         data = resp.json()
+
         if "error" in data:
-            logger.error("RPC error: %s", data["error"])
-            return []
-        return data.get("result", [])
+            logger.error("Sui RPC error for %s: %s", event_type, data["error"])
+            return [], None, False
 
-    def store_log(self, log: dict) -> bool:
-        """Store a chain log entry. Returns True if new, False if duplicate."""
-        tx_hash = log.get("transactionHash", "")
-        log_index = log.get("logIndex", "0x0")
-        event_id = f"{tx_hash}:{log_index}"
+        result = data.get("result", {})
+        events = result.get("data", [])
+        next_cursor = result.get("nextCursor")
+        has_next = result.get("hasNextPage", False)
+        return events, next_cursor, has_next
 
-        block_hex = log.get("blockNumber", "0x0")
-        block_number = int(block_hex, 16) if isinstance(block_hex, str) else block_hex
+    def _extract_object_id(self, event: dict) -> str:
+        """Extract the primary object ID from a Sui event's parsedJson."""
+        module = event.get("transactionModule", "")
+        parsed = event.get("parsedJson", {})
 
-        # First topic is the event signature
-        topics = log.get("topics", [])
-        event_type = topics[0] if topics else ""
+        # Try the known field for this module
+        field = OBJECT_ID_FIELDS.get(module, "")
+        if field and field in parsed:
+            return str(parsed[field])
 
-        # Extract object references from remaining topics
-        object_id = topics[1] if len(topics) > 1 else ""
+        # Fallback: first field containing "id" (case-insensitive)
+        for key, val in parsed.items():
+            if "id" in key.lower() and isinstance(val, str):
+                return val
+
+        return ""
+
+    def _extract_system_id(self, event: dict) -> str:
+        """Extract solar system ID if present in event data."""
+        parsed = event.get("parsedJson", {})
+        for key in ("solar_system_id", "solarSystemId", "system_id", "systemId"):
+            if key in parsed:
+                return str(parsed[key])
+        return ""
+
+    def store_event(self, event: dict) -> bool:
+        """Store a Sui event. Returns True if new, False if duplicate."""
+        event_id_obj = event.get("id", {})
+        tx_digest = event_id_obj.get("txDigest", "")
+        event_seq = event_id_obj.get("eventSeq", "0")
+        event_id = f"{tx_digest}:{event_seq}"
+
+        event_type = event.get("type", "")
+        object_id = self._extract_object_id(event)
+        system_id = self._extract_system_id(event)
+        timestamp_ms = event.get("timestampMs", "0")
+        timestamp = int(timestamp_ms) // 1000 if timestamp_ms else int(time.time())
 
         try:
             self.conn.execute(
@@ -99,12 +150,12 @@ class ChainReader:
                     event_id,
                     event_type,
                     object_id,
-                    "",  # object_type resolved during detection
-                    "",  # system_id resolved during detection
-                    block_number,
-                    tx_hash,
-                    int(time.time()),  # chain timestamp resolved from block later
-                    json.dumps(log),
+                    event.get("transactionModule", ""),
+                    system_id,
+                    0,  # Sui doesn't have block numbers in event responses
+                    tx_digest,
+                    timestamp,
+                    json.dumps(event),
                 ),
             )
             self.conn.commit()
@@ -112,42 +163,75 @@ class ChainReader:
         except sqlite3.IntegrityError:
             return False
 
+    def _load_cursor(self, event_filter: str) -> dict | None:
+        """Load persisted cursor for an event type."""
+        row = self.conn.execute(
+            "SELECT tx_digest, event_seq FROM sui_cursors WHERE event_filter = ?",
+            (event_filter,),
+        ).fetchone()
+        if row:
+            return {"txDigest": row["tx_digest"], "eventSeq": row["event_seq"]}
+        return None
+
+    def _save_cursor(self, event_filter: str, cursor: dict) -> None:
+        """Persist cursor for an event type."""
+        self.conn.execute(
+            """INSERT INTO sui_cursors (event_filter, tx_digest, event_seq, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(event_filter) DO UPDATE SET
+                   tx_digest = excluded.tx_digest,
+                   event_seq = excluded.event_seq,
+                   updated_at = excluded.updated_at""",
+            (
+                event_filter,
+                cursor["txDigest"],
+                cursor["eventSeq"],
+                int(time.time()),
+            ),
+        )
+        self.conn.commit()
+
     async def poll(self, client: httpx.AsyncClient) -> int:
-        """Poll for new logs since last processed block. Returns count stored."""
-        try:
-            latest_block = await self.get_block_number(client)
-
-            if self._last_block is None:
-                # On first run, check DB for last processed block
-                self._last_block = self.get_last_block()
-                if self._last_block == 0:
-                    # Start from recent blocks, not genesis
-                    self._last_block = max(0, latest_block - BLOCK_RANGE)
-
-            from_block = self._last_block + 1
-            to_block = min(from_block + BLOCK_RANGE - 1, latest_block)
-
-            if from_block > latest_block:
-                return 0  # caught up
-
-            logs = await self.get_logs(client, from_block, to_block)
-            stored = 0
-            for log in logs:
-                if self.store_log(log):
-                    stored += 1
-
-            self._last_block = to_block
-
-            if stored > 0:
-                logger.info("Stored %d chain logs (blocks %d-%d)", stored, from_block, to_block)
-            return stored
-
-        except (httpx.HTTPError, KeyError, ValueError) as e:
-            logger.error("Chain poll failed: %s", e)
+        """Poll all event types for new events. Returns total count stored."""
+        if not self.package_id:
+            logger.warning("No sui_package_id configured — skipping chain poll")
             return 0
 
+        total_stored = 0
+
+        for event_type in self.events:
+            cursor = self._load_cursor(event_type)
+
+            # Paginate through new events for this type
+            while True:
+                try:
+                    events, next_cursor, has_next = await self.query_events(
+                        client, event_type, cursor
+                    )
+                except (httpx.HTTPError, KeyError, ValueError) as e:
+                    logger.error("Sui event poll failed for %s: %s", event_type, e)
+                    break
+
+                stored = 0
+                for event in events:
+                    if self.store_event(event):
+                        stored += 1
+                total_stored += stored
+
+                # Persist cursor after each page
+                if next_cursor:
+                    self._save_cursor(event_type, next_cursor)
+                    cursor = next_cursor
+
+                if not has_next or not events:
+                    break
+
+        if total_stored > 0:
+            logger.info("Stored %d Sui events across %d types", total_stored, len(self.events))
+        return total_stored
+
     def get_last_block(self) -> int:
-        """Get the highest block number we've processed."""
+        """Get the highest block number (checkpoint) we've processed."""
         row = self.conn.execute("SELECT MAX(block_number) FROM chain_events").fetchone()
         return row[0] or 0
 
@@ -170,16 +254,25 @@ class ChainReader:
     async def get_chain_info(self, client: httpx.AsyncClient) -> dict:
         """Get chain info for health check."""
         try:
-            block = await self.get_block_number(client)
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "suix_getLatestCheckpointSequenceNumber",
+                "params": [],
+            }
+            resp = await client.post(self.rpc_url, json=payload, timeout=self.timeout)
+            resp.raise_for_status()
+            checkpoint = resp.json().get("result", "0")
             return {
-                "chain_id": 11155420,
-                "latest_block": block,
-                "last_processed": self._last_block or self.get_last_block(),
+                "chain": "sui",
+                "latest_checkpoint": int(checkpoint),
+                "last_processed": self.get_last_block(),
+                "package_id": self.package_id[:20] + "..." if self.package_id else "",
                 "connected": True,
                 "checked_at": int(time.time()),
             }
         except (httpx.HTTPError, ValueError) as e:
-            logger.error("Chain health check failed: %s", e)
+            logger.error("Sui health check failed: %s", e)
             return {
                 "connected": False,
                 "error": str(e),

@@ -78,6 +78,14 @@ CREATE TABLE IF NOT EXISTS anomalies (
     discord_alerted INTEGER DEFAULT 0
 );
 
+-- Sui event cursor persistence for resumable polling
+CREATE TABLE IF NOT EXISTS sui_cursors (
+    event_filter TEXT PRIMARY KEY,
+    tx_digest TEXT NOT NULL,
+    event_seq TEXT NOT NULL,
+    updated_at INTEGER
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
