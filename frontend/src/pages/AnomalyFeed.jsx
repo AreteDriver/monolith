@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
+import { useSystemNames } from '../hooks/useWatchTower'
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
@@ -21,6 +22,8 @@ export default function AnomalyFeed() {
 
   const { data, loading } = useApi(`/api/anomalies?${params}`, { poll: 30000 })
   const anomalies = data?.data || []
+  const systemIds = useMemo(() => anomalies.map((a) => a.system_id), [anomalies])
+  const systemNames = useSystemNames(systemIds)
 
   return (
     <div>
@@ -68,7 +71,16 @@ export default function AnomalyFeed() {
                 {truncate(a.object_id, 20)}
               </span>
               {a.system_id && (
-                <span className="text-xs text-[#6b7280]">sys:{a.system_id}</span>
+                <a
+                  href={`https://thewatchtower.xyz/system/${a.system_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs no-underline hover:underline"
+                  style={{ color: '#7F77DD' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {systemNames[a.system_id] || `sys:${a.system_id}`}
+                </a>
               )}
               <span className="ml-auto">
                 <TimeAgo timestamp={a.detected_at} />

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
+import { useSystemNames } from '../hooks/useWatchTower'
 
 export default function AnomalyDetail() {
   const { id } = useParams()
@@ -14,6 +15,8 @@ export default function AnomalyDetail() {
   if (!data || data.error) return <p className="text-red-400">Anomaly not found.</p>
 
   const a = data
+  const systemIds = useMemo(() => a?.system_id ? [a.system_id] : [], [a?.system_id])
+  const systemNames = useSystemNames(systemIds)
 
   async function generateReport() {
     setGenerating(true)
@@ -57,7 +60,15 @@ export default function AnomalyDetail() {
           {a.system_id && (
             <span className="text-sm">
               <span className="text-[#6b7280]">System: </span>
-              <span className="mono">{a.system_id}</span>
+              <a
+                href={`https://thewatchtower.xyz/system/${a.system_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mono no-underline hover:underline"
+                style={{ color: '#7F77DD' }}
+              >
+                {systemNames[a.system_id] || a.system_id}
+              </a>
             </span>
           )}
         </div>
