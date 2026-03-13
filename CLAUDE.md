@@ -8,8 +8,8 @@ Blockchain Integrity Monitor for EVE Frontier. Continuously reads on-chain Sui e
 
 - **Version**: 0.1.0
 - **Language**: Python
-- **Files**: 107 across 4 languages
-- **Lines**: 12,320
+- **Files**: 118 across 4 languages
+- **Lines**: 14,564
 - **Tests**: 141 passing (pytest)
 
 ## Architecture
