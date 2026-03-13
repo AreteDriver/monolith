@@ -25,6 +25,8 @@ STATIC_ENDPOINTS: dict[str, str] = {
     "solarsystems": "/v2/solarsystems",
     "types": "/v2/types",
     "tribes": "/v2/tribes",
+    "ships": "/v2/ships",
+    "constellations": "/v2/constellations",
 }
 
 # Max items per page (World API pagination)
@@ -135,6 +137,27 @@ class WorldPoller:
     def resolve_type_name(self, type_id: str) -> str:
         """Resolve a type ID to its name."""
         return self.resolve_name("types", type_id)
+
+    def resolve_ship_name(self, ship_id: str) -> str:
+        """Resolve a ship ID to its name."""
+        return self.resolve_name("ships", ship_id)
+
+    def get_ship_stats(self, ship_id: str) -> dict | None:
+        """Get full ship stats from reference data. Returns None if not found."""
+        row = self.conn.execute(
+            "SELECT data_json FROM reference_data WHERE data_type = 'ships' AND data_id = ?",
+            (ship_id,),
+        ).fetchone()
+        if not row:
+            return None
+        try:
+            return json.loads(row["data_json"])
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+    def resolve_constellation_name(self, constellation_id: str) -> str:
+        """Resolve a constellation ID to its name."""
+        return self.resolve_name("constellations", constellation_id)
 
     # -- Health check --
 

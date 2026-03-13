@@ -39,6 +39,8 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     "S2": ("CRITICAL", "DATA_INTEGRITY"),
     "S3": ("HIGH", "STATE_INCONSISTENCY"),
     "S4": ("MEDIUM", "PERFORMANCE"),
+    # POD checker
+    "P1": ("CRITICAL", "EXPLOIT_VECTOR"),
 }
 
 

@@ -13,6 +13,7 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.alerts.discord import send_alert
@@ -28,6 +29,7 @@ from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
 from backend.ingestion.event_processor import EventProcessor
+from backend.ingestion.pod_verifier import PodVerifier
 from backend.ingestion.state_snapshotter import StateSnapshotter
 from backend.ingestion.world_poller import WorldPoller
 
@@ -167,6 +169,9 @@ async def lifespan(app: FastAPI):
     snapshotter = StateSnapshotter(conn)
     detection_engine = DetectionEngine(conn)
 
+    pod_verifier = PodVerifier(base_url=settings.world_api_url, timeout=settings.world_api_timeout)
+    app.state.pod_verifier = pod_verifier
+
     app.state.world_poller = world_poller
     app.state.chain_reader = chain_reader
     app.state.event_processor = event_processor
@@ -261,4 +266,21 @@ def health() -> dict:
 # Serve frontend static files (production build)
 _frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _frontend_dist.is_dir():
-    app.mount("/", StaticFiles(directory=str(_frontend_dist), html=True), name="frontend")
+    # Mount static assets (JS, CSS, images) under /assets
+    _assets_dir = _frontend_dist / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    # SPA catch-all: serve index.html for any non-API path not matched above.
+    # This must be registered LAST so API routes and static assets take priority.
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """Serve index.html for client-side routing (SPA fallback)."""
+        # Never intercept API routes
+        if full_path.startswith("api/"):
+            return {"detail": "Not Found"}
+        # Serve actual static files if they exist (e.g. vite.svg, favicon)
+        file_path = _frontend_dist / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(_frontend_dist / "index.html"))

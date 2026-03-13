@@ -27,7 +27,14 @@ class DetectionEngine:
         self._register_all_checkers()
 
     def _register_all_checkers(self) -> None:
-        """Register all checker instances."""
+        """Register all checker instances.
+
+        NOTE: PodChecker (P1 rule) is async and cannot be registered here.
+        It requires a PodVerifier + httpx.AsyncClient and must be called via
+        run_async() from an async context. See backend/detection/pod_checker.py.
+        TODO: Wire PodChecker into detection_loop when async detection is supported,
+        or run it as a separate async background task alongside run_cycle().
+        """
         self._checkers = [
             ContinuityChecker(self.conn),
             EconomicChecker(self.conn),
