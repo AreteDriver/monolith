@@ -34,3 +34,4 @@ def test_health_row_counts_structure(client):
     assert "chain_events" in counts
     assert "anomalies" in counts
     assert "bug_reports" in counts
+    assert "filed_issues" in counts

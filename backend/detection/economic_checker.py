@@ -161,42 +161,71 @@ class EconomicChecker(BaseChecker):
         return anomalies
 
     def _check_e3_duplicate_mint(self) -> list[Anomaly]:
-        """E3: Same event_id appears more than once in chain_events.
+        """E3: Same object receives duplicate events of the same type in one tx.
 
-        This should be impossible due to UNIQUE constraint, but we check
-        for duplicate transaction_hash + similar data patterns that could
-        indicate double-processing.
+        On Sui, a single PTB can legitimately emit multiple events of the
+        same type (e.g., batch inventory operations). We only flag when the
+        SAME object_id appears in the SAME event type within a single
+        transaction — that indicates actual double-processing, not just
+        a batch operation.
         """
         rows = self.conn.execute(
-            """SELECT transaction_hash, COUNT(*) as cnt,
+            """SELECT transaction_hash, event_type, object_id,
+                      COUNT(*) as cnt,
                       GROUP_CONCAT(event_id) as event_ids
                FROM chain_events
-               WHERE event_type != ''
-               GROUP BY transaction_hash, event_type
+               WHERE event_type != '' AND object_id != ''
+               GROUP BY transaction_hash, event_type, object_id
                HAVING cnt > 1
                LIMIT 50"""
         ).fetchall()
 
         anomalies = []
         for row in rows:
+            # Resolve system_id from the target object or chain event
+            system_id = self._resolve_system_id(row["object_id"], row["transaction_hash"])
             anomalies.append(
                 Anomaly(
                     anomaly_type="DUPLICATE_MINT",
                     rule_id="E3",
                     detector=self.name,
                     object_id=row["transaction_hash"],
+                    system_id=system_id,
                     evidence={
                         "transaction_hash": row["transaction_hash"],
+                        "event_type": row["event_type"],
+                        "target_object": row["object_id"],
                         "duplicate_count": row["cnt"],
                         "event_ids": row["event_ids"],
                         "description": (
-                            f"Transaction {row['transaction_hash']} has {row['cnt']} "
-                            f"events with identical type — possible double-processing"
+                            f"Object {row['object_id'][:16]}... received "
+                            f"{row['cnt']}x {row['event_type'].rsplit('::', 1)[-1]} "
+                            f"in tx {row['transaction_hash'][:18]}... — "
+                            f"possible double-processing"
                         ),
                     },
                 )
             )
         return anomalies
+
+    def _resolve_system_id(self, object_id: str, tx_hash: str) -> str:
+        """Resolve system_id from the objects table or chain_events."""
+        # Try objects table first
+        row = self.conn.execute(
+            "SELECT system_id FROM objects WHERE object_id = ? AND system_id != ''",
+            (object_id,),
+        ).fetchone()
+        if row:
+            return row["system_id"]
+        # Fall back to chain_events for this tx
+        row = self.conn.execute(
+            "SELECT system_id FROM chain_events "
+            "WHERE transaction_hash = ? AND system_id != '' LIMIT 1",
+            (tx_hash,),
+        ).fetchone()
+        if row:
+            return row["system_id"]
+        return ""
 
     def _check_e4_negative_balance(self) -> list[Anomaly]:
         """E4: Any fuel amount is negative.

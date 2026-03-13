@@ -5,6 +5,8 @@ import time
 
 from fastapi import APIRouter, Request
 
+from backend.alerts.github_issues import get_filed_count
+
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 
@@ -98,4 +100,5 @@ def get_stats(request: Request) -> dict:
         "false_positive_rate": round(fp_rate, 4),
         "events_processed_24h": events_24h,
         "last_block_processed": last_block,
+        "bug_reports_filed": get_filed_count(conn),
     }

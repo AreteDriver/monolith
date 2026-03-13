@@ -28,7 +28,8 @@ class SequenceChecker(BaseChecker):
         anomalies.extend(self._check_s2_duplicate_transactions())
         anomalies.extend(self._check_s4_block_gaps())
         # S1 (temporal violation) and S3 (missing prerequisite) require
-        # decoded event dependency graph — activated after MUD event decoding
+        # a cross-event dependency graph — deferred until event volume
+        # justifies the complexity
         return anomalies
 
     def _check_s2_duplicate_transactions(self) -> list[Anomaly]:

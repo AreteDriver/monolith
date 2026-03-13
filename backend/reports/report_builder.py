@@ -17,7 +17,7 @@ INVESTIGATION_STEPS: dict[str, list[str]] = {
     "ORPHAN_OBJECT": [
         "Query chain for all events referencing this object ID",
         "Check if object was created before monitoring started (backfill gap)",
-        "Verify MUD indexer is processing all Store_SetRecord events",
+        "Verify Sui event ingestion is capturing all creation events",
     ],
     "RESURRECTION": [
         "Verify destruction event was genuine (not a state flag reset)",
@@ -62,13 +62,24 @@ INVESTIGATION_STEPS: dict[str, list[str]] = {
     ],
     "PHANTOM_ITEM_CHANGE": [
         "Query chain for ALL events referencing this object in the window",
-        "Check if MUD indexer missed events (indexer gap vs chain gap)",
+        "Check if Sui event ingestion missed events (cursor gap vs chain gap)",
         "Verify the changed properties can only be modified via chain tx",
     ],
     "UNEXPLAINED_OWNERSHIP_CHANGE": [
         "Query chain for transfer events for this object",
         "Check if ownership was changed via admin/system function",
         "This is critical — ownership should never change without on-chain record",
+    ],
+    "FREE_GATE_JUMP": [
+        "Examine the transaction for fuel consumption events",
+        "Check if the gate has a fuel exemption or zero-fuel configuration",
+        "Verify gate's fuel balance before and after the jump",
+        "If confirmed: possible exploit allowing free gate travel",
+    ],
+    "FAILED_GATE_TRANSPORT": [
+        "Check if the jump was rejected after fuel burn (revert without refund)",
+        "Examine gate link status — was the destination gate online?",
+        "Check transaction logs for error events in the same tx",
     ],
     "DUPLICATE_TRANSACTION": [
         "Examine if this is a complex transaction with many sub-operations",

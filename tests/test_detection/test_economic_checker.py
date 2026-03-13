@@ -31,7 +31,7 @@ def test_e3_duplicate_mint(db_conn):
         db_conn.execute(
             "INSERT INTO chain_events (event_id, event_type, object_id, block_number, "
             "transaction_hash, timestamp, processed) VALUES (?, ?, ?, ?, ?, ?, 0)",
-            (f"tx-dup:0x{i}", "0xmint_event", f"obj-{i}", 100, "tx-dup", int(time.time())),
+            (f"tx-dup:0x{i}", "0xmint_event", "obj-same", 100, "tx-dup", int(time.time())),
         )
     db_conn.commit()
 

@@ -10,18 +10,21 @@ Blockchain Integrity Monitor for EVE Frontier. Continuously reads on-chain Sui e
 - **Language**: Python
 - **Files**: 107 across 4 languages
 - **Lines**: 12,320
+- **Tests**: 141 passing (pytest)
 
 ## Architecture
 
 ```
 monolith/
 ├── backend/
-│   ├── alerts/
+│   ├── alerts/         # discord webhooks, github_issues.py (auto-filing)
 │   ├── api/
 │   ├── db/
 │   ├── detection/
 │   ├── ingestion/
 │   └── reports/
+├── contracts/
+│   └── sources/        # bug_reports.move (AdminCap + BugReportRegistry)
 ├── docs/
 │   └── chain-samples/
 ├── frontend/
@@ -107,6 +110,35 @@ cd frontend && npm run build
 
 Rules are pure functions: `(events, states) → anomaly | None`. Deterministic, no ML.
 
+## GitHub Issue Auto-Filing
+
+Automatically files GitHub issues for CRITICAL anomalies detected by the pipeline.
+
+- **Module**: `backend/alerts/github_issues.py`
+- **Dedup**: SHA256(anomaly_type + object_id), 1-hour window
+- **Labels**: `bug`, `chain-integrity`, `critical`
+- **Config**: `MONOLITH_GITHUB_REPO`, `MONOLITH_GITHUB_TOKEN`
+- **Non-blocking**: errors logged, never crashes detection pipeline
+- **Wired into**: `detection_loop` in `main.py`
+- **Persistence**: `filed_issues` table tracks all filed issues, exposed via health endpoint `row_counts.filed_issues`
+
+---
+
+## Move Contract (Testnet)
+
+`contracts/sources/bug_reports.move`:
+
+- Package: `0x132563992f862c041aea7c87d85cb63c1a98ab0c32cb13e7a7035ea150740344`
+- AdminCap: `0x381e25203590c8cc933e767225bef430572d304c21310b45774f7bb2e0d83b39`
+- BugReportRegistry: `0x9ecd76d2d37e543777e3c3254a6a8ea0081ae7858c2b06a1f446a1c917cd2b98`
+- UpgradeCap: `0xa73314677a5bc228ec37be0bc1d41e99ece788fe68ad98a50e31b5554e14b11e`
+
+- `AdminCap` + shared `BugReportRegistry`
+- `file_report()` — validates severity (1-4), emits `BugReportFiled` event
+- `grant_admin()` — existing admin can grant new AdminCaps
+
+---
+
 ## Anti-Patterns (Do NOT Do)
 
 - Do NOT commit secrets, API keys, or credentials
@@ -179,6 +211,8 @@ Rules are pure functions: `(events, states) → anomaly | None`. Deterministic, 
 - `MONOLITH_CHAIN_POLL_INTERVAL` — Chain poll interval seconds (default: 30)
 - `MONOLITH_ANTHROPIC_API_KEY` — optional, enables LLM narration
 - `MONOLITH_DISCORD_WEBHOOK_URL` — optional, enables alerts (rate-limited 5/min)
+- `MONOLITH_GITHUB_REPO` — GitHub repo for auto-filing issues (e.g. `owner/repo`)
+- `MONOLITH_GITHUB_TOKEN` — GitHub PAT for issue creation
 
 ## Deployment
 

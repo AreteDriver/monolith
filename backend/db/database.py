@@ -86,6 +86,31 @@ CREATE TABLE IF NOT EXISTS sui_cursors (
     updated_at INTEGER
 );
 
+-- Cached chain config (packageId, rpcUrls, etc.)
+CREATE TABLE IF NOT EXISTS chain_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL
+);
+
+-- Reference data from World API (solarsystems, types, tribes)
+CREATE TABLE IF NOT EXISTS reference_data (
+    data_type TEXT NOT NULL,
+    data_id TEXT NOT NULL,
+    name TEXT,
+    data_json TEXT,
+    updated_at INTEGER,
+    PRIMARY KEY (data_type, data_id)
+);
+
+-- Tracked GitHub issues filed by the auto-filer
+CREATE TABLE IF NOT EXISTS filed_issues (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    anomaly_id TEXT,
+    issue_url TEXT,
+    filed_at INTEGER
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,6 +148,7 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_detected ON anomalies(detected_at);
 CREATE INDEX IF NOT EXISTS idx_anomalies_object ON anomalies(object_id);
 CREATE INDEX IF NOT EXISTS idx_anomalies_status ON anomalies(status);
 CREATE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
+CREATE INDEX IF NOT EXISTS idx_reference_data_type ON reference_data(data_type);
 """
 
 FTS = """
@@ -175,6 +201,7 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "state_transitions",
         "anomalies",
         "bug_reports",
+        "filed_issues",
     ]
     counts = {}
     for table in tables:

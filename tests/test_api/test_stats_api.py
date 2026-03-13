@@ -47,6 +47,7 @@ def test_stats_empty(client):
     assert data["anomaly_rate_24h"] == 0
     assert data["false_positive_rate"] == 0.0
     assert len(data["anomaly_rate_by_hour"]) == 24
+    assert data["bug_reports_filed"] == 0
 
 
 def test_stats_with_anomalies(client):

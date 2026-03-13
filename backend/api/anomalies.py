@@ -18,6 +18,7 @@ def list_anomalies(
     severity: str | None = None,
     anomaly_type: str | None = None,
     status: str | None = None,
+    system_id: str | None = None,
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict:
@@ -35,6 +36,9 @@ def list_anomalies(
     if status:
         query += " AND status = ?"
         params.append(status)
+    if system_id:
+        query += " AND system_id = ?"
+        params.append(system_id)
 
     query += " ORDER BY detected_at DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])

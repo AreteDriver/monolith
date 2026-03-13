@@ -76,6 +76,16 @@ TEMPLATES: dict[str, str] = {
         "This is a critical issue — ownership changes must always have an on-chain record "
         "for security and auditability."
     ),
+    "FREE_GATE_JUMP": (
+        "A gate jump was executed without a corresponding fuel consumption event in the "
+        "same transaction. Gates should consume fuel on each use. This may indicate a "
+        "contract bug allowing free travel, or a missing FuelEvent emission."
+    ),
+    "FAILED_GATE_TRANSPORT": (
+        "Fuel was consumed on a gate but no jump event was recorded in the same "
+        "transaction. The player paid fuel but was not transported. This could indicate "
+        "a failed transaction that didn't properly refund, or a gate link issue."
+    ),
     "DUPLICATE_TRANSACTION": (
         "A transaction emitted an unusually high number of events. While complex "
         "transactions can produce many events, the count exceeds normal patterns "

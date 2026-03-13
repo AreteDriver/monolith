@@ -74,12 +74,19 @@ def test_extract_system_id_flat(db_conn):
     assert poller._extract_system_id({"solarSystemId": "sys-001"}) == "sys-001"
 
 
-def test_extract_id_from_item(db_conn):
-    """ID extraction handles various field names."""
+def test_resolve_name(db_conn):
+    """Name resolution returns stored names or empty string."""
     poller = WorldPoller(db_conn, base_url="http://test")
-    assert poller._extract_id({"id": "123"}) == "123"
-    assert poller._extract_id({"address": "0xabc"}) == "0xabc"
-    assert poller._extract_id({"smartAssemblyId": "sa-1"}) == "sa-1"
+    # No data yet
+    assert poller.resolve_name("solarsystems", "123") == ""
+    # Store reference data
+    db_conn.execute(
+        "INSERT INTO reference_data (data_type, data_id, name, data_json, updated_at) "
+        "VALUES ('solarsystems', '123', 'Jita', '{}', 0)"
+    )
+    db_conn.commit()
+    assert poller.resolve_system_name("123") == "Jita"
+    assert poller.resolve_type_name("456") == ""
 
 
 def test_get_snapshots_empty(db_conn):

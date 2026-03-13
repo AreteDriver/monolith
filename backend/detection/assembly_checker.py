@@ -1,9 +1,9 @@
 """Assembly checker — detects smart assembly state anomalies.
 
 Rules:
-  A1 — State mismatch: API state diverges from last known transition state
-  A2 — Free gate jump: gate jump event without fuel consumption
-  A3 — Failed gate transport: fuel consumed but position unchanged
+  A1 — State mismatch: latest state diverges from last known transition state
+  A2 — Free gate jump: JumpEvent without corresponding FuelEvent
+  A3 — Failed gate transport: FuelEvent (gate burn) without subsequent JumpEvent
   A4 — Phantom item change: inventory changed without add/remove events
   A5 — Unexplained ownership change: owner changed without transfer event
 """
@@ -26,10 +26,10 @@ class AssemblyChecker(BaseChecker):
         """Run all assembly rules."""
         anomalies: list[Anomaly] = []
         anomalies.extend(self._check_a1_state_mismatch())
+        anomalies.extend(self._check_a2_free_gate_jump())
+        anomalies.extend(self._check_a3_failed_transport())
         anomalies.extend(self._check_a4_phantom_changes())
         anomalies.extend(self._check_a5_ownership_change())
-        # A2 (free gate jump) and A3 (failed transport) require gate-specific
-        # event types — will activate once we decode MUD event topics
         return anomalies
 
     def _check_a1_state_mismatch(self) -> list[Anomaly]:
@@ -94,6 +94,118 @@ class AssemblyChecker(BaseChecker):
                         "description": (
                             f"Last transition recorded state '{transition_state}' "
                             f"but API shows '{api_state}' — unrecorded state change"
+                        ),
+                    },
+                )
+            )
+        return anomalies
+
+    def _check_a2_free_gate_jump(self) -> list[Anomaly]:
+        """A2: Gate jump occurred without corresponding fuel consumption.
+
+        Correlates JumpEvent with FuelEvent on the source gate. If a jump
+        happened but no fuel was burned within the same transaction, the
+        gate may have been used for free.
+        """
+        # Get recent jump events (last hour)
+        cutoff = int(time.time()) - 3600
+        jumps = self.conn.execute(
+            """SELECT event_id, object_id, transaction_hash, timestamp, raw_json
+               FROM chain_events
+               WHERE event_type LIKE '%::JumpEvent'
+                 AND timestamp >= ?
+               ORDER BY timestamp ASC""",
+            (cutoff,),
+        ).fetchall()
+
+        anomalies = []
+        for jump in jumps:
+            tx_hash = jump["transaction_hash"]
+            gate_id = jump["object_id"]
+
+            # Check if the same transaction has a FuelEvent for this gate
+            fuel = self.conn.execute(
+                """SELECT 1 FROM chain_events
+                   WHERE transaction_hash = ?
+                     AND event_type LIKE '%::FuelEvent'
+                     AND object_id = ?
+                   LIMIT 1""",
+                (tx_hash, gate_id),
+            ).fetchone()
+
+            if fuel:
+                continue  # Fuel was consumed — normal
+
+            anomalies.append(
+                Anomaly(
+                    anomaly_type="FREE_GATE_JUMP",
+                    rule_id="A2",
+                    detector=self.name,
+                    object_id=gate_id,
+                    evidence={
+                        "transaction_hash": tx_hash,
+                        "jump_event_id": jump["event_id"],
+                        "timestamp": jump["timestamp"],
+                        "description": (
+                            f"Gate jump on {gate_id[:16]}... in tx "
+                            f"{tx_hash[:18]}... without fuel consumption"
+                        ),
+                    },
+                )
+            )
+        return anomalies
+
+    def _check_a3_failed_transport(self) -> list[Anomaly]:
+        """A3: Fuel consumed on a gate but no jump completed.
+
+        If a FuelEvent fires for a gate object but no JumpEvent exists in
+        the same transaction, fuel was burned without a successful transport.
+        """
+        cutoff = int(time.time()) - 3600
+        fuel_events = self.conn.execute(
+            """SELECT event_id, object_id, transaction_hash, timestamp
+               FROM chain_events
+               WHERE event_type LIKE '%::FuelEvent'
+                 AND timestamp >= ?
+               ORDER BY timestamp ASC""",
+            (cutoff,),
+        ).fetchall()
+
+        anomalies = []
+        for fuel in fuel_events:
+            tx_hash = fuel["transaction_hash"]
+            gate_id = fuel["object_id"]
+
+            # Only check gates (fuel events also fire for non-gate assemblies)
+            obj = self._get_object(gate_id)
+            if obj and obj.get("object_type") != "gate":
+                continue
+
+            # Check if a JumpEvent exists in the same transaction
+            jump = self.conn.execute(
+                """SELECT 1 FROM chain_events
+                   WHERE transaction_hash = ?
+                     AND event_type LIKE '%::JumpEvent'
+                   LIMIT 1""",
+                (tx_hash,),
+            ).fetchone()
+
+            if jump:
+                continue  # Jump succeeded — normal
+
+            anomalies.append(
+                Anomaly(
+                    anomaly_type="FAILED_GATE_TRANSPORT",
+                    rule_id="A3",
+                    detector=self.name,
+                    object_id=gate_id,
+                    evidence={
+                        "transaction_hash": tx_hash,
+                        "fuel_event_id": fuel["event_id"],
+                        "timestamp": fuel["timestamp"],
+                        "description": (
+                            f"Fuel consumed on gate {gate_id[:16]}... in tx "
+                            f"{tx_hash[:18]}... but no jump completed"
                         ),
                     },
                 )

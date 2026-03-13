@@ -52,7 +52,7 @@ class ContinuityChecker(BaseChecker):
         """
         rows = self.conn.execute(
             """SELECT DISTINCT ce.object_id, ce.event_type, ce.transaction_hash,
-                      ce.block_number, ce.timestamp
+                      ce.block_number, ce.timestamp, ce.system_id
                FROM chain_events ce
                LEFT JOIN objects o ON ce.object_id = o.object_id
                WHERE o.object_id IS NULL
@@ -75,6 +75,7 @@ class ContinuityChecker(BaseChecker):
                     rule_id="C1",
                     detector=self.name,
                     object_id=obj_id,
+                    system_id=row["system_id"] or "",
                     evidence={
                         "event_type": row["event_type"],
                         "transaction_hash": row["transaction_hash"],
