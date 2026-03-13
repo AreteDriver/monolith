@@ -1,106 +1,190 @@
-# Monolith — Blockchain Anomaly Detector for EVE Frontier
+# CLAUDE.md — monolith
 
-## What This Is
-Blockchain integrity monitor for EVE Frontier. Reads on-chain events and World API state, detects anomalies, generates structured bug reports for CCP/Sui engineers.
+## Project Overview
 
-## Tech Stack
-- **Backend**: FastAPI + uvicorn, Python 3.11+
-- **Database**: SQLite WAL + FTS5
-- **Chain**: OP Sepolia (current) → Sui (pending migration)
-- **World API**: `blockchain-gateway-stillness.live.tech.evefrontier.com` (v2 endpoints)
-- **Detection**: Pure Python rule engine (deterministic, auditable)
-- **LLM**: Anthropic API (claude-sonnet-4-5) — narration ONLY, never detection
-- **Frontend**: React + Tailwind
-- **Alerts**: Discord webhooks
+Blockchain Integrity Monitor for EVE Frontier. Continuously reads on-chain events (OP Sepolia) and World API state, detects anomalies via 17 deterministic rules across 4 checkers, and generates structured bug reports. Built for EVE Frontier x Sui Hackathon 2026 (deadline March 31, 2026).
 
-## Chain State (March 2026)
-- **Current chain**: OP Sepolia (chain ID 11155420) with MUD framework
-- **Sui migration**: In progress but NOT live yet
-- **World contract**: `0x1dacc0b64b7da0cc6e2b2fe1bd72f58ebd37363c`
-- Architecture supports both chains — detection rules are chain-agnostic
+## Current State
 
-## Key URLs
-- World API: `https://blockchain-gateway-stillness.live.tech.evefrontier.com`
-- Chain RPC: `https://op-sepolia-ext-sync-node-rpc.live.tech.evefrontier.com`
-- Block Explorer: `https://sepolia-optimism.etherscan.io`
-- Old URLs (DEAD): `*.nursery.reitnorf.com` — all replaced by `*.live.tech.evefrontier.com`
+- **Version**: 0.1.0
+- **Language**: Python
+- **Files**: 107 across 4 languages
+- **Lines**: 12,320
 
-## World API Data (v2 endpoints)
-- `/v2/smartassemblies` — 35,808 items (NetworkNode, Manufacturing, SmartGate, SmartTurret, SmartStorageUnit)
-- `/v2/smartcharacters` — 5,172 characters
-- `/v2/killmails` — 4,853 kill records
-- `/v2/tribes` — 47 tribes
-- `/v2/solarsystems` — 24,502 systems
-- `/v2/types` — 336 item types
-- `/v2/fuels` — 6 fuel types
+## Architecture
 
-## Assembly Fields (from API)
-- List: `id, type, name, state, solarSystem{id,name}, owner{address,name,id}, energyUsage, typeId`
-- Detail adds: `typeDetails, description, dappURL, location{x,y,z}, networkNode{fuel,burn,energy}`
-- States: `unanchored`, `online`, `offline`, `anchored`
-- Types: `NetworkNode`, `Manufacturing`, `SmartGate`, `SmartTurret`, `SmartStorageUnit`
-
-## MUD System IDs (from /config)
-Key contract calls: `createCharacter`, `bringOnline`, `bringOffline`, `depositFuel`,
-`withdrawFuel`, `destroyDeployable`, `unanchor`, `reportKill`, `transfer`,
-`createAndDepositItemsToInventory`, `withdrawFromInventory`
-
-## Architecture Principles
-- Detection rules are pure functions: `(events, states) → anomaly | None`
-- Never mutate source data — anomalies table is append-only
-- Evidence is self-contained in the anomaly record — no joins needed to render a report
-- Severity is deterministic from rule — no LLM in the detection path
-- LLM is only used for plain English narration AFTER detection
-- False positive rate matters — rules must have low noise
-- Prefer false negatives over false positives
-
-## Project Structure
 ```
 monolith/
 ├── backend/
-│   ├── main.py              — FastAPI app entry
-│   ├── config.py            — Settings (env vars)
+│   ├── alerts/
+│   ├── api/
 │   ├── db/
-│   │   └── database.py      — SQLite setup, schema, WAL
-│   ├── ingestion/
-│   │   ├── chain_reader.py  — OP Sepolia RPC + log reader
-│   │   ├── world_poller.py  — World API v2 REST polling
-│   │   ├── event_stream.py  — MUD event stream (placeholder)
-│   │   └── state_snapshotter.py — periodic state deltas
 │   ├── detection/
-│   │   ├── engine.py        — orchestrates all checkers
-│   │   ├── continuity_checker.py
-│   │   ├── economic_checker.py
-│   │   ├── assembly_checker.py
-│   │   ├── sequence_checker.py
-│   │   └── anomaly_scorer.py
-│   ├── reports/
-│   │   ├── report_builder.py
-│   │   ├── llm_narrator.py
-│   │   └── formatter.py
-│   └── api/
-│       ├── anomalies.py     — /api/anomalies endpoints
-│       ├── reports.py       — /api/reports endpoints
-│       ├── objects.py       — /api/objects endpoints
-│       ├── stats.py         — /api/stats endpoints
-│       └── submit.py        — /api/submit (player tool)
-├── frontend/                — React + Tailwind
+│   ├── ingestion/
+│   └── reports/
+├── docs/
+│   └── chain-samples/
+├── frontend/
+│   ├── .vercel/
+│   ├── public/
+│   └── src/
 ├── tests/
-├── docs/chain-samples/      — raw API/chain response samples
-├── explore_chain.py         — chain exploration script
+│   ├── test_alerts/
+│   ├── test_api/
+│   ├── test_db/
+│   ├── test_detection/
+│   ├── test_ingestion/
+│   └── test_reports/
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── CLAUDE.md
+├── Dockerfile
+├── README.md
+├── demo_seed.py
+├── docker-compose.yml
+├── explore_chain.py
+├── fly.toml
 ├── pyproject.toml
-└── CLAUDE.md
 ```
 
-## Conventions
-- Timestamps: UTC Unix integers always
-- Anomaly IDs: `MNL-{YYYYMMDD}-{seq:04d}`
-- Report IDs: `MNL-{YYYYMMDD}-{seq:04d}`
-- All errors: structured JSON to stderr, never crash
-- Idempotent writes: unique constraints prevent double-processing
-- Store raw_json always — detection rules may need unanticipated fields
+## Tech Stack
 
-## Hackathon
-- EVE Frontier × Sui Hackathon 2026
-- Deadline: March 31, 2026
-- Solo build, 3-week window
+- **Language**: Python, JavaScript, HTML, CSS
+- **Framework**: fastapi
+- **Package Manager**: pip
+- **Linters**: ruff
+- **Formatters**: ruff
+- **Test Frameworks**: pytest
+- **Runtime**: Docker
+
+## Coding Standards
+
+- **Naming**: snake_case
+- **Quote Style**: double quotes
+- **Type Hints**: present
+- **Imports**: absolute
+- **Path Handling**: pathlib
+- **Line Length (p95)**: 79 characters
+
+## Common Commands
+
+```bash
+# test
+pytest tests/ -v
+
+# lint + format
+ruff check backend/ tests/ && ruff format backend/ tests/
+
+# run locally
+python -m uvicorn backend.main:app --reload --port 8000
+
+# seed demo data
+python demo_seed.py
+
+# build frontend
+cd frontend && npm run build
+
+# deploy
+/home/arete/.fly/bin/flyctl deploy -a monolith-evefrontier
+```
+
+## Chain & World API
+
+- **World API**: `https://blockchain-gateway-stillness.live.tech.evefrontier.com`
+- **Chain RPC**: `https://op-sepolia-ext-sync-node-rpc.live.tech.evefrontier.com`
+- **World Contract**: `0x1dacc0b64b7da0cc6e2b2fe1bd72f58ebd37363c` (OP Sepolia)
+- **Polling**: World API 300s, Chain RPC 300s, Snapshots 900s, Detection 300s
+
+## Detection Rules
+
+| Checker | Rules | Detects |
+|---------|-------|---------|
+| Continuity | C1-C4 | Orphan objects, resurrection, state gaps, stuck objects |
+| Economic | E1-E4 | Supply discrepancy, unexplained destruction, duplicate mint, negative balance |
+| Assembly | A1,A4,A5 | Contract/API mismatch, phantom changes, ownership without transfer |
+| Sequence | S2,S4 | Duplicate transactions, block processing gaps |
+
+Rules are pure functions: `(events, states) → anomaly | None`. Deterministic, no ML.
+
+## Anti-Patterns (Do NOT Do)
+
+- Do NOT commit secrets, API keys, or credentials
+- Do NOT skip writing tests for new code
+- Do NOT hardcode secrets in Dockerfiles — use environment variables
+- Do NOT use `latest` tag — pin specific versions
+- Do NOT use synchronous database calls in async endpoints
+- Do NOT return raw dicts — use Pydantic response models
+- Do NOT use `os.path` — use `pathlib.Path` everywhere
+- Do NOT use bare `except:` — catch specific exceptions
+- Do NOT use mutable default arguments
+- Do NOT use `print()` for logging — use the `logging` module
+
+## Dependencies
+
+### Core
+- fastapi
+- uvicorn
+
+### Dev
+- pytest
+- pytest-asyncio
+- pytest-cov
+- ruff
+- respx
+
+## Domain Context
+
+### Key Models/Classes
+- `Anomaly`
+- `AssemblyChecker`
+- `BaseChecker`
+- `ChainReader`
+- `ContinuityChecker`
+- `DetectionEngine`
+- `EconomicChecker`
+- `EventStream`
+- `FakeSettings`
+- `SequenceChecker`
+- `Settings`
+- `StateSnapshotter`
+- `SubmitRequest`
+- `WorldPoller`
+- `ReportBuilder`
+
+### Domain Terms
+- **MUD** — Multi-User Dungeon framework (on-chain state management)
+- **Store_SetRecord** — MUD event type for on-chain state changes
+- **Smart Assembly** — EVE Frontier on-chain object (gates, storage units, etc.)
+- **OP Sepolia** — Optimism Sepolia testnet (current chain)
+- **Stillness** — EVE Frontier's current server environment
+
+### API Endpoints
+- `GET /api/health` — uptime, last block, row counts
+- `GET /api/anomalies` — list (severity/type/status filters)
+- `GET /api/anomalies/{id}` — detail with evidence
+- `GET /api/reports` — list reports
+- `GET /api/reports/{id}` — report in JSON/Markdown/Text
+- `POST /api/reports/generate` — generate from anomaly
+- `GET /api/objects/{id}` — state trail + transitions
+- `GET /api/objects` — search tracked objects
+- `GET /api/stats` — rates, severity distribution, heatmap
+- `POST /api/submit` — player bug submission
+- `GET /api/submit/{id}/status` — submission status
+
+### Environment Variables
+- `MONOLITH_DATABASE_PATH` — SQLite path (default: `monolith.db`)
+- `MONOLITH_ANTHROPIC_API_KEY` — optional, enables LLM narration
+- `MONOLITH_DISCORD_WEBHOOK_URL` — optional, enables alerts (rate-limited 5/min)
+
+## Deployment
+
+- **Backend**: Fly.io (`monolith-evefrontier`), shared CPU 256MB, persistent SQLite at `/data/monolith.db`
+- **Frontend**: Vercel (`monolith-evefrontier.vercel.app`)
+- **Note**: `auto_stop_machines = 'stop'` — pollers die when idle. Set `min_machines_running = 1` for continuous monitoring
+
+## Git Conventions
+
+- Commit messages: Conventional commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`)
+- Branch naming: `feat/description`, `fix/description`
+- Run tests before committing
