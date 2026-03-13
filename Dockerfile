@@ -13,8 +13,9 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir .
 
-# Copy backend
+# Copy backend and seed script
 COPY backend/ backend/
+COPY demo_seed.py ./
 
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/dist frontend/dist
