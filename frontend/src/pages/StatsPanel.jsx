@@ -51,7 +51,7 @@ export default function StatsPanel() {
           color="#ef4444"
         />
         <StatCard label="Events (24h)" value={data.events_processed_24h} />
-        <StatCard label="Last Block" value={data.last_block_processed} />
+        <StatCard label="Last Checkpoint" value={data.last_block_processed} />
       </div>
 
       {/* Hourly Rate Chart */}

@@ -2,7 +2,7 @@
 
 **Blockchain Integrity Monitor for EVE Frontier**
 
-Monolith continuously reads the EVE Frontier chain and World API, detects state anomalies that indicate bugs or unintended behavior, and generates structured bug reports with on-chain evidence that CCP and Sui engineers can act on immediately.
+Monolith continuously reads EVE Frontier's on-chain Sui events, detects state anomalies that indicate bugs or unintended behavior, and generates structured bug reports with on-chain evidence that CCP and Sui engineers can act on immediately.
 
 ---
 
@@ -69,7 +69,7 @@ Rules are pure functions: `(events, states) -> anomaly | None`. No ML, no guessw
 Each anomaly generates a structured report with:
 - Severity classification (CRITICAL/HIGH/MEDIUM/LOW)
 - Self-contained evidence (no joins needed)
-- Chain transaction references with explorer links
+- Chain transaction references (Sui txDigest)
 - Reproduction context (detector, rule, observation window)
 - Recommended investigation steps
 - Plain English summary (Anthropic API or template fallback)
@@ -85,11 +85,10 @@ CRITICAL and HIGH severity anomalies fire Discord webhook embeds immediately, ra
 ## Architecture
 
 ```
-EVE Frontier World API ──┐
-OP Sepolia Chain RPC ────┤
-                          ▼
+Sui Chain (suix_queryEvents) ─┐
+                              ▼
                    ┌─────────────┐
-                   │  Ingestion  │  world_poller, chain_reader, state_snapshotter
+                   │  Ingestion  │  chain_reader (Sui), state_snapshotter
                    └──────┬──────┘
                           ▼
                    ┌─────────────┐
@@ -122,8 +121,7 @@ OP Sepolia Chain RPC ────┤
 |-------|--------|
 | Backend | FastAPI + uvicorn |
 | Database | SQLite WAL + FTS5 |
-| Chain | OP Sepolia RPC (MUD framework) |
-| World API | EVE Frontier REST v2 (stillness) |
+| Chain | Sui testnet RPC (suix_queryEvents) |
 | Detection | Pure Python rule engine |
 | LLM | Anthropic API (narration only, never detection) |
 | Frontend | React + Tailwind + Recharts |
@@ -157,7 +155,9 @@ All settings via environment variables (prefix `MONOLITH_`):
 | `DATABASE_PATH` | `monolith.db` | SQLite database path |
 | `ANTHROPIC_API_KEY` | *(empty)* | Enables LLM narration |
 | `DISCORD_WEBHOOK_URL` | *(empty)* | Enables Discord alerts |
-| `WORLD_POLL_INTERVAL` | `300` | World API poll interval (seconds) |
+| `SUI_PACKAGE_ID` | *(empty)* | Sui Move package ID (required for live data) |
+| `SUI_RPC_URL` | `https://fullnode.testnet.sui.io:443` | Sui RPC endpoint |
+| `CHAIN_POLL_INTERVAL` | `30` | Chain event poll interval (seconds) |
 | `DETECTION_INTERVAL` | `300` | Detection cycle interval (seconds) |
 
 ---
@@ -188,7 +188,7 @@ monolith/
 │   ├── alerts/discord.py      — Discord webhook alerts
 │   └── api/                   — REST endpoints
 ├── frontend/                  — React + Tailwind + Recharts
-├── tests/                     — 110+ pytest tests
+├── tests/                     — 118 pytest tests
 ├── docs/chain-samples/        — Real API response samples
 ├── demo_seed.py               — Seed demo data
 ├── Dockerfile                 — Multi-stage build

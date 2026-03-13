@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Blockchain Integrity Monitor for EVE Frontier. Continuously reads on-chain events (OP Sepolia) and World API state, detects anomalies via 17 deterministic rules across 4 checkers, and generates structured bug reports. Built for EVE Frontier x Sui Hackathon 2026 (deadline March 31, 2026).
+Blockchain Integrity Monitor for EVE Frontier. Continuously reads on-chain Sui events via `suix_queryEvents`, detects anomalies via 17 deterministic rules across 4 checkers, and generates structured bug reports. Built for EVE Frontier x Sui Hackathon 2026 (deadline March 31, 2026).
 
 ## Current State
 
@@ -89,12 +89,12 @@ cd frontend && npm run build
 /home/arete/.fly/bin/flyctl deploy -a monolith-evefrontier
 ```
 
-## Chain & World API
+## Chain (Sui)
 
-- **World API**: `https://blockchain-gateway-stillness.live.tech.evefrontier.com`
-- **Chain RPC**: `https://op-sepolia-ext-sync-node-rpc.live.tech.evefrontier.com`
-- **World Contract**: `0x1dacc0b64b7da0cc6e2b2fe1bd72f58ebd37363c` (OP Sepolia)
-- **Polling**: World API 300s, Chain RPC 300s, Snapshots 900s, Detection 300s
+- **Sui RPC**: `https://fullnode.testnet.sui.io:443` (configurable via `MONOLITH_SUI_RPC_URL`)
+- **Package ID**: Set via `MONOLITH_SUI_PACKAGE_ID` env var (changes each cycle)
+- **Event query**: `suix_queryEvents` with cursor-based pagination (`sui_cursors` table)
+- **Polling**: Chain events 30s, Snapshots 900s, Detection 300s
 
 ## Detection Rules
 
@@ -153,11 +153,11 @@ Rules are pure functions: `(events, states) → anomaly | None`. Deterministic, 
 - `ReportBuilder`
 
 ### Domain Terms
-- **MUD** — Multi-User Dungeon framework (on-chain state management)
-- **Store_SetRecord** — MUD event type for on-chain state changes
-- **Smart Assembly** — EVE Frontier on-chain object (gates, storage units, etc.)
-- **OP Sepolia** — Optimism Sepolia testnet (current chain)
-- **Stillness** — EVE Frontier's current server environment
+- **Smart Assembly** — EVE Frontier on-chain object (gates, storage units, turrets, etc.)
+- **Sui** — Layer 1 blockchain, EVE Frontier's chain since Cycle 5 (March 2026)
+- **Package ID** — Sui Move package address, changes each cycle
+- **txDigest** — Sui transaction hash identifier
+- **parsedJson** — Decoded Move event data in Sui event responses
 
 ### API Endpoints
 - `GET /api/health` — uptime, last block, row counts
@@ -174,6 +174,9 @@ Rules are pure functions: `(events, states) → anomaly | None`. Deterministic, 
 
 ### Environment Variables
 - `MONOLITH_DATABASE_PATH` — SQLite path (default: `monolith.db`)
+- `MONOLITH_SUI_PACKAGE_ID` — Sui Move package ID (required for live chain data)
+- `MONOLITH_SUI_RPC_URL` — Sui RPC endpoint (default: testnet)
+- `MONOLITH_CHAIN_POLL_INTERVAL` — Chain poll interval seconds (default: 30)
 - `MONOLITH_ANTHROPIC_API_KEY` — optional, enables LLM narration
 - `MONOLITH_DISCORD_WEBHOOK_URL` — optional, enables alerts (rate-limited 5/min)
 
@@ -181,7 +184,7 @@ Rules are pure functions: `(events, states) → anomaly | None`. Deterministic, 
 
 - **Backend**: Fly.io (`monolith-evefrontier`), shared CPU 256MB, persistent SQLite at `/data/monolith.db`
 - **Frontend**: Vercel (`monolith-evefrontier.vercel.app`)
-- **Note**: `auto_stop_machines = 'stop'` — pollers die when idle. Set `min_machines_running = 1` for continuous monitoring
+- **Note**: `min_machines_running = 1` to keep chain pollers alive
 
 ## Git Conventions
 

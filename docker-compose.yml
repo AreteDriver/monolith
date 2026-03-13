@@ -7,6 +7,8 @@ services:
       - monolith-data:/data
     environment:
       - MONOLITH_DATABASE_PATH=/data/monolith.db
+      - MONOLITH_SUI_PACKAGE_ID=${MONOLITH_SUI_PACKAGE_ID:-0xd12a70c74c1e759445d6f209b01d43d860e97fcf2ef72ccbbd00afd828043f75}
+      - MONOLITH_SUI_RPC_URL=${MONOLITH_SUI_RPC_URL:-https://fullnode.testnet.sui.io:443}
       - MONOLITH_ANTHROPIC_API_KEY=${MONOLITH_ANTHROPIC_API_KEY:-}
       - MONOLITH_DISCORD_WEBHOOK_URL=${MONOLITH_DISCORD_WEBHOOK_URL:-}
     restart: unless-stopped

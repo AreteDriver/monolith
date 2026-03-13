@@ -75,14 +75,13 @@ DEMO_ANOMALIES = [
         "evidence_json": json.dumps(
             {
                 "description": (
-                    "Smart gate was marked destroyed at block 18234567 "
-                    "but new event appeared at block 18235890"
+                    "Smart gate was marked destroyed at checkpoint 48231 "
+                    "but new event appeared at checkpoint 48295"
                 ),
-                "destroyed_at_block": 18234567,
+                "destroyed_at_checkpoint": 48231,
                 "post_destruction_event": {
-                    "block_number": 18235890,
-                    "transaction_hash": "0x9f8e7d6c5b4a3928170605f4e3d2c1b0a9f8e7d6",
-                    "event_type": "Store_SetRecord",
+                    "tx_digest": "9Fk3mRvLpQ7xYz2Tn8wBcJ5sAd6eHg4iKlNoPqRs",
+                    "event_type": "StatusChangedEvent",
                 },
             }
         ),
@@ -150,7 +149,7 @@ DEMO_ANOMALIES = [
                 "from_state": "online",
                 "to_state": "unanchored",
                 "expected_intermediate": "offline",
-                "transaction_hash": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+                "tx_digest": "1Ab3Cd5Ef7Gh9Ij2Kl4Mn6Op8Qr0St2Uv4Wx6Yz",
             }
         ),
     },
@@ -168,9 +167,8 @@ DEMO_ANOMALIES = [
                 "description": (
                     "Chain event references object 0xff00ee11...ee11 which has no creation record"
                 ),
-                "event_type": "Store_SetRecord",
-                "block_number": 18236100,
-                "transaction_hash": "0x0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b",
+                "event_type": "AssemblyCreatedEvent",
+                "tx_digest": "0Ab1Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0Uv1Wx2Yz",
             }
         ),
     },

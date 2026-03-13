@@ -113,14 +113,9 @@ export default function ObjectTracker() {
                   <span className="text-[#f59e0b]">&rarr;</span>
                   <span className="mono">{t.to_state || '?'}</span>
                   {t.transaction_hash && (
-                    <a
-                      href={`https://sepolia-optimism.etherscan.io/tx/${t.transaction_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mono text-xs text-[#f59e0b] hover:underline"
-                    >
-                      {t.transaction_hash.slice(0, 10)}...
-                    </a>
+                    <span className="mono text-xs text-[#f59e0b]">
+                      {t.transaction_hash.slice(0, 12)}...
+                    </span>
                   )}
                   <span className="ml-auto"><TimeAgo timestamp={t.timestamp} /></span>
                 </div>
@@ -143,16 +138,11 @@ export default function ObjectTracker() {
               <div key={i} className="border border-[#2a2a2a] px-3 py-2 text-sm">
                 <div className="flex items-center gap-3">
                   <span className="mono text-[#f59e0b]">{e.event_type || '—'}</span>
-                  <span className="text-[#6b7280]">block {e.block_number}</span>
+                  <span className="text-[#6b7280]">tx {e.transaction_hash?.slice(0, 8) || '—'}</span>
                   {e.transaction_hash && (
-                    <a
-                      href={`https://sepolia-optimism.etherscan.io/tx/${e.transaction_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mono text-xs text-[#a3a3a3] hover:underline"
-                    >
-                      {e.transaction_hash.slice(0, 10)}...
-                    </a>
+                    <span className="mono text-xs text-[#a3a3a3]">
+                      {e.transaction_hash.slice(0, 12)}...
+                    </span>
                   )}
                   <span className="ml-auto"><TimeAgo timestamp={e.timestamp} /></span>
                 </div>

@@ -16,7 +16,7 @@ export default function Landing() {
           Blockchain Integrity Monitor for EVE Frontier
         </p>
         <p className="text-sm text-[#6b7280] max-w-xl mx-auto">
-          Continuously reads the chain and World API, detects state anomalies that
+          Continuously reads Sui chain events, detects state anomalies that
           indicate bugs, and generates structured bug reports with on-chain evidence.
         </p>
       </div>
@@ -68,7 +68,7 @@ export default function Landing() {
       <div className="border border-[#2a2a2a] p-6 mb-12">
         <h2 className="text-lg font-bold text-[#f59e0b] mb-4">How It Works</h2>
         <div className="space-y-3 text-sm text-[#a3a3a3]">
-          <Step n={1} text="Ingestion layer polls EVE Frontier World API and OP Sepolia chain logs every 5 minutes" />
+          <Step n={1} text="Ingestion layer polls Sui chain events via suix_queryEvents every 30 seconds" />
           <Step n={2} text="State snapshotter computes deltas between consecutive API snapshots" />
           <Step n={3} text="Detection engine runs 17 rules: continuity, economic, assembly, and sequence checks" />
           <Step n={4} text="Anomalies are scored, deduplicated (24h window), and persisted with self-contained evidence" />
