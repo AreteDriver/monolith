@@ -6,6 +6,7 @@ import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
 import StatsPanel from './pages/StatsPanel'
 import SubmitPage from './pages/SubmitPage'
+import AegisEcosystem from './components/AegisEcosystem'
 
 function Nav() {
   return (
@@ -42,6 +43,9 @@ export default function App() {
             <Route path="/submit" element={<SubmitPage />} />
           </Routes>
         </main>
+        <div className="max-w-7xl mx-auto px-6 pb-8">
+          <AegisEcosystem />
+        </div>
       </div>
     </BrowserRouter>
   )
