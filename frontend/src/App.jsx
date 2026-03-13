@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import AnomalyDetail from './pages/AnomalyDetail'
 import AnomalyFeed from './pages/AnomalyFeed'
@@ -55,6 +56,7 @@ export default function App() {
           </div>
         </footer>
       </div>
+      <Analytics />
     </BrowserRouter>
   )
 }

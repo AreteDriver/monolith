@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     github_repo: str = ""  # e.g., "AreteDriver/monolith"
     github_token: str = ""
 
+    # NEXUS webhook (WatchTower enriched events)
+    nexus_secret: str = ""
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

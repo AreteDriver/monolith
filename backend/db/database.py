@@ -111,6 +111,17 @@ CREATE TABLE IF NOT EXISTS filed_issues (
     filed_at INTEGER
 );
 
+-- NEXUS: enriched events from WatchTower
+CREATE TABLE IF NOT EXISTS nexus_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    solar_system_id TEXT,
+    payload TEXT NOT NULL,
+    received_at INTEGER NOT NULL,
+    UNIQUE(event_type, event_id)
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -149,6 +160,7 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_object ON anomalies(object_id);
 CREATE INDEX IF NOT EXISTS idx_anomalies_status ON anomalies(status);
 CREATE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
 CREATE INDEX IF NOT EXISTS idx_reference_data_type ON reference_data(data_type);
+CREATE INDEX IF NOT EXISTS idx_nexus_events_type ON nexus_events(event_type, received_at DESC);
 """
 
 FTS = """
@@ -202,6 +214,7 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "anomalies",
         "bug_reports",
         "filed_issues",
+        "nexus_events",
     ]
     counts = {}
     for table in tables:

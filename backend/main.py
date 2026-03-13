@@ -29,6 +29,8 @@ from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
 from backend.ingestion.event_processor import EventProcessor
+from backend.ingestion.nexus_consumer import configure as configure_nexus
+from backend.ingestion.nexus_consumer import router as nexus_router
 from backend.ingestion.pod_verifier import PodVerifier
 from backend.ingestion.state_snapshotter import StateSnapshotter
 from backend.ingestion.world_poller import WorldPoller
@@ -142,6 +144,9 @@ async def lifespan(app: FastAPI):
     app.state.db = conn
     app.state.settings = settings
 
+    # Configure NEXUS webhook consumer
+    configure_nexus(settings.nexus_secret)
+
     # Bootstrap: fetch chain config for dynamic packageId/rpcUrls
     sui_rpc_url = settings.sui_rpc_url
     package_id = settings.sui_package_id
@@ -238,10 +243,32 @@ app.include_router(reports_router)
 app.include_router(objects_router)
 app.include_router(stats_router)
 app.include_router(submit_router)
+app.include_router(nexus_router, prefix="/api")
+
+
+async def _check_sui_rpc(rpc_url: str) -> str:
+    """Non-blocking connectivity check to Sui RPC endpoint (2s timeout)."""
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                rpc_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "suix_getLatestCheckpointSequenceNumber",
+                    "params": [],
+                },
+                timeout=2.0,
+            )
+            if r.status_code == 200:
+                return "ok"
+            return f"http_{r.status_code}"
+    except Exception:
+        return "unreachable"
 
 
 @app.get("/api/health")
-def health() -> dict:
+async def health() -> dict:
     """System health — uptime, row counts, chain info."""
     conn = app.state.db
     settings = app.state.settings
@@ -252,6 +279,8 @@ def health() -> dict:
 
     unprocessed = conn.execute("SELECT COUNT(*) FROM chain_events WHERE processed = 0").fetchone()
 
+    sui_rpc = await _check_sui_rpc(settings.sui_rpc_url)
+
     return {
         "status": "ok",
         "version": "0.1.0",
@@ -259,6 +288,7 @@ def health() -> dict:
         "uptime_seconds": int(time.time() - START_TIME),
         "last_event_time": last_event_time,
         "unprocessed_events": unprocessed[0] if unprocessed else 0,
+        "sui_rpc": sui_rpc,
         "row_counts": counts,
     }
 
