@@ -122,6 +122,18 @@ CREATE TABLE IF NOT EXISTS nexus_events (
     UNIQUE(event_type, event_id)
 );
 
+-- Item inventory ledger for economic tracking
+CREATE TABLE IF NOT EXISTS item_ledger (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    assembly_id TEXT NOT NULL,
+    item_type_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    event_id TEXT NOT NULL,
+    transaction_hash TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -161,6 +173,9 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_status ON anomalies(status);
 CREATE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
 CREATE INDEX IF NOT EXISTS idx_reference_data_type ON reference_data(data_type);
 CREATE INDEX IF NOT EXISTS idx_nexus_events_type ON nexus_events(event_type, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_item_ledger_assembly ON item_ledger(assembly_id);
+CREATE INDEX IF NOT EXISTS idx_item_ledger_type ON item_ledger(item_type_id);
+CREATE INDEX IF NOT EXISTS idx_item_ledger_timestamp ON item_ledger(timestamp);
 """
 
 FTS = """
@@ -215,6 +230,7 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "bug_reports",
         "filed_issues",
         "nexus_events",
+        "item_ledger",
     ]
     counts = {}
     for table in tables:

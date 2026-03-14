@@ -250,17 +250,79 @@ class EventProcessor:
         self._write_snapshot(object_id, "smartassemblies", state_update, event["timestamp"])
 
     def _handle_item_event(self, event: dict, parsed: dict) -> None:
-        """Item mint/burn/deposit/withdraw → update object last_seen."""
+        """Item mint/burn/deposit/withdraw → track inventory + update object."""
         object_id = event["object_id"]
         if not object_id:
             return
 
-        # Update last_seen timestamp
+        # Update last_seen timestamp (existing behavior)
         self.conn.execute(
             """UPDATE objects SET last_seen = ?, last_event_id = ?
                WHERE object_id = ?""",
             (event["timestamp"], event["event_id"], object_id),
         )
+
+        # Extract item details from parsedJson
+        quantity = parsed.get("quantity", parsed.get("amount", 0))
+        item_type_id = parsed.get(
+            "item_type_id",
+            parsed.get("itemTypeId", parsed.get("type_id", parsed.get("typeId", ""))),
+        )
+
+        # Determine action from event type suffix
+        event_type = event.get("event_type", "")
+        suffix = event_type.rsplit("::", 1)[-1] if "::" in event_type else ""
+        action = suffix.replace("Event", "").replace("Item", "").lower()
+
+        # Record in item ledger
+        try:
+            self.conn.execute(
+                """INSERT INTO item_ledger
+                   (assembly_id, item_type_id, event_type, quantity,
+                    event_id, transaction_hash, timestamp)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    object_id,
+                    str(item_type_id),
+                    action,
+                    int(quantity) if quantity else 0,
+                    event["event_id"],
+                    event.get("transaction_hash", ""),
+                    event["timestamp"],
+                ),
+            )
+        except Exception:
+            logger.exception(
+                "Failed to record item ledger entry for %s", event["event_id"]
+            )
+            return
+
+        # Build inventory snapshot for checker consumption
+        if quantity or item_type_id:
+            current = self._get_current_state(object_id)
+            state_update = dict(current) if current else {}
+            inventory = state_update.setdefault("inventory", {})
+            if isinstance(inventory, dict):
+                type_key = str(item_type_id) if item_type_id else "unknown"
+                balance = inventory.get(type_key, 0)
+                if action in ("minted", "deposited"):
+                    balance += int(quantity) if quantity else 0
+                elif action in ("burned", "withdrawn"):
+                    balance -= int(quantity) if quantity else 0
+                inventory[type_key] = balance
+                state_update["inventory"] = inventory
+
+            self._upsert_object(
+                object_id=object_id,
+                object_type="smartassemblies",
+                state=state_update,
+                system_id=event.get("system_id", ""),
+                timestamp=event["timestamp"],
+                event_id=event["event_id"],
+            )
+            self._write_snapshot(
+                object_id, "smartassemblies", state_update, event["timestamp"]
+            )
 
     def _handle_item_destroyed(self, event: dict, parsed: dict) -> None:
         """ItemDestroyedEvent → mark object destroyed if applicable."""

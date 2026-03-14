@@ -25,6 +25,7 @@ class EconomicChecker(BaseChecker):
         """Run all economic rules."""
         anomalies: list[Anomaly] = []
         anomalies.extend(self._check_e1_supply_discrepancy())
+        anomalies.extend(self._check_e1_item_supply())
         anomalies.extend(self._check_e2_unexplained_destruction())
         anomalies.extend(self._check_e3_duplicate_mint())
         anomalies.extend(self._check_e4_negative_balance())
@@ -102,6 +103,65 @@ class EconomicChecker(BaseChecker):
             )
         return anomalies
 
+    def _check_e1_item_supply(self) -> list[Anomaly]:
+        """E1b: Item inventory doesn't reconcile with ledger events."""
+        try:
+            rows = self.conn.execute(
+                """SELECT assembly_id, item_type_id,
+                          SUM(CASE WHEN event_type IN ('minted', 'deposited')
+                              THEN quantity ELSE 0 END) as total_in,
+                          SUM(CASE WHEN event_type IN ('burned', 'withdrawn')
+                              THEN quantity ELSE 0 END) as total_out
+                   FROM item_ledger
+                   GROUP BY assembly_id, item_type_id
+                   HAVING total_in > 0 OR total_out > 0
+                   LIMIT 500"""
+            ).fetchall()
+        except Exception:
+            # Table may not exist in older databases
+            return []
+
+        anomalies = []
+        for row in rows:
+            expected_balance = row["total_in"] - row["total_out"]
+            obj = self._get_object(row["assembly_id"])
+            if not obj:
+                continue
+
+            try:
+                state = json.loads(obj["current_state"] or "{}")
+            except json.JSONDecodeError:
+                continue
+
+            inventory = state.get("inventory", {})
+            if not isinstance(inventory, dict):
+                continue
+
+            actual = inventory.get(row["item_type_id"], 0)
+            if actual != expected_balance:
+                anomalies.append(
+                    Anomaly(
+                        anomaly_type="SUPPLY_DISCREPANCY",
+                        rule_id="E1",
+                        detector=self.name,
+                        object_id=row["assembly_id"],
+                        system_id=obj.get("system_id", ""),
+                        evidence={
+                            "item_type_id": row["item_type_id"],
+                            "expected_balance": expected_balance,
+                            "actual_balance": actual,
+                            "total_minted_deposited": row["total_in"],
+                            "total_burned_withdrawn": row["total_out"],
+                            "description": (
+                                f"Item {row['item_type_id'][:16]}... inventory mismatch: "
+                                f"expected {expected_balance} from ledger, "
+                                f"found {actual} in state"
+                            ),
+                        },
+                    )
+                )
+        return anomalies
+
     def _check_e2_unexplained_destruction(self) -> list[Anomaly]:
         """E2: Object disappeared from API between snapshots without kill/destroy event.
 
@@ -160,14 +220,24 @@ class EconomicChecker(BaseChecker):
             )
         return anomalies
 
+    # Inventory event types are expected to batch (multiple per tx per object)
+    _BATCH_SAFE_SUFFIXES = frozenset({
+        "ItemMintedEvent",
+        "ItemBurnedEvent",
+        "ItemDepositedEvent",
+        "ItemWithdrawnEvent",
+        "ItemDestroyedEvent",
+        "FuelEvent",
+    })
+
     def _check_e3_duplicate_mint(self) -> list[Anomaly]:
         """E3: Same object receives duplicate events of the same type in one tx.
 
         On Sui, a single PTB can legitimately emit multiple events of the
-        same type (e.g., batch inventory operations). We only flag when the
-        SAME object_id appears in the SAME event type within a single
-        transaction — that indicates actual double-processing, not just
-        a batch operation.
+        same type for batch inventory/fuel operations. We exclude inventory
+        and fuel event types entirely (batch operations are normal), and
+        only flag other event types (status, ownership, assembly creation,
+        killmails) when the SAME object_id appears 3+ times in a single tx.
         """
         rows = self.conn.execute(
             """SELECT transaction_hash, event_type, object_id,
@@ -176,12 +246,17 @@ class EconomicChecker(BaseChecker):
                FROM chain_events
                WHERE event_type != '' AND object_id != ''
                GROUP BY transaction_hash, event_type, object_id
-               HAVING cnt > 1
+               HAVING cnt > 2
                LIMIT 50"""
         ).fetchall()
 
         anomalies = []
         for row in rows:
+            # Skip batch-safe event types (inventory/fuel ops are expected duplicates)
+            event_suffix = row["event_type"].rsplit("::", 1)[-1] if "::" in row["event_type"] else ""
+            if event_suffix in self._BATCH_SAFE_SUFFIXES:
+                continue
+
             # Resolve system_id from the target object or chain event
             system_id = self._resolve_system_id(row["object_id"], row["transaction_hash"])
             anomalies.append(
@@ -199,7 +274,7 @@ class EconomicChecker(BaseChecker):
                         "event_ids": row["event_ids"],
                         "description": (
                             f"Object {row['object_id'][:16]}... received "
-                            f"{row['cnt']}x {row['event_type'].rsplit('::', 1)[-1]} "
+                            f"{row['cnt']}x {event_suffix} "
                             f"in tx {row['transaction_hash'][:18]}... — "
                             f"possible double-processing"
                         ),
@@ -266,6 +341,30 @@ class EconomicChecker(BaseChecker):
                         },
                     )
                 )
+
+            # Check item inventory for negative balances
+            inventory = state.get("inventory", {})
+            if isinstance(inventory, dict):
+                for item_type, balance in inventory.items():
+                    if isinstance(balance, (int, float)) and balance < 0:
+                        anomalies.append(
+                            Anomaly(
+                                anomaly_type="NEGATIVE_BALANCE",
+                                rule_id="E4",
+                                detector=self.name,
+                                object_id=row["object_id"],
+                                system_id=row["system_id"] or "",
+                                evidence={
+                                    "item_type_id": item_type,
+                                    "balance": balance,
+                                    "description": (
+                                        f"Item {item_type[:16]}... balance is "
+                                        f"{balance} — negative inventory "
+                                        f"should be impossible"
+                                    ),
+                                },
+                            )
+                        )
         return anomalies
 
     @staticmethod

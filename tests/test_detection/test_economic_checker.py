@@ -25,13 +25,13 @@ def _insert_snapshot(conn, object_id, state, snapshot_time, obj_type="smartassem
 
 
 def test_e3_duplicate_mint(db_conn):
-    """E3: Duplicate tx+event_type triggers DUPLICATE_MINT."""
-    # Insert events with same tx hash but different log indexes
-    for i in range(3):
+    """E3: 4+ duplicate events for same object in same tx triggers DUPLICATE_MINT."""
+    # Threshold is >2 (i.e. 3+ events). Insert 4 to trigger.
+    for i in range(4):
         db_conn.execute(
             "INSERT INTO chain_events (event_id, event_type, object_id, block_number, "
             "transaction_hash, timestamp, processed) VALUES (?, ?, ?, ?, ?, ?, 0)",
-            (f"tx-dup:0x{i}", "0xmint_event", "obj-same", 100, "tx-dup", int(time.time())),
+            (f"tx-dup:0x{i}", "0xpkg::status::StatusChangedEvent", "obj-same", 100, "tx-dup", int(time.time())),
         )
     db_conn.commit()
 
@@ -40,6 +40,23 @@ def test_e3_duplicate_mint(db_conn):
 
     dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_MINT"]
     assert len(dupes) >= 1
+
+
+def test_e3_batch_inventory_not_flagged(db_conn):
+    """E3: Batch inventory events (ItemMintedEvent) are NOT flagged as duplicates."""
+    for i in range(5):
+        db_conn.execute(
+            "INSERT INTO chain_events (event_id, event_type, object_id, block_number, "
+            "transaction_hash, timestamp, processed) VALUES (?, ?, ?, ?, ?, ?, 0)",
+            (f"tx-batch:0x{i}", "0xpkg::inventory::ItemMintedEvent", "asm-batch", 100, "tx-batch", int(time.time())),
+        )
+    db_conn.commit()
+
+    checker = EconomicChecker(db_conn)
+    anomalies = checker.check()
+
+    dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_MINT"]
+    assert len(dupes) == 0
 
 
 def test_e4_negative_balance(db_conn):
@@ -105,3 +122,51 @@ def test_e1_supply_discrepancy(db_conn):
     supply = [a for a in anomalies if a.anomaly_type == "SUPPLY_DISCREPANCY"]
     assert len(supply) >= 1
     assert supply[0].evidence["delta"] == 20
+
+
+def test_e1_item_supply_discrepancy(db_conn):
+    """E1: Item ledger vs state mismatch triggers SUPPLY_DISCREPANCY."""
+    obj_id = "asm-items"
+    _insert_object(db_conn, obj_id, {"inventory": {"type-a": 50}})
+
+    # Ledger says 100 minted, 30 burned = 70 expected, but state says 50
+    db_conn.execute(
+        "INSERT INTO item_ledger (assembly_id, item_type_id, event_type, quantity, "
+        "event_id, transaction_hash, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (obj_id, "type-a", "minted", 100, "evt-1", "tx-1", int(time.time())),
+    )
+    db_conn.execute(
+        "INSERT INTO item_ledger (assembly_id, item_type_id, event_type, quantity, "
+        "event_id, transaction_hash, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (obj_id, "type-a", "burned", 30, "evt-2", "tx-2", int(time.time())),
+    )
+    db_conn.commit()
+
+    checker = EconomicChecker(db_conn)
+    anomalies = checker.check()
+
+    supply = [
+        a
+        for a in anomalies
+        if a.anomaly_type == "SUPPLY_DISCREPANCY" and a.evidence.get("item_type_id")
+    ]
+    assert len(supply) >= 1
+    assert supply[0].evidence["expected_balance"] == 70
+    assert supply[0].evidence["actual_balance"] == 50
+
+
+def test_e4_negative_item_balance(db_conn):
+    """E4: Negative item inventory triggers NEGATIVE_BALANCE."""
+    state = {"inventory": {"type-x": -10}}
+    _insert_object(db_conn, "asm-neg-inv", state)
+
+    checker = EconomicChecker(db_conn)
+    anomalies = checker.check()
+
+    negatives = [
+        a
+        for a in anomalies
+        if a.anomaly_type == "NEGATIVE_BALANCE" and a.evidence.get("item_type_id")
+    ]
+    assert len(negatives) >= 1
+    assert negatives[0].evidence["balance"] == -10
