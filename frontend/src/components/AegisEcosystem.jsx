@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom'
+import { useApi } from '../hooks/useApi'
+
 const STATS = [
   { value: '621', label: 'TESTS PASSING' },
   { value: '33', label: 'API ENDPOINTS' },
@@ -11,7 +14,28 @@ const TAGS = [
   { label: 'AI NARRATIVE', variant: 'default' },
 ];
 
+const ECOSYSTEM_LINKS = [
+  {
+    label: 'WatchTower',
+    href: 'https://watchtower-evefrontier.fly.dev',
+    external: true,
+  },
+  {
+    label: 'Frontier Tribe OS',
+    href: 'https://frontier-tribe-os.vercel.app',
+    external: true,
+  },
+  {
+    label: 'Map',
+    href: '/map',
+    external: false,
+  },
+];
+
 export default function AegisEcosystem() {
+  const { data: healthData } = useApi('/api/health')
+  const nexusStats = healthData?.nexus_stats
+
   return (
     <>
       <style>{`
@@ -144,6 +168,41 @@ export default function AegisEcosystem() {
             ))}
           </div>
 
+          {/* NEXUS Stats */}
+          {nexusStats && (
+            <div className="mb-5 border border-[#2a2a2a] rounded p-3" style={{ background: 'rgba(127, 119, 221, 0.04)' }}>
+              <div className="text-[10px] text-[#6b7280] tracking-wider font-semibold mb-2">
+                NEXUS EVENT FEED
+              </div>
+              <div className="flex gap-4">
+                {nexusStats.events_received != null && (
+                  <div className="text-center">
+                    <div className="aegis-mono text-sm font-bold" style={{ color: '#CCC9F8' }}>
+                      {nexusStats.events_received.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-[#6b7280]">RECEIVED</div>
+                  </div>
+                )}
+                {nexusStats.events_processed != null && (
+                  <div className="text-center">
+                    <div className="aegis-mono text-sm font-bold" style={{ color: '#CCC9F8' }}>
+                      {nexusStats.events_processed.toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-[#6b7280]">PROCESSED</div>
+                  </div>
+                )}
+                {nexusStats.last_event_at && (
+                  <div className="text-center">
+                    <div className="aegis-mono text-sm font-bold" style={{ color: '#CCC9F8' }}>
+                      {nexusStats.last_event_at}
+                    </div>
+                    <div className="text-[10px] text-[#6b7280]">LAST EVENT</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Tags */}
           <div className="flex flex-wrap gap-2 mb-4">
             {TAGS.map((tag) => (
@@ -167,6 +226,34 @@ export default function AegisEcosystem() {
                 {tag.label}
               </span>
             ))}
+          </div>
+
+          {/* Ecosystem Links */}
+          <div className="flex items-center gap-4 mb-3">
+            <span className="text-[#6b7280] text-xs">ECOSYSTEM</span>
+            {ECOSYSTEM_LINKS.map((link) =>
+              link.external ? (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="aegis-mono text-xs hover:underline no-underline"
+                  style={{ color: '#7F77DD' }}
+                >
+                  {link.label} &rarr;
+                </a>
+              ) : (
+                <Link
+                  key={link.label}
+                  to={link.href}
+                  className="aegis-mono text-xs hover:underline no-underline"
+                  style={{ color: '#7F77DD' }}
+                >
+                  {link.label} &rarr;
+                </Link>
+              )
+            )}
           </div>
 
           {/* Access Link */}

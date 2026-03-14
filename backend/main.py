@@ -20,9 +20,12 @@ from backend.alerts.discord import send_alert
 from backend.alerts.github_issues import file_github_issue
 from backend.api.anomalies import router as anomalies_router
 from backend.api.objects import router as objects_router
+from backend.api.public import router as public_router
 from backend.api.reports import router as reports_router
 from backend.api.stats import router as stats_router
 from backend.api.submit import router as submit_router
+from backend.api.subscriptions import router as subscriptions_router
+from backend.api.systems import router as systems_router
 from backend.config import get_settings
 from backend.db.database import get_row_counts, init_db
 from backend.detection.engine import DetectionEngine
@@ -241,8 +244,11 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(static_data_loop(world_poller, settings.static_data_interval)),
         asyncio.create_task(
             pod_check_loop(
-                conn, pod_verifier, detection_engine,
-                settings.detection_interval, settings,
+                conn,
+                pod_verifier,
+                detection_engine,
+                settings.detection_interval,
+                settings,
             )
         ),
     ]
@@ -295,6 +301,9 @@ app.include_router(reports_router)
 app.include_router(objects_router)
 app.include_router(stats_router)
 app.include_router(submit_router)
+app.include_router(systems_router)
+app.include_router(subscriptions_router)
+app.include_router(public_router)
 app.include_router(nexus_router, prefix="/api")
 
 
@@ -333,6 +342,16 @@ async def health() -> dict:
 
     sui_rpc = await _check_sui_rpc(settings.sui_rpc_url)
 
+    # NEXUS event stats by type
+    nexus_stats = {}
+    try:
+        for row in conn.execute(
+            "SELECT event_type, COUNT(*) as cnt FROM nexus_events GROUP BY event_type"
+        ).fetchall():
+            nexus_stats[row["event_type"]] = row["cnt"]
+    except Exception:
+        nexus_stats = {"error": "nexus_events table not available"}
+
     return {
         "status": "ok",
         "version": "0.1.0",
@@ -342,6 +361,7 @@ async def health() -> dict:
         "unprocessed_events": unprocessed[0] if unprocessed else 0,
         "sui_rpc": sui_rpc,
         "row_counts": counts,
+        "nexus_stats": nexus_stats,
     }
 
 
