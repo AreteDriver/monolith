@@ -40,18 +40,14 @@ def test_item_minted_updates_ledger(db_conn):
     processor._dispatch_event(event)
 
     # Check ledger
-    row = db_conn.execute(
-        "SELECT * FROM item_ledger WHERE assembly_id = 'asm-1'"
-    ).fetchone()
+    row = db_conn.execute("SELECT * FROM item_ledger WHERE assembly_id = 'asm-1'").fetchone()
     assert row is not None
     assert row["quantity"] == 50
     assert row["event_type"] == "minted"
     assert row["item_type_id"] == "ore-123"
 
     # Check state has inventory
-    obj = db_conn.execute(
-        "SELECT current_state FROM objects WHERE object_id = 'asm-1'"
-    ).fetchone()
+    obj = db_conn.execute("SELECT current_state FROM objects WHERE object_id = 'asm-1'").fetchone()
     state = json.loads(obj["current_state"])
     assert state["inventory"]["ore-123"] == 50
 
@@ -80,9 +76,7 @@ def test_item_burned_decrements_inventory(db_conn):
     )
     processor._dispatch_event(event)
 
-    obj = db_conn.execute(
-        "SELECT current_state FROM objects WHERE object_id = 'asm-2'"
-    ).fetchone()
+    obj = db_conn.execute("SELECT current_state FROM objects WHERE object_id = 'asm-2'").fetchone()
     state = json.loads(obj["current_state"])
     assert state["inventory"]["ore-1"] == 70
 
@@ -106,7 +100,5 @@ def test_item_event_no_quantity_still_updates_last_seen(db_conn):
     )
     processor._dispatch_event(event)
 
-    obj = db_conn.execute(
-        "SELECT last_seen FROM objects WHERE object_id = 'asm-3'"
-    ).fetchone()
+    obj = db_conn.execute("SELECT last_seen FROM objects WHERE object_id = 'asm-3'").fetchone()
     assert obj["last_seen"] >= now
