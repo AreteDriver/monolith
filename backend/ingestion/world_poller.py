@@ -159,6 +159,149 @@ class WorldPoller:
         """Resolve a constellation ID to its name."""
         return self.resolve_name("constellations", constellation_id)
 
+    # -- Tribe cache --
+
+    def store_tribe(self, tribe_data: dict) -> None:
+        """Upsert tribe into tribe_cache with staleness tracking."""
+        tribe_id = str(tribe_data.get("id", tribe_data.get("tribeId", "")))
+        if not tribe_id:
+            return
+
+        name = tribe_data.get("name", "")
+        name_short = tribe_data.get("nameShort", tribe_data.get("name_short", ""))
+        member_count = tribe_data.get("memberCount", tribe_data.get("member_count", 0))
+        tax_rate = tribe_data.get("taxRate", tribe_data.get("tax_rate", 0.0))
+        now = int(time.time())
+
+        # Check if tribe exists and if fields changed
+        existing = self.conn.execute(
+            "SELECT name, name_short, member_count, tax_rate FROM tribe_cache WHERE tribe_id = ?",
+            (tribe_id,),
+        ).fetchone()
+
+        if existing:
+            changed = (
+                existing["name"] != name
+                or existing["name_short"] != name_short
+                or existing["member_count"] != member_count
+                or existing["tax_rate"] != tax_rate
+            )
+            self.conn.execute(
+                """UPDATE tribe_cache SET
+                       name = ?, name_short = ?, member_count = ?, tax_rate = ?,
+                       data_json = ?, last_confirmed_at = ?,
+                       last_changed_at = CASE WHEN ? THEN ? ELSE last_changed_at END,
+                       is_stale = 0
+                   WHERE tribe_id = ?""",
+                (
+                    name,
+                    name_short,
+                    member_count,
+                    tax_rate,
+                    json.dumps(tribe_data),
+                    now,
+                    1 if changed else 0,
+                    now,
+                    tribe_id,
+                ),
+            )
+        else:
+            self.conn.execute(
+                """INSERT INTO tribe_cache
+                   (tribe_id, name, name_short, member_count, tax_rate,
+                    data_json, first_seen_at, last_confirmed_at, is_stale)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+                (
+                    tribe_id,
+                    name,
+                    name_short,
+                    member_count,
+                    tax_rate,
+                    json.dumps(tribe_data),
+                    now,
+                    now,
+                ),
+            )
+
+    async def poll_tribes(self, client: httpx.AsyncClient) -> int:
+        """Fetch /v2/tribes with pagination, store each, mark stale. Returns count."""
+        if not self.base_url:
+            return 0
+
+        count = 0
+        offset = 0
+        seen_ids: set[str] = set()
+
+        while True:
+            url = f"{self.base_url}/v2/tribes"
+            params = {"limit": PAGE_LIMIT, "offset": offset}
+            resp = await client.get(url, params=params, timeout=self.timeout)
+            resp.raise_for_status()
+            body = resp.json()
+
+            items = body.get("data", body) if isinstance(body, dict) else body
+            if not isinstance(items, list):
+                items = [body]
+
+            for item in items:
+                self.store_tribe(item)
+                tribe_id = str(item.get("id", item.get("tribeId", "")))
+                if tribe_id:
+                    seen_ids.add(tribe_id)
+                count += 1
+
+            self.conn.commit()
+
+            metadata = body.get("metadata", {}) if isinstance(body, dict) else {}
+            total = metadata.get("total", 0)
+            if not total or offset + PAGE_LIMIT >= total:
+                break
+            offset += PAGE_LIMIT
+
+        # Mark tribes not seen in this fetch as stale if last_confirmed_at > 1 hour ago
+        if seen_ids:
+            stale_threshold = int(time.time()) - 3600
+            placeholders = ",".join("?" * len(seen_ids))
+            self.conn.execute(
+                f"UPDATE tribe_cache SET is_stale = 1 "  # noqa: S608
+                f"WHERE tribe_id NOT IN ({placeholders}) "
+                f"AND last_confirmed_at < ?",
+                [*seen_ids, stale_threshold],
+            )
+            self.conn.commit()
+
+        return count
+
+    def resolve_tribe(self, tribe_id: str) -> dict | None:
+        """Return tribe from cache with staleness info."""
+        row = self.conn.execute(
+            """SELECT tribe_id, name, name_short, member_count, is_stale,
+                      last_confirmed_at
+               FROM tribe_cache WHERE tribe_id = ?""",
+            (tribe_id,),
+        ).fetchone()
+        if not row:
+            return None
+        now = int(time.time())
+        return {
+            "name": row["name"],
+            "name_short": row["name_short"],
+            "member_count": row["member_count"],
+            "is_stale": bool(row["is_stale"]),
+            "last_confirmed_at": row["last_confirmed_at"],
+            "staleness_seconds": now - row["last_confirmed_at"],
+        }
+
+    def get_stale_tribes(self) -> list[dict]:
+        """Return all tribes marked stale."""
+        rows = self.conn.execute(
+            """SELECT tribe_id, name, name_short, member_count,
+                      last_confirmed_at, last_changed_at
+               FROM tribe_cache WHERE is_stale = 1
+               ORDER BY last_confirmed_at ASC"""
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     # -- Health check --
 
     async def check_health(self, client: httpx.AsyncClient) -> dict:

@@ -145,6 +145,20 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     active INTEGER DEFAULT 1
 );
 
+-- Tribe/corp cache with staleness tracking
+CREATE TABLE IF NOT EXISTS tribe_cache (
+    tribe_id TEXT PRIMARY KEY,
+    name TEXT,
+    name_short TEXT,
+    member_count INTEGER DEFAULT 0,
+    tax_rate REAL DEFAULT 0.0,
+    data_json TEXT,
+    first_seen_at INTEGER NOT NULL,
+    last_confirmed_at INTEGER NOT NULL,
+    last_changed_at INTEGER,
+    is_stale INTEGER DEFAULT 0
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -188,6 +202,8 @@ CREATE INDEX IF NOT EXISTS idx_item_ledger_assembly ON item_ledger(assembly_id);
 CREATE INDEX IF NOT EXISTS idx_item_ledger_type ON item_ledger(item_type_id);
 CREATE INDEX IF NOT EXISTS idx_item_ledger_timestamp ON item_ledger(timestamp);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(active);
+CREATE INDEX IF NOT EXISTS idx_tribe_cache_stale ON tribe_cache(is_stale);
+CREATE INDEX IF NOT EXISTS idx_tribe_cache_confirmed ON tribe_cache(last_confirmed_at);
 """
 
 FTS = """
@@ -243,6 +259,7 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "filed_issues",
         "nexus_events",
         "item_ledger",
+        "tribe_cache",
     ]
     counts = {}
     for table in tables:
