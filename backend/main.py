@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.alerts.discord import send_alert
 from backend.alerts.github_issues import file_github_issue
+from backend.alerts.subscription_dispatch import dispatch_to_subscribers
 from backend.api.anomalies import router as anomalies_router
 from backend.api.objects import router as objects_router
 from backend.api.public import router as public_router
@@ -111,6 +112,8 @@ async def detection_loop(
                     # File GitHub issue for CRITICAL only
                     if github_repo and github_token and a["severity"] == "CRITICAL":
                         await file_github_issue(github_repo, github_token, a, conn)
+                    # Dispatch to subscriber webhooks (filters applied inside)
+                    await dispatch_to_subscribers(conn, a)
         except Exception:
             logger.exception("Detection engine error")
         await asyncio.sleep(interval)
@@ -155,6 +158,8 @@ async def pod_check_loop(
                             await send_alert(webhook_url, a, rate_limit)
                         if github_repo and github_token and a["severity"] == "CRITICAL":
                             await file_github_issue(github_repo, github_token, a, conn)
+                        # Dispatch to subscriber webhooks (filters applied inside)
+                        await dispatch_to_subscribers(conn, a)
                 if anomalies:
                     logger.info("POD check: %d anomalies found", len(anomalies))
         except Exception:
@@ -275,7 +280,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Monolith",
     description="EVE Frontier Blockchain Anomaly Detector & Bug Report Engine",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -354,7 +359,7 @@ async def health() -> dict:
 
     return {
         "status": "ok",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "chain": settings.chain,
         "uptime_seconds": int(time.time() - START_TIME),
         "last_event_time": last_event_time,
