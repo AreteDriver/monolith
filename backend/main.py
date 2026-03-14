@@ -113,6 +113,52 @@ async def detection_loop(
         await asyncio.sleep(interval)
 
 
+async def pod_check_loop(
+    conn,
+    pod_verifier: PodVerifier,
+    engine: DetectionEngine,
+    interval: int,
+    settings=None,
+) -> None:
+    """Background task: run async POD verification checks on interval."""
+    from backend.detection.pod_checker import PodChecker
+
+    # Wait for initial data before first POD check
+    await asyncio.sleep(60)
+    webhook_url = settings.discord_webhook_url if settings else ""
+    rate_limit = settings.discord_rate_limit if settings else 5
+    github_repo = settings.github_repo if settings else ""
+    github_token = settings.github_token if settings else ""
+
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                checker = PodChecker(conn, pod_verifier, client)
+                anomalies = await checker.run_async()
+                for anomaly in anomalies:
+                    if engine._is_duplicate(anomaly):
+                        continue
+                    if engine._store_anomaly(anomaly):
+                        conn.commit()
+                        a = anomaly.to_dict()
+                        logger.warning(
+                            "POD ANOMALY [%s] %s — %s: %s",
+                            a["severity"],
+                            a["anomaly_type"],
+                            a["object_id"][:20],
+                            a["evidence"].get("description", "")[:80],
+                        )
+                        if webhook_url and a["severity"] in ("CRITICAL", "HIGH"):
+                            await send_alert(webhook_url, a, rate_limit)
+                        if github_repo and github_token and a["severity"] == "CRITICAL":
+                            await file_github_issue(github_repo, github_token, a, conn)
+                if anomalies:
+                    logger.info("POD check: %d anomalies found", len(anomalies))
+        except Exception:
+            logger.exception("POD check error")
+        await asyncio.sleep(interval)
+
+
 async def static_data_loop(
     poller: WorldPoller,
     interval: int,
@@ -193,6 +239,12 @@ async def lifespan(app: FastAPI):
             detection_loop(detection_engine, settings.detection_interval, settings, conn)
         ),
         asyncio.create_task(static_data_loop(world_poller, settings.static_data_interval)),
+        asyncio.create_task(
+            pod_check_loop(
+                conn, pod_verifier, detection_engine,
+                settings.detection_interval, settings,
+            )
+        ),
     ]
 
     logger.info(
