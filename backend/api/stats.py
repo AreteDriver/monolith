@@ -90,6 +90,18 @@ def get_stats(request: Request) -> dict:
     last_block_row = conn.execute("SELECT MAX(block_number) FROM chain_events").fetchone()
     last_block = last_block_row[0] if last_block_row and last_block_row[0] else 0
 
+    # POD-related anomalies in last 24h
+    try:
+        pod_24h = conn.execute(
+            "SELECT COUNT(*) FROM anomalies "
+            "WHERE detected_at >= ? AND ("
+            "  LOWER(detector) LIKE '%pod%' OR LOWER(anomaly_type) LIKE '%pod%'"
+            ")",
+            (cutoff_24h,),
+        ).fetchone()[0]
+    except Exception:
+        pod_24h = 0
+
     return {
         "anomaly_rate_24h": total_24h,
         "anomaly_rate_by_hour": hourly_rate,
@@ -101,4 +113,64 @@ def get_stats(request: Request) -> dict:
         "events_processed_24h": events_24h,
         "last_block_processed": last_block,
         "bug_reports_filed": get_filed_count(conn),
+        "pod_anomalies_24h": pod_24h,
+    }
+
+
+@router.get("/ledger")
+def get_ledger_stats(request: Request) -> dict:
+    """Get item ledger statistics — event counts, top assemblies, breakdown.
+
+    Args:
+        request: FastAPI request with DB connection.
+
+    Returns:
+        Ledger stats including totals, top assemblies, and event type breakdown.
+    """
+    conn = _get_db(request)
+
+    try:
+        # Total distinct item combos tracked
+        total_items = conn.execute(
+            "SELECT COUNT(DISTINCT assembly_id || ':' || item_type_id) FROM item_ledger"
+        ).fetchone()[0]
+
+        # Total events
+        total_events = conn.execute("SELECT COUNT(*) FROM item_ledger").fetchone()[0]
+
+        # Top 10 most active assemblies by event count
+        top_assemblies = []
+        for row in conn.execute(
+            "SELECT assembly_id, COUNT(*) as cnt FROM item_ledger "
+            "GROUP BY assembly_id ORDER BY cnt DESC LIMIT 10"
+        ).fetchall():
+            top_assemblies.append(
+                {
+                    "assembly_id": row["assembly_id"],
+                    "event_count": row["cnt"],
+                }
+            )
+
+        # Breakdown by event_type
+        by_event_type = {}
+        for row in conn.execute(
+            "SELECT event_type, COUNT(*) as cnt FROM item_ledger "
+            "GROUP BY event_type ORDER BY cnt DESC"
+        ).fetchall():
+            by_event_type[row["event_type"]] = row["cnt"]
+
+    except Exception:
+        return {
+            "total_items_tracked": 0,
+            "total_events": 0,
+            "top_assemblies": [],
+            "by_event_type": {},
+            "error": "item_ledger table empty or unavailable",
+        }
+
+    return {
+        "total_items_tracked": total_items,
+        "total_events": total_events,
+        "top_assemblies": top_assemblies,
+        "by_event_type": by_event_type,
     }
