@@ -292,9 +292,7 @@ class EventProcessor:
                 ),
             )
         except Exception:
-            logger.exception(
-                "Failed to record item ledger entry for %s", event["event_id"]
-            )
+            logger.exception("Failed to record item ledger entry for %s", event["event_id"])
             return
 
         # Build inventory snapshot for checker consumption
@@ -320,9 +318,7 @@ class EventProcessor:
                 timestamp=event["timestamp"],
                 event_id=event["event_id"],
             )
-            self._write_snapshot(
-                object_id, "smartassemblies", state_update, event["timestamp"]
-            )
+            self._write_snapshot(object_id, "smartassemblies", state_update, event["timestamp"])
 
     def _handle_item_destroyed(self, event: dict, parsed: dict) -> None:
         """ItemDestroyedEvent → mark object destroyed if applicable."""

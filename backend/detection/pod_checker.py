@@ -43,9 +43,7 @@ class PodChecker(BaseChecker):
 
         PodChecker requires async HTTP calls. Use run_async() instead.
         """
-        raise NotImplementedError(
-            "PodChecker requires async execution. Use run_async() instead."
-        )
+        raise NotImplementedError("PodChecker requires async execution. Use run_async() instead.")
 
     async def run_async(self) -> list[Anomaly]:
         """Run all POD verification rules asynchronously."""
