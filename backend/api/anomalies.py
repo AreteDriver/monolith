@@ -2,7 +2,7 @@
 
 import json
 import sqlite3
-from enum import Enum
+from enum import StrEnum
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/api/anomalies", tags=["anomalies"])
 
 
-class AnomalyStatus(str, Enum):
+class AnomalyStatus(StrEnum):
     """Valid anomaly statuses."""
 
     UNVERIFIED = "UNVERIFIED"
@@ -64,7 +64,7 @@ def list_anomalies(
 
     rows = conn.execute(query, params).fetchall()
     return {
-        "data": [_row_to_dict(row) for row in rows],
+        "data": [_enrich_system_name(conn, _row_to_dict(row)) for row in rows],
         "limit": limit,
         "offset": offset,
     }
@@ -77,7 +77,7 @@ def get_anomaly(request: Request, anomaly_id: str) -> dict:
     row = conn.execute("SELECT * FROM anomalies WHERE anomaly_id = ?", (anomaly_id,)).fetchone()
     if not row:
         return {"error": "not_found"}
-    return _row_to_dict(row)
+    return _enrich_system_name(conn, _row_to_dict(row))
 
 
 @router.patch("/{anomaly_id}/status")
@@ -106,6 +106,33 @@ def update_anomaly_status(
         (anomaly_id,),
     ).fetchone()
     return _row_to_dict(updated)
+
+
+def _enrich_system_name(conn: sqlite3.Connection, row_dict: dict) -> dict:
+    """Look up system name from reference_data and add to row dict.
+
+    Args:
+        conn: Database connection.
+        row_dict: Anomaly dict to enrich.
+
+    Returns:
+        Enriched dict with system_name key.
+    """
+    system_id = row_dict.get("system_id")
+    if not system_id:
+        row_dict["system_name"] = None
+        return row_dict
+
+    try:
+        ref_row = conn.execute(
+            "SELECT name FROM reference_data WHERE data_type = 'solarsystems' AND data_id = ?",
+            (system_id,),
+        ).fetchone()
+        row_dict["system_name"] = ref_row["name"] if ref_row else None
+    except Exception:
+        row_dict["system_name"] = None
+
+    return row_dict
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict:
