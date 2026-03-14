@@ -134,6 +134,17 @@ CREATE TABLE IF NOT EXISTS item_ledger (
     timestamp INTEGER NOT NULL
 );
 
+-- Webhook subscriptions for Discord alerts
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sub_id TEXT UNIQUE NOT NULL,
+    webhook_url TEXT NOT NULL,
+    severity_filter TEXT NOT NULL DEFAULT '[]',
+    event_types TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL,
+    active INTEGER DEFAULT 1
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -176,6 +187,7 @@ CREATE INDEX IF NOT EXISTS idx_nexus_events_type ON nexus_events(event_type, rec
 CREATE INDEX IF NOT EXISTS idx_item_ledger_assembly ON item_ledger(assembly_id);
 CREATE INDEX IF NOT EXISTS idx_item_ledger_type ON item_ledger(item_type_id);
 CREATE INDEX IF NOT EXISTS idx_item_ledger_timestamp ON item_ledger(timestamp);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(active);
 """
 
 FTS = """

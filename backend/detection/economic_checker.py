@@ -221,14 +221,16 @@ class EconomicChecker(BaseChecker):
         return anomalies
 
     # Inventory event types are expected to batch (multiple per tx per object)
-    _BATCH_SAFE_SUFFIXES = frozenset({
-        "ItemMintedEvent",
-        "ItemBurnedEvent",
-        "ItemDepositedEvent",
-        "ItemWithdrawnEvent",
-        "ItemDestroyedEvent",
-        "FuelEvent",
-    })
+    _BATCH_SAFE_SUFFIXES = frozenset(
+        {
+            "ItemMintedEvent",
+            "ItemBurnedEvent",
+            "ItemDepositedEvent",
+            "ItemWithdrawnEvent",
+            "ItemDestroyedEvent",
+            "FuelEvent",
+        }
+    )
 
     def _check_e3_duplicate_mint(self) -> list[Anomaly]:
         """E3: Same object receives duplicate events of the same type in one tx.
@@ -253,7 +255,8 @@ class EconomicChecker(BaseChecker):
         anomalies = []
         for row in rows:
             # Skip batch-safe event types (inventory/fuel ops are expected duplicates)
-            event_suffix = row["event_type"].rsplit("::", 1)[-1] if "::" in row["event_type"] else ""
+            etype = row["event_type"]
+            event_suffix = etype.rsplit("::", 1)[-1] if "::" in etype else ""
             if event_suffix in self._BATCH_SAFE_SUFFIXES:
                 continue
 
