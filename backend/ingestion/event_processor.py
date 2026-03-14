@@ -41,6 +41,7 @@ class EventProcessor:
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
+        self._unknown_type_counts: dict[str, int] = {}
 
     def process_unprocessed(self, batch_size: int = 500) -> int:
         """Process a batch of unprocessed chain events. Returns count processed."""
@@ -94,6 +95,16 @@ class EventProcessor:
             handler = getattr(self, handler_name)
             parsed = self._parse_raw(event)
             handler(event, parsed)
+        elif suffix:
+            # Log unknown event types so we don't silently lose data
+            logger.warning(
+                "Unknown event type '%s' (suffix: %s) for object %s — "
+                "event processed but no state update applied",
+                event_type[:60],
+                suffix,
+                event.get("object_id", "")[:20],
+            )
+            self._track_unknown_type(suffix)
 
     def _parse_raw(self, event: dict) -> dict:
         """Parse the raw_json field to get the Sui event's parsedJson."""
@@ -397,6 +408,21 @@ class EventProcessor:
                     "UPDATE objects SET last_seen = ? WHERE object_id = ?",
                     (event["timestamp"], gate_id),
                 )
+
+    # -- Unknown type tracking --
+
+    def _track_unknown_type(self, suffix: str) -> None:
+        """Track counts of unknown event types for monitoring."""
+        self._unknown_type_counts[suffix] = self._unknown_type_counts.get(suffix, 0) + 1
+        # Log summary every 100 occurrences
+        total = sum(self._unknown_type_counts.values())
+        if total % 100 == 0:
+            logger.info("Unknown event type summary: %s", self._unknown_type_counts)
+
+    @property
+    def unknown_type_counts(self) -> dict[str, int]:
+        """Get counts of unknown event types seen."""
+        return dict(self._unknown_type_counts)
 
     # -- Helper methods --
 
