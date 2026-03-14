@@ -41,6 +41,9 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     "S4": ("MEDIUM", "PERFORMANCE"),
     # POD checker
     "P1": ("CRITICAL", "EXPLOIT_VECTOR"),
+    # Killmail checker
+    "K1": ("HIGH", "DATA_INTEGRITY"),
+    "K2": ("MEDIUM", "DATA_INTEGRITY"),
 }
 
 
