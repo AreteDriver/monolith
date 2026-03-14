@@ -31,7 +31,14 @@ def test_e3_duplicate_mint(db_conn):
         db_conn.execute(
             "INSERT INTO chain_events (event_id, event_type, object_id, block_number, "
             "transaction_hash, timestamp, processed) VALUES (?, ?, ?, ?, ?, ?, 0)",
-            (f"tx-dup:0x{i}", "0xpkg::status::StatusChangedEvent", "obj-same", 100, "tx-dup", int(time.time())),
+            (
+                f"tx-dup:0x{i}",
+                "0xpkg::status::StatusChangedEvent",
+                "obj-same",
+                100,
+                "tx-dup",
+                int(time.time()),
+            ),
         )
     db_conn.commit()
 
@@ -48,7 +55,14 @@ def test_e3_batch_inventory_not_flagged(db_conn):
         db_conn.execute(
             "INSERT INTO chain_events (event_id, event_type, object_id, block_number, "
             "transaction_hash, timestamp, processed) VALUES (?, ?, ?, ?, ?, ?, 0)",
-            (f"tx-batch:0x{i}", "0xpkg::inventory::ItemMintedEvent", "asm-batch", 100, "tx-batch", int(time.time())),
+            (
+                f"tx-batch:0x{i}",
+                "0xpkg::inventory::ItemMintedEvent",
+                "asm-batch",
+                100,
+                "tx-batch",
+                int(time.time()),
+            ),
         )
     db_conn.commit()
 

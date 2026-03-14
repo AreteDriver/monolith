@@ -72,7 +72,7 @@ async def send_alert(
                 "inline": True,
             },
         ],
-        "footer": {"text": "MONOLITH v0.1.0 — EVE Frontier Blockchain Integrity Monitor"},
+        "footer": {"text": "MONOLITH v0.2.0 — EVE Frontier Blockchain Integrity Monitor"},
     }
 
     payload = {"embeds": [embed]}
