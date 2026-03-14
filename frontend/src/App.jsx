@@ -6,6 +6,7 @@ import Landing from './pages/Landing'
 import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
 import StatsPanel from './pages/StatsPanel'
+import MapView from './pages/MapView'
 import SubmitPage from './pages/SubmitPage'
 import AegisEcosystem from './components/AegisEcosystem'
 
@@ -20,6 +21,9 @@ function Nav() {
       </Link>
       <Link to="/stats" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Stats
+      </Link>
+      <Link to="/map" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
+        Map
       </Link>
       <Link to="/submit" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Submit Bug
@@ -41,6 +45,7 @@ export default function App() {
             <Route path="/reports/:id" element={<ReportView />} />
             <Route path="/objects/:id" element={<ObjectTracker />} />
             <Route path="/stats" element={<StatsPanel />} />
+            <Route path="/map" element={<MapView />} />
             <Route path="/submit" element={<SubmitPage />} />
           </Routes>
         </main>

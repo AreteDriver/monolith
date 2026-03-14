@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, createSearchParams } from 'react-router-dom'
 import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
@@ -58,17 +58,25 @@ export default function AnomalyDetail() {
             </Link>
           </span>
           {a.system_id && (
-            <span className="text-sm">
-              <span className="text-[#6b7280]">System: </span>
-              <a
-                href={`https://thewatchtower.xyz/system/${a.system_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mono no-underline hover:underline"
-                style={{ color: '#7F77DD' }}
+            <span className="text-sm flex items-center gap-3">
+              <span>
+                <span className="text-[#6b7280]">System: </span>
+                <a
+                  href={`https://thewatchtower.xyz/system/${a.system_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mono no-underline hover:underline"
+                  style={{ color: '#7F77DD' }}
+                >
+                  {systemNames[a.system_id] || a.system_id}
+                </a>
+              </span>
+              <Link
+                to={`/map?${createSearchParams({ q: systemNames[a.system_id] || a.system_id })}`}
+                className="text-xs text-[#f59e0b] no-underline hover:underline"
               >
-                {systemNames[a.system_id] || a.system_id}
-              </a>
+                View on Map
+              </Link>
             </span>
           )}
         </div>

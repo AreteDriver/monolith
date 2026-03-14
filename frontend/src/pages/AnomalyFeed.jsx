@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, createSearchParams } from 'react-router-dom'
 import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
@@ -71,16 +71,26 @@ export default function AnomalyFeed() {
                 {truncate(a.object_id, 20)}
               </span>
               {a.system_id && (
-                <a
-                  href={`https://thewatchtower.xyz/system/${a.system_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs no-underline hover:underline"
-                  style={{ color: '#7F77DD' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {systemNames[a.system_id] || `sys:${a.system_id}`}
-                </a>
+                <span className="flex items-center gap-2">
+                  <a
+                    href={`https://thewatchtower.xyz/system/${a.system_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs no-underline hover:underline"
+                    style={{ color: '#7F77DD' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {systemNames[a.system_id] || `sys:${a.system_id}`}
+                  </a>
+                  <Link
+                    to={`/map?${createSearchParams({ q: systemNames[a.system_id] || a.system_id })}`}
+                    className="text-xs text-[#f59e0b] no-underline hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                    title="View on Map"
+                  >
+                    MAP
+                  </Link>
+                </span>
               )}
               <span className="ml-auto">
                 <TimeAgo timestamp={a.detected_at} />
