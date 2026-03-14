@@ -127,6 +127,7 @@ async def pod_check_loop(
     settings=None,
 ) -> None:
     """Background task: run async POD verification checks on interval."""
+    from backend.detection.killmail_checker import KillmailChecker
     from backend.detection.pod_checker import PodChecker
 
     # Wait for initial data before first POD check
@@ -162,6 +163,41 @@ async def pod_check_loop(
                         await dispatch_to_subscribers(conn, a)
                 if anomalies:
                     logger.info("POD check: %d anomalies found", len(anomalies))
+
+                # Killmail reconciliation — same client, same loop
+                try:
+                    world_api_url = settings.world_api_url if settings else ""
+                    if world_api_url:
+                        km_checker = KillmailChecker(conn, client, world_api_url)
+                        km_anomalies = await km_checker.run_async()
+                        for anomaly in km_anomalies:
+                            if engine._is_duplicate(anomaly):
+                                continue
+                            if engine._store_anomaly(anomaly):
+                                conn.commit()
+                                a = anomaly.to_dict()
+                                logger.warning(
+                                    "KILLMAIL ANOMALY [%s] %s — %s: %s",
+                                    a["severity"],
+                                    a["anomaly_type"],
+                                    a["object_id"][:20],
+                                    a["evidence"].get("description", "")[:80],
+                                )
+                                if webhook_url and a["severity"] in (
+                                    "CRITICAL",
+                                    "HIGH",
+                                ):
+                                    await send_alert(webhook_url, a, rate_limit)
+                                if github_repo and github_token and a["severity"] == "CRITICAL":
+                                    await file_github_issue(github_repo, github_token, a, conn)
+                                await dispatch_to_subscribers(conn, a)
+                        if km_anomalies:
+                            logger.info(
+                                "Killmail check: %d anomalies found",
+                                len(km_anomalies),
+                            )
+                except Exception:
+                    logger.exception("Killmail reconciliation error")
         except Exception:
             logger.exception("POD check error")
         await asyncio.sleep(interval)
@@ -180,6 +216,12 @@ async def static_data_loop(
                 logger.info("Initial static data fetch: %s", counts)
         except Exception:
             logger.exception("Initial static data fetch failed")
+        try:
+            tribe_count = await poller.poll_tribes(client)
+            if tribe_count > 0:
+                logger.info("Tribe cache refreshed: %d tribes", tribe_count)
+        except Exception:
+            logger.exception("Initial tribe cache fetch failed")
 
     while True:
         await asyncio.sleep(interval)
@@ -188,6 +230,12 @@ async def static_data_loop(
                 await poller.poll_static_data(client)
             except Exception:
                 logger.exception("Static data refresh failed")
+            try:
+                tribe_count = await poller.poll_tribes(client)
+                if tribe_count > 0:
+                    logger.info("Tribe cache refreshed: %d tribes", tribe_count)
+            except Exception:
+                logger.exception("Tribe cache refresh failed")
 
 
 @asynccontextmanager
@@ -357,6 +405,18 @@ async def health() -> dict:
     except Exception:
         nexus_stats = {"error": "nexus_events table not available"}
 
+    # Tribe cache stats
+    tribe_cache_stats = {}
+    try:
+        tribe_total = conn.execute("SELECT COUNT(*) FROM tribe_cache").fetchone()
+        tribe_stale = conn.execute("SELECT COUNT(*) FROM tribe_cache WHERE is_stale = 1").fetchone()
+        tribe_cache_stats = {
+            "total": tribe_total[0] if tribe_total else 0,
+            "stale": tribe_stale[0] if tribe_stale else 0,
+        }
+    except Exception:
+        tribe_cache_stats = {"total": 0, "stale": 0}
+
     return {
         "status": "ok",
         "version": "0.2.0",
@@ -367,6 +427,12 @@ async def health() -> dict:
         "sui_rpc": sui_rpc,
         "row_counts": counts,
         "nexus_stats": nexus_stats,
+        "unknown_event_types": (
+            app.state.event_processor.unknown_type_counts
+            if hasattr(app.state, "event_processor")
+            else {}
+        ),
+        "tribe_cache": tribe_cache_stats,
     }
 
 
