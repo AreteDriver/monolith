@@ -57,8 +57,11 @@ def _save_cache(conn: sqlite3.Connection, config: dict) -> None:
     conn.commit()
 
 
-def parse_config(raw: dict) -> dict:
+def parse_config(raw: dict | list) -> dict:
     """Extract the fields Monolith needs from the raw /config response."""
+    if isinstance(raw, list):
+        # New API format returns a list — find the dict with contracts, or use first
+        raw = next((item for item in raw if isinstance(item, dict) and "contracts" in item), {})
     contracts = raw.get("contracts", {})
     world = contracts.get("world", {})
     rpc_urls = raw.get("rpcUrls", {}).get("default", {})

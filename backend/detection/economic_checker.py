@@ -378,7 +378,10 @@ class EconomicChecker(BaseChecker):
         if isinstance(nn, dict):
             fuel = nn.get("fuel", {})
             if isinstance(fuel, dict) and "amount" in fuel:
-                return fuel["amount"]
+                try:
+                    return int(fuel["amount"])
+                except (ValueError, TypeError):
+                    return None
         return None
 
     @staticmethod

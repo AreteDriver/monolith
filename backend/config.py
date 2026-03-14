@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings
 # World API base URLs by chain environment
 CHAIN_URLS: dict[str, dict[str, str]] = {
     "stillness": {
-        "world_api": "https://blockchain-gateway-stillness.live.tech.evefrontier.com",
+        "world_api": "https://world-api-stillness.live.tech.evefrontier.com",
         "sui_rpc": "https://fullnode.mainnet.sui.io:443",
     },
     "nova": {
