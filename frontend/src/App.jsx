@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import AnomalyDetail from './pages/AnomalyDetail'
@@ -5,10 +6,11 @@ import AnomalyFeed from './pages/AnomalyFeed'
 import Landing from './pages/Landing'
 import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
-import StatsPanel from './pages/StatsPanel'
-import MapView from './pages/MapView'
 import SubmitPage from './pages/SubmitPage'
 import AegisEcosystem from './components/AegisEcosystem'
+
+const StatsPanel = lazy(() => import('./pages/StatsPanel'))
+const MapView = lazy(() => import('./pages/MapView'))
 
 function Nav() {
   return (
@@ -32,22 +34,26 @@ function Nav() {
   )
 }
 
+const SuspenseFallback = <div className="text-[#a3a3a3] p-6">Loading...</div>
+
 export default function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#0a0a0a]">
         <Nav />
         <main className="max-w-7xl mx-auto px-6 py-6">
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/anomalies" element={<AnomalyFeed />} />
-            <Route path="/anomalies/:id" element={<AnomalyDetail />} />
-            <Route path="/reports/:id" element={<ReportView />} />
-            <Route path="/objects/:id" element={<ObjectTracker />} />
-            <Route path="/stats" element={<StatsPanel />} />
-            <Route path="/map" element={<MapView />} />
-            <Route path="/submit" element={<SubmitPage />} />
-          </Routes>
+          <Suspense fallback={SuspenseFallback}>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/anomalies" element={<AnomalyFeed />} />
+              <Route path="/anomalies/:id" element={<AnomalyDetail />} />
+              <Route path="/reports/:id" element={<ReportView />} />
+              <Route path="/objects/:id" element={<ObjectTracker />} />
+              <Route path="/stats" element={<StatsPanel />} />
+              <Route path="/map" element={<MapView />} />
+              <Route path="/submit" element={<SubmitPage />} />
+            </Routes>
+          </Suspense>
         </main>
         <div className="max-w-7xl mx-auto px-6 pb-8">
           <AegisEcosystem />
