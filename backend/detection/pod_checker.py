@@ -83,7 +83,7 @@ class PodChecker(BaseChecker):
             system_id = row["system_id"] or ""
 
             # Parse local state
-            local_state = self._parse_state(row)
+            local_state = self._parse_state(dict(row))
 
             # Fetch POD-signed data from World API
             pod_envelope = await self.pod_verifier.fetch_pod(

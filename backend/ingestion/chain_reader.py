@@ -52,6 +52,10 @@ OBJECT_ID_FIELDS: dict[str, str] = {
 }
 
 
+class _StaleCursorError(Exception):
+    """Raised when a stored cursor references a pruned Sui transaction."""
+
+
 class ChainReader:
     """Reads events from Sui RPC and writes to chain_events table."""
 
@@ -93,7 +97,13 @@ class ChainReader:
         data = resp.json()
 
         if "error" in data:
-            logger.error("Sui RPC error for %s: %s", event_type, data["error"])
+            error = data["error"]
+            logger.error("Sui RPC error for %s: %s", event_type, error)
+            # If the cursor references a pruned transaction, signal the caller
+            # to reset the cursor by raising a specific error
+            msg = str(error.get("message", "")) if isinstance(error, dict) else str(error)
+            if "Could not find the referenced transaction" in msg:
+                raise _StaleCursorError(msg)
             return [], None, False
 
         result = data.get("result", {})
@@ -191,6 +201,14 @@ class ChainReader:
         )
         self.conn.commit()
 
+    def _clear_cursor(self, event_filter: str) -> None:
+        """Clear a stale cursor so next poll starts fresh."""
+        self.conn.execute(
+            "DELETE FROM sui_cursors WHERE event_filter = ?",
+            (event_filter,),
+        )
+        self.conn.commit()
+
     async def poll(self, client: httpx.AsyncClient) -> int:
         """Poll all event types for new events. Returns total count stored."""
         if not self.package_id:
@@ -208,6 +226,13 @@ class ChainReader:
                     events, next_cursor, has_next = await self.query_events(
                         client, event_type, cursor
                     )
+                except _StaleCursorError:
+                    logger.warning(
+                        "Stale cursor for %s — clearing and restarting from latest",
+                        event_type,
+                    )
+                    self._clear_cursor(event_type)
+                    break
                 except (httpx.HTTPError, KeyError, ValueError) as e:
                     logger.error("Sui event poll failed for %s: %s", event_type, e)
                     break
