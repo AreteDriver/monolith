@@ -162,21 +162,31 @@ class EconomicChecker(BaseChecker):
                 )
         return anomalies
 
+    # Staleness threshold: 7 days. Assemblies can sit idle for days/weeks
+    # in EVE Frontier without chain events. A 2h window produced mass false
+    # positives from every idle assembly. 7 days balances signal vs noise —
+    # if an assembly had chain activity within the last week but none since,
+    # AND was previously online, it's worth investigating.
+    E2_STALENESS_SECONDS = 7 * 86400  # 7 days
+
     def _check_e2_unexplained_destruction(self) -> list[Anomaly]:
         """E2: Object disappeared from API between snapshots without kill/destroy event.
 
         If an object was present in snapshot T1 but absent in T2, and no
         destruction event exists on chain, the object vanished without explanation.
+        Only flags objects that were previously ONLINE (actively used) and have
+        been silent for >7 days — idle assemblies are normal in EVE Frontier.
         """
-        # Objects last seen >1 hour ago that aren't destroyed
+        # Objects last seen >7 days ago that aren't destroyed
         rows = self.conn.execute(
             """SELECT object_id, object_type, current_state, system_id, last_seen
                FROM objects
                WHERE destroyed_at IS NULL
                  AND last_seen > 0
-                 AND last_seen < (strftime('%s', 'now') - 7200)
+                 AND last_seen < (strftime('%s', 'now') - ?)
                  AND object_type = 'smartassemblies'
-               LIMIT 200"""
+               LIMIT 200""",
+            (self.E2_STALENESS_SECONDS,),
         ).fetchall()
 
         anomalies = []
@@ -186,8 +196,10 @@ class EconomicChecker(BaseChecker):
             with contextlib.suppress(json.JSONDecodeError):
                 state = json.loads(row["current_state"] or "{}")
 
-            # Skip unanchored/zero-owner objects (likely default/template objects)
-            if state.get("state") == "unanchored":
+            # Only flag objects that were actively ONLINE — idle/offline/unanchored
+            # assemblies going quiet is expected behavior in EVE Frontier
+            obj_state = state.get("state", "")
+            if obj_state != "ONLINE":
                 continue
             owner = state.get("owner", {})
             if isinstance(owner, dict) and owner.get("address") == "0x" + "0" * 40:
