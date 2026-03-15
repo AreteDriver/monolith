@@ -108,8 +108,10 @@ class DetectionEngine:
             )
             return True
         except sqlite3.IntegrityError:
-            # Duplicate anomaly_id — regenerate and retry once
-            anomaly.anomaly_id = f"{anomaly.anomaly_id}-{int(time.time()) % 1000:03d}"
+            # Duplicate anomaly_id — append monotonic counter suffix and retry
+            import os
+
+            anomaly.anomaly_id = f"{anomaly.anomaly_id}-{os.urandom(3).hex()}"
             try:
                 self.conn.execute(
                     """INSERT INTO anomalies

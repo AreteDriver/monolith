@@ -1,5 +1,6 @@
 """Base classes and types for detection checkers."""
 
+import itertools
 import json
 import sqlite3
 import time
@@ -7,6 +8,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from backend.detection.anomaly_scorer import classify_anomaly
+
+_anomaly_counter = itertools.count(1)
 
 
 @dataclass
@@ -31,7 +34,7 @@ class Anomaly:
             self.detected_at = int(time.time())
         if not self.anomaly_id:
             date_str = datetime.now(tz=UTC).strftime("%Y%m%d")
-            seq = self.detected_at % 10000
+            seq = next(_anomaly_counter)
             self.anomaly_id = f"MNL-{date_str}-{seq:04d}"
 
     def to_dict(self) -> dict:
