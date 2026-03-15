@@ -8,7 +8,8 @@ from pydantic_settings import BaseSettings
 CHAIN_URLS: dict[str, dict[str, str]] = {
     "stillness": {
         "world_api": "https://world-api-stillness.live.tech.evefrontier.com",
-        "sui_rpc": "https://fullnode.mainnet.sui.io:443",
+        # EVE Frontier "Stillness" runs on Sui testnet despite being the live server
+        "sui_rpc": "https://fullnode.testnet.sui.io:443",
     },
     "nova": {
         "world_api": "https://world-api-nova.live.tech.evefrontier.com",
