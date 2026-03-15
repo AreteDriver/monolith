@@ -98,6 +98,7 @@ def test_stats_map_empty(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["systems"] == []
+    assert body["recent_events"] == []
 
 
 def test_stats_map_with_data(client):
@@ -115,6 +116,66 @@ def test_stats_map_with_data(client):
     assert sys["x"] == -5103797186450162000
     assert sys["z"] == 1335601100954271700
     assert sys["count"] == 1
+
+
+def test_stats_map_recent_events(client):
+    """Recent events include anomaly type, severity, coords, and timestamp."""
+    conn = app.state.db
+    _insert_anomaly(conn, "EVT-1", detector="pod_checker", anomaly_type="POD_MISMATCH")
+    _insert_anomaly(conn, "EVT-2", detector="continuity_checker", anomaly_type="CONTINUITY_BREAK")
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+
+    resp = client.get("/api/stats/map")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["recent_events"]) == 2
+    ev = body["recent_events"][0]
+    assert ev["anomaly_id"] in ("EVT-1", "EVT-2")
+    assert ev["system_id"] == "30012602"
+    assert ev["system_name"] == "Terminus"
+    assert ev["x"] == -5103797186450162000
+    assert ev["z"] == 1335601100954271700
+    assert "anomaly_type" in ev
+    assert "severity" in ev
+    assert "detected_at" in ev
+
+
+def test_stats_map_recent_events_excludes_false_positives(client):
+    """False positive anomalies should not appear in recent_events."""
+    conn = app.state.db
+    _insert_anomaly(conn, "EVT-FP", detector="pod_checker", anomaly_type="POD_MISMATCH")
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+    conn.execute("UPDATE anomalies SET status = 'FALSE_POSITIVE' WHERE anomaly_id = 'EVT-FP'")
+    conn.commit()
+
+    resp = client.get("/api/stats/map")
+    body = resp.json()
+    assert body["recent_events"] == []
+
+
+def test_stats_map_recent_events_excludes_old(client):
+    """Anomalies older than 24h should not appear in recent_events."""
+    conn = app.state.db
+    _insert_anomaly(conn, "EVT-OLD", detector="pod_checker", anomaly_type="POD_MISMATCH")
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+    old_ts = int(time.time()) - 90000  # 25 hours ago
+    conn.execute("UPDATE anomalies SET detected_at = ? WHERE anomaly_id = 'EVT-OLD'", (old_ts,))
+    conn.commit()
+
+    resp = client.get("/api/stats/map")
+    body = resp.json()
+    assert body["recent_events"] == []
+
+
+def test_stats_map_recent_events_skips_no_coords(client):
+    """Events without reference data (coordinates) should be excluded."""
+    conn = app.state.db
+    _insert_anomaly(conn, "EVT-NC", detector="pod_checker", anomaly_type="POD_MISMATCH")
+    # No reference_data for system_id 30012602
+
+    resp = client.get("/api/stats/map")
+    body = resp.json()
+    assert body["recent_events"] == []
 
 
 def test_stats_map_excludes_false_positives(client):
