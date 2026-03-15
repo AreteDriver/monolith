@@ -70,6 +70,7 @@ async def receive_nexus_event(
 def _store_nexus_killmail(db, payload: dict) -> None:
     """Store a killmail from NEXUS into nexus_events table."""
     now = int(time.time())
+    solar_system_id = payload.get("solar_system_id", "")
     db.execute(
         """INSERT OR IGNORE INTO nexus_events
            (event_type, event_id, solar_system_id, payload, received_at)
@@ -77,13 +78,37 @@ def _store_nexus_killmail(db, payload: dict) -> None:
         (
             "killmail",
             payload.get("killmail_id", ""),
-            payload.get("solar_system_id", ""),
+            solar_system_id,
             json.dumps(payload),
             now,
         ),
     )
+    # Enrich objects with system_id from killmail location
+    if solar_system_id:
+        _enrich_objects_from_killmail(db, payload, solar_system_id)
     db.commit()
     logger.info("NEXUS killmail: %s", payload.get("killmail_id", "?"))
+
+
+def _enrich_objects_from_killmail(db, payload: dict, solar_system_id: str) -> None:
+    """Backfill objects.system_id from killmail victim/attacker locations."""
+    object_ids = set()
+    victim = payload.get("victim", {})
+    if isinstance(victim, dict):
+        vid = victim.get("id", "") or victim.get("address", "")
+        if vid:
+            object_ids.add(str(vid))
+    killer = payload.get("killer", {})
+    if isinstance(killer, dict):
+        kid = killer.get("id", "") or killer.get("address", "")
+        if kid:
+            object_ids.add(str(kid))
+    for oid in object_ids:
+        db.execute(
+            "UPDATE objects SET system_id = ? "
+            "WHERE object_id = ? AND (system_id IS NULL OR system_id = '')",
+            (solar_system_id, oid),
+        )
 
 
 def _store_nexus_gate_transit(db, payload: dict) -> None:

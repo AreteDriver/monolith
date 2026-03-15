@@ -218,7 +218,70 @@ def get_map_data(request: Request) -> dict:
             }
         )
 
-    return {"systems": systems, "recent_events": recent_events}
+    # All solar systems for background map layer
+    all_systems = []
+    all_ref = conn.execute(
+        "SELECT data_id, name, data_json FROM reference_data "
+        "WHERE data_type = 'solarsystems'"
+    ).fetchall()
+    for ref in all_ref:
+        try:
+            data = json.loads(ref["data_json"]) if ref["data_json"] else {}
+            loc = data.get("location", {})
+            x = loc.get("x", 0)
+            z = loc.get("z", 0)
+            if x == 0 and z == 0:
+                continue
+            all_systems.append(
+                {
+                    "system_id": ref["data_id"],
+                    "name": ref["name"] or data.get("name", ""),
+                    "x": x,
+                    "z": z,
+                }
+            )
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return {
+        "systems": systems,
+        "recent_events": recent_events,
+        "all_systems": all_systems,
+    }
+
+
+@router.post("/map/enrich")
+def enrich_system_ids(request: Request) -> dict:
+    """One-time backfill: enrich objects.system_id from existing nexus killmails."""
+    conn = _get_db(request)
+    rows = conn.execute(
+        "SELECT payload, solar_system_id FROM nexus_events "
+        "WHERE event_type = 'killmail' AND solar_system_id != ''"
+    ).fetchall()
+
+    enriched = 0
+    for row in rows:
+        try:
+            payload = json.loads(row["payload"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        solar_id = row["solar_system_id"]
+        object_ids = set()
+        for key in ("victim", "killer"):
+            entity = payload.get(key, {})
+            if isinstance(entity, dict):
+                oid = entity.get("id", "") or entity.get("address", "")
+                if oid:
+                    object_ids.add(str(oid))
+        for oid in object_ids:
+            cur = conn.execute(
+                "UPDATE objects SET system_id = ? "
+                "WHERE object_id = ? AND (system_id IS NULL OR system_id = '')",
+                (solar_id, oid),
+            )
+            enriched += cur.rowcount
+    conn.commit()
+    return {"enriched_objects": enriched, "killmails_processed": len(rows)}
 
 
 @router.get("/ledger")

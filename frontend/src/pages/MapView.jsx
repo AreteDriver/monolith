@@ -37,20 +37,27 @@ function AnomalyMap() {
   const dragRef = useRef({ dragging: false, startX: 0, startY: 0, startTx: 0, startTy: 0 })
   const systemsRef = useRef([])
   const eventsRef = useRef([])
+  const bgSystemsRef = useRef([])
   const animRef = useRef(null)
-  const [layers, setLayers] = useState({ heatmap: true, events: true, markers: true })
+  const [layers, setLayers] = useState({ background: true, heatmap: true, events: true, markers: true })
 
   const { data, loading } = useApi('/api/stats/map', { poll: 60000 })
 
   // Compute normalized positions once when data arrives
   useEffect(() => {
-    if (!data?.systems?.length) {
+    const bgSystems = data?.all_systems || []
+    const systems = data?.systems || []
+    const events = data?.recent_events || []
+
+    // Use all_systems for coordinate bounds (full universe extent)
+    const allPoints = bgSystems.length ? bgSystems : [...systems, ...events]
+    if (!allPoints.length) {
       systemsRef.current = []
       eventsRef.current = []
+      bgSystemsRef.current = []
       return
     }
-    const systems = data.systems
-    const allPoints = [...systems, ...(data.recent_events || [])]
+
     const xs = allPoints.map(s => s.x)
     const zs = allPoints.map(s => s.z)
     const minX = Math.min(...xs)
@@ -60,17 +67,15 @@ function AnomalyMap() {
     const rangeX = maxX - minX || 1
     const rangeZ = maxZ - minZ || 1
 
-    systemsRef.current = systems.map(s => ({
+    const normalize = (s) => ({
       ...s,
       nx: (s.x - minX) / rangeX,
       nz: (s.z - minZ) / rangeZ,
-    }))
+    })
 
-    eventsRef.current = (data.recent_events || []).map(e => ({
-      ...e,
-      nx: (e.x - minX) / rangeX,
-      nz: (e.z - minZ) / rangeZ,
-    }))
+    bgSystemsRef.current = bgSystems.map(normalize)
+    systemsRef.current = systems.map(normalize)
+    eventsRef.current = events.map(normalize)
   }, [data])
 
   const draw = useCallback((timestamp) => {
@@ -115,18 +120,52 @@ function AnomalyMap() {
 
     const systems = systemsRef.current
     const events = eventsRef.current
-    if (!systems.length) {
+    const bgSystems = bgSystemsRef.current
+
+    if (!bgSystems.length && !systems.length) {
       ctx.fillStyle = '#6b7280'
       ctx.font = '14px -apple-system, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText('No anomaly data available', w / 2, h / 2)
+      ctx.fillText('No map data available', w / 2, h / 2)
       return
     }
 
     const pad = 60
     const drawW = w - pad * 2
     const drawH = h - pad * 2
-    const maxCount = Math.max(...systems.map(s => s.count))
+
+    // --- BACKGROUND SYSTEMS (dim dots for full universe) ---
+    if (layers.background && bgSystems.length) {
+      ctx.fillStyle = '#1e293b'
+      for (const sys of bgSystems) {
+        const sx = pad + sys.nx * drawW
+        const sy = pad + sys.nz * drawH
+        const px = sx * transform.scale + transform.x
+        const py = sy * transform.scale + transform.y
+
+        if (px < -5 || px > w + 5 || py < -5 || py > h + 5) continue
+
+        ctx.beginPath()
+        ctx.arc(px, py, Math.max(1, 1.5 * transform.scale), 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // Labels at higher zoom
+      if (transform.scale > 2.5) {
+        ctx.fillStyle = '#334155'
+        ctx.font = `${Math.max(8, 9 * transform.scale)}px -apple-system, sans-serif`
+        ctx.textAlign = 'center'
+        for (const sys of bgSystems) {
+          const sx = pad + sys.nx * drawW
+          const sy = pad + sys.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -5 || px > w + 5 || py < -5 || py > h + 5) continue
+          if (sys.name) ctx.fillText(sys.name, px, py - 5 * transform.scale)
+        }
+      }
+    }
+    const maxCount = systems.length ? Math.max(...systems.map(s => s.count)) : 1
     const now = Date.now() / 1000
 
     // --- HEATMAP LAYER ---
@@ -473,6 +512,7 @@ function AnomalyMap() {
       <div className="absolute top-4 right-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs space-y-1.5">
         <div className="text-[#a3a3a3] font-bold uppercase mb-1">Layers</div>
         {[
+          { key: 'background', label: 'All Systems' },
           { key: 'heatmap', label: 'Heatmap' },
           { key: 'events', label: 'Events (24h)' },
           { key: 'markers', label: 'System Markers' },
