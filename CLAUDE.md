@@ -9,7 +9,7 @@ Blockchain anomaly detector and bug report engine for EVE Frontier
 - **Version**: 0.2.0
 - **Language**: Python
 - **Files**: 135 across 4 languages
-- **Lines**: 17,894
+- **Lines**: 17,934
 
 ## Architecture
 
@@ -122,6 +122,7 @@ ruff format src/ tests/
 - `AnomalyStatus`
 - `AssemblyChecker`
 - `BaseChecker`
+- `BulkStatusRequest`
 - `ChainReader`
 - `ContinuityChecker`
 - `DetectionEngine`
@@ -132,7 +133,6 @@ ruff format src/ tests/
 - `PodChecker`
 - `PodVerifier`
 - `SequenceChecker`
-- `Settings`
 
 ### Domain Terms
 - AI
@@ -150,6 +150,7 @@ ruff format src/ tests/
 - `/anomalies`
 - `/anomalies/{anomaly_id}`
 - `/api/health`
+- `/bulk/status`
 - `/generate`
 - `/health`
 - `/ledger`
@@ -161,7 +162,6 @@ ruff format src/ tests/
 - `/{full_path:path}`
 - `/{object_id}`
 - `/{object_id}/status`
-- `/{report_id}`
 
 ### Enums/Constants
 - `CHAIN_RPC`
