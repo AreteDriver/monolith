@@ -155,15 +155,20 @@ class AssemblyChecker(BaseChecker):
             )
         return anomalies
 
+    # Fuel actions that are passive ticks, not transport-related
+    _PASSIVE_FUEL_ACTIONS = frozenset({"BURNING_UPDATED", "BURNING_STARTED"})
+
     def _check_a3_failed_transport(self) -> list[Anomaly]:
         """A3: Fuel consumed on a gate but no jump completed.
 
         If a FuelEvent fires for a gate object but no JumpEvent exists in
         the same transaction, fuel was burned without a successful transport.
+        Skips passive fuel ticks (BURNING_UPDATED) which fire on all online
+        assemblies including gates — those are not transport attempts.
         """
         cutoff = int(time.time()) - 3600
         fuel_events = self.conn.execute(
-            """SELECT event_id, object_id, transaction_hash, timestamp
+            """SELECT event_id, object_id, transaction_hash, timestamp, raw_json
                FROM chain_events
                WHERE event_type LIKE '%::FuelEvent'
                  AND timestamp >= ?
@@ -175,6 +180,16 @@ class AssemblyChecker(BaseChecker):
         for fuel in fuel_events:
             tx_hash = fuel["transaction_hash"]
             gate_id = fuel["object_id"]
+
+            # Skip passive fuel burn ticks — only flag transport-related spends
+            try:
+                raw = json.loads(fuel["raw_json"] or "{}") if fuel.get("raw_json") else {}
+                action = raw.get("parsedJson", {}).get("action", {})
+                variant = action.get("variant", "") if isinstance(action, dict) else str(action)
+                if variant in self._PASSIVE_FUEL_ACTIONS:
+                    continue
+            except (json.JSONDecodeError, AttributeError):
+                pass
 
             # Only check gates (fuel events also fire for non-gate assemblies)
             obj = self._get_object(gate_id)
