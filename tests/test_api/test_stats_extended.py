@@ -76,6 +76,68 @@ def test_stats_ledger_with_data(client):
     assert body["by_event_type"]["MINT"] == 1
 
 
+def _insert_reference(conn, system_id, name, x, z):
+    import json
+
+    conn.execute(
+        "INSERT INTO reference_data (data_type, data_id, name, data_json, updated_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (
+            "solarsystems",
+            system_id,
+            name,
+            json.dumps({"id": system_id, "name": name, "location": {"x": x, "y": 0, "z": z}}),
+            int(time.time()),
+        ),
+    )
+    conn.commit()
+
+
+def test_stats_map_empty(client):
+    resp = client.get("/api/stats/map")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["systems"] == []
+
+
+def test_stats_map_with_data(client):
+    conn = app.state.db
+    _insert_anomaly(conn, "MAP-1", detector="continuity_checker", anomaly_type="ORPHAN")
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+
+    resp = client.get("/api/stats/map")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["systems"]) == 1
+    sys = body["systems"][0]
+    assert sys["system_id"] == "30012602"
+    assert sys["name"] == "Terminus"
+    assert sys["x"] == -5103797186450162000
+    assert sys["z"] == 1335601100954271700
+    assert sys["count"] == 1
+
+
+def test_stats_map_excludes_false_positives(client):
+    conn = app.state.db
+    _insert_anomaly(conn, "MAP-FP", detector="continuity_checker", anomaly_type="ORPHAN")
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+    conn.execute("UPDATE anomalies SET status = 'FALSE_POSITIVE' WHERE anomaly_id = 'MAP-FP'")
+    conn.commit()
+
+    resp = client.get("/api/stats/map")
+    body = resp.json()
+    assert body["systems"] == []
+
+
+def test_stats_map_skips_no_coords(client):
+    conn = app.state.db
+    _insert_anomaly(conn, "MAP-NC", detector="continuity_checker", anomaly_type="ORPHAN")
+    # No reference_data for this system
+    resp = client.get("/api/stats/map")
+    body = resp.json()
+    assert body["systems"] == []
+
+
 def test_pod_anomalies_count(client):
     conn = app.state.db
     _insert_anomaly(conn, "POD-1", detector="pod_checker", anomaly_type="POD_MISMATCH")

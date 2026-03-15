@@ -1,5 +1,6 @@
 """Stats API — anomaly rates and system health metrics."""
 
+import json
 import sqlite3
 import time
 
@@ -115,6 +116,70 @@ def get_stats(request: Request) -> dict:
         "bug_reports_filed": get_filed_count(conn),
         "pod_anomalies_24h": pod_24h,
     }
+
+
+@router.get("/map")
+def get_map_data(request: Request) -> dict:
+    """Get anomaly-affected systems with coordinates for map rendering."""
+    conn = _get_db(request)
+
+    # All systems with anomalies (not just 24h — show full history)
+    rows = conn.execute(
+        "SELECT a.system_id, COUNT(*) as count, "
+        "  SUM(CASE WHEN a.severity = 'CRITICAL' THEN 1 ELSE 0 END) as critical, "
+        "  SUM(CASE WHEN a.severity = 'HIGH' THEN 1 ELSE 0 END) as high, "
+        "  SUM(CASE WHEN a.severity = 'MEDIUM' THEN 1 ELSE 0 END) as medium, "
+        "  SUM(CASE WHEN a.severity = 'LOW' THEN 1 ELSE 0 END) as low "
+        "FROM anomalies a "
+        "WHERE a.system_id != '' AND a.status != 'FALSE_POSITIVE' "
+        "GROUP BY a.system_id "
+        "ORDER BY count DESC"
+    ).fetchall()
+
+    systems = []
+    system_ids = [r["system_id"] for r in rows]
+
+    # Batch-fetch coordinates from reference_data
+    coords = {}
+    if system_ids:
+        placeholders = ",".join("?" for _ in system_ids)
+        ref_rows = conn.execute(
+            f"SELECT data_id, name, data_json FROM reference_data "  # noqa: S608
+            f"WHERE data_type = 'solarsystems' AND data_id IN ({placeholders})",
+            system_ids,
+        ).fetchall()
+        for ref in ref_rows:
+            try:
+                data = json.loads(ref["data_json"]) if ref["data_json"] else {}
+                loc = data.get("location", {})
+                coords[ref["data_id"]] = {
+                    "name": ref["name"] or data.get("name", ""),
+                    "x": loc.get("x", 0),
+                    "z": loc.get("z", 0),
+                }
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    for row in rows:
+        sid = row["system_id"]
+        c = coords.get(sid)
+        if not c:
+            continue
+        systems.append(
+            {
+                "system_id": sid,
+                "name": c["name"],
+                "x": c["x"],
+                "z": c["z"],
+                "count": row["count"],
+                "critical": row["critical"],
+                "high": row["high"],
+                "medium": row["medium"],
+                "low": row["low"],
+            }
+        )
+
+    return {"systems": systems}
 
 
 @router.get("/ledger")
