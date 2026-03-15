@@ -28,7 +28,10 @@ def _insert_ledger_row(conn, assembly_id, item_type_id, event_type="TRANSFER", q
     conn.commit()
 
 
-def _insert_anomaly(conn, anomaly_id, detector="pod_checker", anomaly_type="POD_MISMATCH"):
+def _insert_anomaly(
+    conn, anomaly_id, detector="pod_checker", anomaly_type="POD_MISMATCH",
+    system_id="30012602", object_id="obj-1", severity="HIGH",
+):
     now = int(time.time())
     conn.execute(
         "INSERT INTO anomalies (anomaly_id, anomaly_type, severity, category, "
@@ -37,16 +40,27 @@ def _insert_anomaly(conn, anomaly_id, detector="pod_checker", anomaly_type="POD_
         (
             anomaly_id,
             anomaly_type,
-            "HIGH",
+            severity,
             "ECONOMIC",
             detector,
             "P1",
-            "obj-1",
-            "30012602",
+            object_id,
+            system_id,
             now,
             "{}",
             "UNVERIFIED",
         ),
+    )
+    conn.commit()
+
+
+def _insert_object(conn, object_id, system_id, object_type="SmartAssembly"):
+    now = int(time.time())
+    conn.execute(
+        "INSERT INTO objects (object_id, object_type, current_state, current_owner, "
+        "system_id, last_event_id, last_seen, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (object_id, object_type, "{}", "", system_id, "evt-1", now, now),
     )
     conn.commit()
 
@@ -176,6 +190,43 @@ def test_stats_map_recent_events_skips_no_coords(client):
     resp = client.get("/api/stats/map")
     body = resp.json()
     assert body["recent_events"] == []
+
+
+def test_stats_map_system_id_from_objects_fallback(client):
+    """Anomalies with empty system_id should resolve via objects table."""
+    conn = app.state.db
+    _insert_object(conn, "obj-abc", "30012602")
+    _insert_anomaly(
+        conn, "MAP-FB", detector="economic_checker",
+        anomaly_type="UNEXPLAINED_DESTRUCTION", system_id="", object_id="obj-abc",
+    )
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+
+    resp = client.get("/api/stats/map")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["systems"]) == 1
+    assert body["systems"][0]["system_id"] == "30012602"
+    assert body["systems"][0]["name"] == "Terminus"
+    # Also appears in recent_events
+    assert len(body["recent_events"]) == 1
+    assert body["recent_events"][0]["system_id"] == "30012602"
+
+
+def test_stats_map_anomaly_system_id_preferred_over_object(client):
+    """When anomaly has its own system_id, it takes precedence over objects table."""
+    conn = app.state.db
+    _insert_object(conn, "obj-xyz", "99999999")  # different system
+    _insert_anomaly(
+        conn, "MAP-PR", detector="pod_checker",
+        anomaly_type="POD_MISMATCH", system_id="30012602", object_id="obj-xyz",
+    )
+    _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
+
+    resp = client.get("/api/stats/map")
+    body = resp.json()
+    assert len(body["systems"]) == 1
+    assert body["systems"][0]["system_id"] == "30012602"
 
 
 def test_stats_map_excludes_false_positives(client):

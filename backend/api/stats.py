@@ -123,21 +123,25 @@ def get_map_data(request: Request) -> dict:
     """Get anomaly-affected systems with coordinates for map rendering."""
     conn = _get_db(request)
 
-    # All systems with anomalies (not just 24h — show full history)
+    # Resolve effective system_id: prefer anomaly's own, fall back to objects table
+    # COALESCE + NULLIF treats '' same as NULL for the fallback
     rows = conn.execute(
-        "SELECT a.system_id, COUNT(*) as count, "
+        "SELECT COALESCE(NULLIF(a.system_id, ''), o.system_id, '') as eff_system_id, "
+        "  COUNT(*) as count, "
         "  SUM(CASE WHEN a.severity = 'CRITICAL' THEN 1 ELSE 0 END) as critical, "
         "  SUM(CASE WHEN a.severity = 'HIGH' THEN 1 ELSE 0 END) as high, "
         "  SUM(CASE WHEN a.severity = 'MEDIUM' THEN 1 ELSE 0 END) as medium, "
         "  SUM(CASE WHEN a.severity = 'LOW' THEN 1 ELSE 0 END) as low "
         "FROM anomalies a "
-        "WHERE a.system_id != '' AND a.status != 'FALSE_POSITIVE' "
-        "GROUP BY a.system_id "
+        "LEFT JOIN objects o ON a.object_id = o.object_id "
+        "WHERE a.status != 'FALSE_POSITIVE' "
+        "GROUP BY eff_system_id "
+        "HAVING eff_system_id != '' "
         "ORDER BY count DESC"
     ).fetchall()
 
     systems = []
-    system_ids = [r["system_id"] for r in rows]
+    system_ids = [r["eff_system_id"] for r in rows]
 
     # Batch-fetch coordinates from reference_data
     coords = {}
@@ -161,7 +165,7 @@ def get_map_data(request: Request) -> dict:
                 pass
 
     for row in rows:
-        sid = row["system_id"]
+        sid = row["eff_system_id"]
         c = coords.get(sid)
         if not c:
             continue
@@ -180,20 +184,24 @@ def get_map_data(request: Request) -> dict:
         )
 
     # Recent events for animated markers (last 24h, newest first)
+    # Same COALESCE fallback to objects.system_id
     now = int(time.time())
     cutoff_24h = now - 86400
     event_rows = conn.execute(
-        "SELECT a.anomaly_id, a.anomaly_type, a.severity, a.system_id, a.detected_at "
+        "SELECT a.anomaly_id, a.anomaly_type, a.severity, a.detected_at, "
+        "  COALESCE(NULLIF(a.system_id, ''), o.system_id, '') as eff_system_id "
         "FROM anomalies a "
-        "WHERE a.system_id != '' AND a.status != 'FALSE_POSITIVE' "
+        "LEFT JOIN objects o ON a.object_id = o.object_id "
+        "WHERE a.status != 'FALSE_POSITIVE' "
         "AND a.detected_at >= ? "
+        "AND COALESCE(NULLIF(a.system_id, ''), o.system_id, '') != '' "
         "ORDER BY a.detected_at DESC LIMIT 200",
         (cutoff_24h,),
     ).fetchall()
 
     recent_events = []
     for ev in event_rows:
-        sid = ev["system_id"]
+        sid = ev["eff_system_id"]
         c = coords.get(sid)
         if not c:
             continue

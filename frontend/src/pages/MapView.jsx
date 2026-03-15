@@ -359,21 +359,29 @@ function AnomalyMap() {
     if (canvasRef.current) canvasRef.current.style.cursor = 'grab'
   }, [])
 
-  const handleWheel = useCallback((e) => {
-    e.preventDefault()
-    const rect = canvasRef.current.getBoundingClientRect()
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
-    const factor = e.deltaY < 0 ? 1.15 : 0.87
-    setTransform(prev => {
-      const newScale = Math.max(0.3, Math.min(10, prev.scale * factor))
-      const ratio = newScale / prev.scale
-      return {
-        scale: newScale,
-        x: mx - (mx - prev.x) * ratio,
-        y: my - (my - prev.y) * ratio,
-      }
-    })
+  // Attach wheel listener with { passive: false } to allow preventDefault
+  // React's onWheel is passive by default and ignores preventDefault
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const onWheel = (e) => {
+      e.preventDefault()
+      const rect = canvas.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const factor = e.deltaY < 0 ? 1.15 : 0.87
+      setTransform(prev => {
+        const newScale = Math.max(0.3, Math.min(10, prev.scale * factor))
+        const ratio = newScale / prev.scale
+        return {
+          scale: newScale,
+          x: mx - (mx - prev.x) * ratio,
+          y: my - (my - prev.y) * ratio,
+        }
+      })
+    }
+    canvas.addEventListener('wheel', onWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', onWheel)
   }, [])
 
   const handleClick = useCallback(() => {
@@ -398,7 +406,6 @@ function AnomalyMap() {
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         onClick={handleClick}
         style={{ cursor: 'grab', display: 'block' }}
       />
