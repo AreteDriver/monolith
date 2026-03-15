@@ -179,7 +179,38 @@ def get_map_data(request: Request) -> dict:
             }
         )
 
-    return {"systems": systems}
+    # Recent events for animated markers (last 24h, newest first)
+    now = int(time.time())
+    cutoff_24h = now - 86400
+    event_rows = conn.execute(
+        "SELECT a.anomaly_id, a.anomaly_type, a.severity, a.system_id, a.detected_at "
+        "FROM anomalies a "
+        "WHERE a.system_id != '' AND a.status != 'FALSE_POSITIVE' "
+        "AND a.detected_at >= ? "
+        "ORDER BY a.detected_at DESC LIMIT 200",
+        (cutoff_24h,),
+    ).fetchall()
+
+    recent_events = []
+    for ev in event_rows:
+        sid = ev["system_id"]
+        c = coords.get(sid)
+        if not c:
+            continue
+        recent_events.append(
+            {
+                "anomaly_id": ev["anomaly_id"],
+                "anomaly_type": ev["anomaly_type"],
+                "severity": ev["severity"],
+                "system_id": sid,
+                "system_name": c["name"],
+                "x": c["x"],
+                "z": c["z"],
+                "detected_at": ev["detected_at"],
+            }
+        )
+
+    return {"systems": systems, "recent_events": recent_events}
 
 
 @router.get("/ledger")
