@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "monolith"
-version = "0.2.0"
+version = "0.3.0"
 description = "Blockchain anomaly detector and bug report engine for EVE Frontier"
 requires-python = ">=3.11"
 license = {text = "MIT"}
