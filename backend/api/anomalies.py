@@ -70,6 +70,26 @@ def list_anomalies(
     }
 
 
+class BulkStatusRequest(BaseModel):
+    """Request body for bulk status updates."""
+
+    anomaly_type: str
+    status: AnomalyStatus
+    note: str = ""
+
+
+@router.patch("/bulk/status")
+def bulk_update_status(request: Request, body: BulkStatusRequest) -> dict:
+    """Bulk update status for all UNVERIFIED anomalies matching a type."""
+    conn = _get_db(request)
+    result = conn.execute(
+        "UPDATE anomalies SET status = ? WHERE anomaly_type = ? AND status = 'UNVERIFIED'",
+        (body.status.value, body.anomaly_type),
+    )
+    conn.commit()
+    return {"updated": result.rowcount, "anomaly_type": body.anomaly_type, "status": body.status}
+
+
 @router.get("/{anomaly_id}")
 def get_anomaly(request: Request, anomaly_id: str) -> dict:
     """Get a single anomaly by ID."""
