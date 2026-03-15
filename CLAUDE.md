@@ -6,10 +6,10 @@ Blockchain anomaly detector and bug report engine for EVE Frontier
 
 ## Current State
 
-- **Version**: 0.1.0
+- **Version**: 0.2.0
 - **Language**: Python
-- **Files**: 123 across 4 languages
-- **Lines**: 15,508
+- **Files**: 135 across 4 languages
+- **Lines**: 17,894
 
 ## Architecture
 
@@ -72,7 +72,8 @@ monolith/
 - **Docstrings**: google style
 - **Imports**: absolute
 - **Path Handling**: pathlib
-- **Line Length (p95)**: 77 characters
+- **Line Length (p95)**: 78 characters
+- **Error Handling**: Custom exception classes present
 
 ## Common Commands
 
@@ -92,14 +93,14 @@ ruff format src/ tests/
 
 - Do NOT commit secrets, API keys, or credentials
 - Do NOT skip writing tests for new code
-- Do NOT hardcode secrets in Dockerfiles — use environment variables
-- Do NOT use `latest` tag — pin specific versions
+- Do NOT use synchronous database calls in async endpoints
+- Do NOT return raw dicts — use Pydantic response models
 - Do NOT use `os.path` — use `pathlib.Path` everywhere
 - Do NOT use bare `except:` — catch specific exceptions
 - Do NOT use mutable default arguments
 - Do NOT use `print()` for logging — use the `logging` module
-- Do NOT use synchronous database calls in async endpoints
-- Do NOT return raw dicts — use Pydantic response models
+- Do NOT hardcode secrets in Dockerfiles — use environment variables
+- Do NOT use `latest` tag — pin specific versions
 
 ## Dependencies
 
@@ -118,6 +119,7 @@ ruff format src/ tests/
 
 ### Key Models/Classes
 - `Anomaly`
+- `AnomalyStatus`
 - `AssemblyChecker`
 - `BaseChecker`
 - `ChainReader`
@@ -126,12 +128,11 @@ ruff format src/ tests/
 - `EconomicChecker`
 - `EventProcessor`
 - `FakeSettings`
+- `KillmailChecker`
 - `PodChecker`
 - `PodVerifier`
 - `SequenceChecker`
 - `Settings`
-- `StateSnapshotter`
-- `SubmitRequest`
 
 ### Domain Terms
 - AI
@@ -146,10 +147,17 @@ ruff format src/ tests/
 - Configuration All
 
 ### API Endpoints
+- `/anomalies`
+- `/anomalies/{anomaly_id}`
 - `/api/health`
 - `/generate`
+- `/health`
+- `/ledger`
 - `/nexus/webhook`
+- `/resolve`
+- `/stats`
 - `/{anomaly_id}`
+- `/{anomaly_id}/status`
 - `/{full_path:path}`
 - `/{object_id}`
 - `/{object_id}/status`
@@ -157,15 +165,15 @@ ruff format src/ tests/
 
 ### Enums/Constants
 - `CHAIN_RPC`
+- `CONFIRMED`
+- `FALSE_POSITIVE`
 - `FTS`
 - `GITHUB_API`
 - `GRAPHQL`
 - `INDEXES`
+- `INVESTIGATING`
 - `PACKAGE_ID`
-- `SCHEMA`
-- `SYSTEM_PROMPT`
-- `WORLD_API`
-- `WORLD_CONTRACT`
+- `RESOLVED`
 
 ## AI Skills
 
