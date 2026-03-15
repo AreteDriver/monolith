@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # NEXUS webhook (WatchTower enriched events)
     nexus_secret: str = ""
 
+    # Admin
+    admin_key: str = ""  # Set MONOLITH_ADMIN_KEY for /api/admin/* endpoints
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

@@ -13,12 +13,14 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.alerts.discord import send_alert
 from backend.alerts.github_issues import file_github_issue
 from backend.alerts.subscription_dispatch import dispatch_to_subscribers
+from backend.api.error_tracker import capture_error
+from backend.api.error_tracker import router as error_tracker_router
 from backend.api.anomalies import router as anomalies_router
 from backend.api.objects import router as objects_router
 from backend.api.public import router as public_router
@@ -341,6 +343,16 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Capture unhandled exceptions into the error ring buffer, then re-raise."""
+    capture_error(request, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error."},
+    )
+
+
 @app.middleware("http")
 async def inject_db(request: Request, call_next):
     """Inject database connection into request state for route handlers."""
@@ -358,6 +370,7 @@ app.include_router(systems_router)
 app.include_router(subscriptions_router)
 app.include_router(public_router)
 app.include_router(nexus_router, prefix="/api")
+app.include_router(error_tracker_router, prefix="/api")
 
 
 async def _check_sui_rpc(rpc_url: str) -> str:
