@@ -9,7 +9,7 @@ Blockchain anomaly detector and bug report engine for EVE Frontier
 - **Version**: 0.2.0
 - **Language**: Python
 - **Files**: 136 across 4 languages
-- **Lines**: 18,002
+- **Lines**: 18,699
 
 ## Architecture
 
@@ -93,14 +93,14 @@ ruff format src/ tests/
 
 - Do NOT commit secrets, API keys, or credentials
 - Do NOT skip writing tests for new code
-- Do NOT hardcode secrets in Dockerfiles — use environment variables
-- Do NOT use `latest` tag — pin specific versions
-- Do NOT use synchronous database calls in async endpoints
-- Do NOT return raw dicts — use Pydantic response models
 - Do NOT use `os.path` — use `pathlib.Path` everywhere
 - Do NOT use bare `except:` — catch specific exceptions
 - Do NOT use mutable default arguments
 - Do NOT use `print()` for logging — use the `logging` module
+- Do NOT hardcode secrets in Dockerfiles — use environment variables
+- Do NOT use `latest` tag — pin specific versions
+- Do NOT use synchronous database calls in async endpoints
+- Do NOT return raw dicts — use Pydantic response models
 
 ## Dependencies
 
@@ -155,13 +155,13 @@ ruff format src/ tests/
 - `/generate`
 - `/health`
 - `/ledger`
+- `/map`
 - `/nexus/webhook`
 - `/resolve`
 - `/stats`
 - `/{anomaly_id}`
 - `/{anomaly_id}/status`
 - `/{full_path:path}`
-- `/{object_id}`
 
 ### Enums/Constants
 - `CHAIN_RPC`
