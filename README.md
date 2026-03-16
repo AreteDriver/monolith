@@ -196,4 +196,11 @@ Monolith watches the chain continuously and catches these bugs with cryptographi
 
 ---
 
+## Also Built for This Hackathon
+
+- **[WatchTower](https://github.com/AreteDriver/watchtower)** — Chain archaeology + AI intelligence. Behavioral fingerprints, reputation scoring, kill network analysis, on-chain Sui subscriptions. [Live demo](https://watchtower-evefrontier.vercel.app/)
+- **[Frontier Tribe OS](https://github.com/AreteDriver/frontier-tribe-os)** — Full-stack tribe management. 7 modules (census, production, treasury, intel, alerts, threat analysis). [Live demo](https://frontend-ten-theta-80.vercel.app)
+
+---
+
 *Built by [AreteDriver](https://github.com/AreteDriver) for the EVE Frontier x Sui Hackathon 2026*
