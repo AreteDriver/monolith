@@ -77,7 +77,7 @@ def test_format_json_structure():
     assert result["report_id"] == "MNL-20260311-0001"
     assert result["severity"] == "MEDIUM"
     assert result["category"] == "CONTINUITY"
-    assert result["version"] == "0.2.0"
+    assert result["version"] == "0.3.0"
     assert result["generated_at_iso"]
     assert isinstance(result["evidence"], dict)
     assert isinstance(result["chain_references"], list)

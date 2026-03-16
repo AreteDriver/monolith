@@ -352,7 +352,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Monolith",
     description="EVE Frontier Blockchain Anomaly Detector & Bug Report Engine",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -454,7 +454,7 @@ async def health() -> dict:
 
     return {
         "status": "ok",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "chain": settings.chain,
         "uptime_seconds": int(time.time() - START_TIME),
         "last_event_time": last_event_time,
