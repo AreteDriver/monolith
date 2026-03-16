@@ -34,6 +34,7 @@ from backend.db.database import get_row_counts, init_db
 from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
+from backend.ingestion.graphql_client import SuiGraphQLClient
 from backend.ingestion.event_processor import EventProcessor
 from backend.ingestion.nexus_consumer import configure as configure_nexus
 from backend.ingestion.nexus_consumer import router as nexus_router
@@ -205,6 +206,24 @@ async def pod_check_loop(
         await asyncio.sleep(interval)
 
 
+async def graphql_enrichment_loop(
+    gql_client: SuiGraphQLClient,
+    interval: int,
+) -> None:
+    """Background task: enrich object locations via Sui GraphQL queries."""
+    # Wait for initial chain data before first enrichment pass
+    await asyncio.sleep(90)
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                updated = await gql_client.enrich_locations(client)
+                if updated > 0:
+                    logger.info("GraphQL enrichment: %d objects updated", updated)
+        except Exception:
+            logger.exception("GraphQL enrichment error")
+        await asyncio.sleep(interval)
+
+
 async def static_data_loop(
     poller: WorldPoller,
     interval: int,
@@ -281,6 +300,8 @@ async def lifespan(app: FastAPI):
     pod_verifier = PodVerifier(base_url=settings.world_api_url, timeout=settings.world_api_timeout)
     app.state.pod_verifier = pod_verifier
 
+    gql_client = SuiGraphQLClient(conn, package_id)
+    app.state.gql_client = gql_client
     app.state.world_poller = world_poller
     app.state.chain_reader = chain_reader
     app.state.event_processor = event_processor
@@ -297,6 +318,7 @@ async def lifespan(app: FastAPI):
             detection_loop(detection_engine, settings.detection_interval, settings, conn)
         ),
         asyncio.create_task(static_data_loop(world_poller, settings.static_data_interval)),
+        asyncio.create_task(graphql_enrichment_loop(gql_client, settings.static_data_interval)),
         asyncio.create_task(
             pod_check_loop(
                 conn,
