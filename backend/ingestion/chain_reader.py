@@ -32,6 +32,7 @@ EVENT_TYPES = [
     "{pkg}::access_control::OwnerCapTransferred",
     "{pkg}::assembly::AssemblyCreatedEvent",
     "{pkg}::character::CharacterCreatedEvent",
+    "{pkg}::location::LocationRevealedEvent",
 ]
 
 # Maps module name to the field in parsedJson that holds the primary object ID.
@@ -48,6 +49,7 @@ OBJECT_ID_FIELDS: dict[str, str] = {
     "network_node": "network_node_id",
     "energy": "energy_source_id",
     "storage_unit": "assembly_id",
+    "location": "object_id",
     "turret": "assembly_id",
 }
 
@@ -135,6 +137,12 @@ class ChainReader:
         for key in ("solar_system_id", "solarSystemId", "system_id", "systemId"):
             if key in parsed:
                 return str(parsed[key])
+        # LocationRevealedEvent carries location as nested object
+        location = parsed.get("location", {})
+        if isinstance(location, dict):
+            for key in ("solar_system_id", "solarSystemId"):
+                if key in location:
+                    return str(location[key])
         return ""
 
     def store_event(self, event: dict) -> bool:
@@ -253,7 +261,36 @@ class ChainReader:
 
         if total_stored > 0:
             logger.info("Stored %d Sui events across %d types", total_stored, len(self.events))
+            self._enrich_system_ids()
         return total_stored
+
+    def _enrich_system_ids(self) -> None:
+        """Backfill objects.system_id from LocationRevealedEvent data."""
+        location_type = f"{self.package_id}::location::LocationRevealedEvent"
+        rows = self.conn.execute(
+            "SELECT object_id, system_id FROM chain_events "
+            "WHERE event_type = ? AND system_id != ''",
+            (location_type,),
+        ).fetchall()
+        if not rows:
+            return
+        updated = 0
+        for row in rows:
+            result = self.conn.execute(
+                "UPDATE objects SET system_id = ? "
+                "WHERE object_id = ? AND (system_id IS NULL OR system_id = '')",
+                (row["system_id"], row["object_id"]),
+            )
+            updated += result.rowcount
+            # Also backfill anomalies that reference this object
+            self.conn.execute(
+                "UPDATE anomalies SET system_id = ? "
+                "WHERE object_id = ? AND (system_id IS NULL OR system_id = '')",
+                (row["system_id"], row["object_id"]),
+            )
+        if updated > 0:
+            self.conn.commit()
+            logger.info("Enriched %d objects with system_id from location events", updated)
 
     def get_last_block(self) -> int:
         """Get the highest block number (checkpoint) we've processed."""

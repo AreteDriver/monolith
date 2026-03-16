@@ -385,7 +385,7 @@ async def _check_sui_rpc(rpc_url: str) -> str:
                     "method": "suix_getLatestCheckpointSequenceNumber",
                     "params": [],
                 },
-                timeout=2.0,
+                timeout=10.0,
             )
             if r.status_code == 200:
                 return "ok"
