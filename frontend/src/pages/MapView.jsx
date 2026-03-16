@@ -16,6 +16,14 @@ const TYPE_COLORS = {
   ECONOMIC_ANOMALY: '#3b82f6',
   ASSEMBLY_DRIFT: '#10b981',
   KILLMAIL_ANOMALY: '#ec4899',
+  PHANTOM_ITEM_CHANGE: '#f97316',
+  RESURRECTION: '#ef4444',
+  UNEXPLAINED_OWNERSHIP_CHANGE: '#a855f7',
+  SUPPLY_DISCREPANCY: '#3b82f6',
+  STATE_GAP: '#eab308',
+  ORPHAN_OBJECT: '#6b7280',
+  FREE_GATE_JUMP: '#ec4899',
+  ORPHANED_INVENTORY: '#10b981',
 }
 
 function getTypeColor(type) {
@@ -117,6 +125,15 @@ function AnomalyMap() {
       ctx.lineTo(w, y)
       ctx.stroke()
     }
+
+    // Scanline sweep effect
+    const scanY = ((timestamp || 0) * 0.03) % h
+    const scanGrad = ctx.createLinearGradient(0, scanY - 30, 0, scanY + 30)
+    scanGrad.addColorStop(0, 'rgba(245,158,11,0)')
+    scanGrad.addColorStop(0.5, 'rgba(245,158,11,0.03)')
+    scanGrad.addColorStop(1, 'rgba(245,158,11,0)')
+    ctx.fillStyle = scanGrad
+    ctx.fillRect(0, scanY - 30, w, 60)
 
     const systems = systemsRef.current
     const events = eventsRef.current
@@ -238,6 +255,42 @@ function AnomalyMap() {
         ctx.arc(px, py, radius, 0, Math.PI * 2)
         ctx.fillStyle = color
         ctx.fill()
+
+        // Crosshair reticle for critical systems
+        if (sys.critical > 0) {
+          const reticleR = radius * 2
+          ctx.strokeStyle = color + '60'
+          ctx.lineWidth = 0.5
+          ctx.beginPath()
+          ctx.moveTo(px - reticleR, py)
+          ctx.lineTo(px - radius - 2, py)
+          ctx.moveTo(px + radius + 2, py)
+          ctx.lineTo(px + reticleR, py)
+          ctx.moveTo(px, py - reticleR)
+          ctx.lineTo(px, py - radius - 2)
+          ctx.moveTo(px, py + radius + 2)
+          ctx.lineTo(px, py + reticleR)
+          ctx.stroke()
+          // Corner brackets
+          ctx.beginPath()
+          ctx.moveTo(px - reticleR, py - reticleR)
+          ctx.lineTo(px - reticleR + 4, py - reticleR)
+          ctx.moveTo(px - reticleR, py - reticleR)
+          ctx.lineTo(px - reticleR, py - reticleR + 4)
+          ctx.moveTo(px + reticleR, py - reticleR)
+          ctx.lineTo(px + reticleR - 4, py - reticleR)
+          ctx.moveTo(px + reticleR, py - reticleR)
+          ctx.lineTo(px + reticleR, py - reticleR + 4)
+          ctx.moveTo(px - reticleR, py + reticleR)
+          ctx.lineTo(px - reticleR + 4, py + reticleR)
+          ctx.moveTo(px - reticleR, py + reticleR)
+          ctx.lineTo(px - reticleR, py + reticleR - 4)
+          ctx.moveTo(px + reticleR, py + reticleR)
+          ctx.lineTo(px + reticleR - 4, py + reticleR)
+          ctx.moveTo(px + reticleR, py + reticleR)
+          ctx.lineTo(px + reticleR, py + reticleR - 4)
+          ctx.stroke()
+        }
 
         // Label for large dots
         if (radius > 6 * transform.scale && sys.name) {
@@ -489,6 +542,35 @@ function AnomalyMap() {
           ) : null}
         </div>
       )}
+      {/* Stats HUD */}
+      {data?.systems?.length > 0 && (
+        <div className="absolute top-4 left-4 bg-[#0a0a0a]/80 border border-[#f59e0b]/30 px-4 py-2 text-xs font-mono flex gap-6 items-center">
+          <div>
+            <span className="text-[#f59e0b] font-bold text-lg">{data.systems.reduce((s, sys) => s + sys.count, 0)}</span>
+            <span className="text-[#6b7280] ml-1.5">ANOMALIES</span>
+          </div>
+          <div className="w-px h-6 bg-[#2a2a2a]" />
+          <div>
+            <span className="text-[#f59e0b] font-bold text-lg">{data.systems.length}</span>
+            <span className="text-[#6b7280] ml-1.5">SYSTEMS</span>
+          </div>
+          <div className="w-px h-6 bg-[#2a2a2a]" />
+          <div className="flex gap-3">
+            {data.systems.reduce((s, sys) => s + sys.critical, 0) > 0 && (
+              <span style={{ color: SEVERITY_COLORS.critical }}>{data.systems.reduce((s, sys) => s + sys.critical, 0)} CRIT</span>
+            )}
+            {data.systems.reduce((s, sys) => s + sys.high, 0) > 0 && (
+              <span style={{ color: SEVERITY_COLORS.high }}>{data.systems.reduce((s, sys) => s + sys.high, 0)} HIGH</span>
+            )}
+          </div>
+          <div className="w-px h-6 bg-[#2a2a2a]" />
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+            <span className="text-[#22c55e]">LIVE</span>
+          </div>
+        </div>
+      )}
+
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs space-y-2">
         <div className="text-[#a3a3a3] font-bold uppercase mb-1">Severity</div>
