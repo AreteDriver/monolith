@@ -2,7 +2,7 @@
 
 **Blockchain anomaly detector and bug report engine for EVE Frontier.**
 
-Monolith ingests 13 Sui on-chain event types in real time, runs 17 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
+Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
 
 > **Live demo**: [monolith-evefrontier.fly.dev](https://monolith-evefrontier.fly.dev/)
 
@@ -24,7 +24,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 17 deterministic
 ## Features
 
 - **13 Sui event types** ingested via `suix_queryEvents` + GraphQL enrichment
-- **17 detection rules** across 6 checkers — zero ML, fully deterministic and auditable
+- **31 detection rules** across 14 checkers — zero ML, fully deterministic and auditable
 - **Canvas2D map** — 24,502 systems, scanline-sweep heatmap, animated markers, 60fps
 - **Item ledger** — tracks mints, transfers, destructions for economic integrity
 - **POD verification** — validates Provable Object Datatypes against chain state
@@ -32,7 +32,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 17 deterministic
 - **Discord alerting** — webhook embeds for CRITICAL/HIGH, rate-limited
 - **Webhook subscriptions** — push anomaly events to any HTTP endpoint
 - **Public API v1** — read anomalies, stats, health, object history
-- **203 tests passing**
+- **241 tests passing**
 
 ### Detection Rules
 
@@ -44,6 +44,16 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 17 deterministic
 | **Sequence** | S2, S4 | Duplicate transactions, block processing gaps |
 | **POD** | P1-P2 | Invalid POD signatures, state/chain mismatch |
 | **Killmail** | K1 | Killmail chain inconsistencies |
+| **Coordinated Buying** | CB1-CB2 | Fleet staging signals, clustered wallet activity |
+| **Object Version** | OV1-OV2 | State rollbacks, unauthorized modifications |
+| **Wallet Concentration** | WC1 | Monopoly detection, asset hoarding |
+| **Config Change** | CC1 | Game config modifications (Energy/Fuel/Gate) |
+| **Inventory Audit** | IA1 | Conservation-of-mass violations |
+| **Bot Pattern** | BP1 | Automated transaction patterns |
+| **Tribe Hopping** | TH1 | Rapid corp changes (spy detection) |
+| **Engagement Session** | ES1-ES2 | Orphaned killmails, ghost victims |
+| **Dead Assembly** | DA1 | Abandoned infrastructure (7+ days silent) |
+| **Velocity** | EV1-EV2 | Flow rate spikes, sudden activity drops |
 
 Every rule is a pure function: `(events, states) -> anomaly | None`. No guesswork. Every detection ships with chain tx digests for independent verification.
 
@@ -72,8 +82,8 @@ Sui Testnet (suix_queryEvents)
 ┌─────────────┐  ┌──────────────┐
 │  Detection  │  │  Item Ledger │
 │  Engine     │  │  (economic)  │
-│  6 checkers │  └──────────────┘
-│  17 rules   │
+│  14 checkers │  └──────────────┘
+│  31 rules   │
 └──────┬──────┘
        │
        ▼
@@ -192,7 +202,7 @@ EVE Frontier runs a live game economy on Sui. Every smart assembly, gate jump, k
 
 Monolith watches the chain continuously and catches these bugs with cryptographic proof. It doesn't guess. It shows the exact transaction digests, the before/after states, and the rule that fired. CRITICAL anomalies auto-file GitHub issues so nothing gets lost.
 
-**10,774+ chain events ingested. 304 anomalies detected. 17 rules. Zero false positive tolerance.**
+**16,500+ chain events ingested. 309+ anomalies detected. 31 rules. 14 checkers. Zero false positive tolerance.**
 
 ---
 
