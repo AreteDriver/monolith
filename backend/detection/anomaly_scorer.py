@@ -47,6 +47,19 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     # Coordinated buying checker
     "CB1": ("MEDIUM", "BEHAVIORAL"),
     "CB2": ("CRITICAL", "BEHAVIORAL"),
+    # Object version checker
+    "OV1": ("CRITICAL", "DATA_INTEGRITY"),
+    "OV2": ("HIGH", "DATA_INTEGRITY"),
+    # Wallet concentration checker
+    "WC1": ("HIGH", "BEHAVIORAL"),
+    # Config change checker
+    "CC1": ("CRITICAL", "DATA_INTEGRITY"),
+    # Inventory audit checker
+    "IA1": ("CRITICAL", "EXPLOIT_VECTOR"),
+    # Bot pattern checker
+    "BP1": ("MEDIUM", "BEHAVIORAL"),
+    # Tribe hopping checker
+    "TH1": ("MEDIUM", "BEHAVIORAL"),
 }
 
 

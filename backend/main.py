@@ -223,6 +223,18 @@ async def graphql_enrichment_loop(
                 names = await gql_client.fetch_character_names(client)
                 if names > 0:
                     logger.info("GraphQL names: %d characters resolved", names)
+                # Audit object versions for state change detection
+                versions = await gql_client.audit_object_versions(client)
+                if versions > 0:
+                    logger.info("GraphQL versions: %d snapshots stored", versions)
+                # Poll config singletons for change detection
+                configs = await gql_client.poll_config_singletons(client)
+                if configs > 0:
+                    logger.info("GraphQL configs: %d config versions stored", configs)
+                # Profile wallet activity for bot detection
+                profiles = await gql_client.profile_wallet_activity(client)
+                if profiles > 0:
+                    logger.info("GraphQL profiles: %d wallets profiled", profiles)
         except Exception:
             logger.exception("GraphQL enrichment error")
         await asyncio.sleep(interval)

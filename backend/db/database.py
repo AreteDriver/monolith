@@ -168,6 +168,41 @@ CREATE TABLE IF NOT EXISTS entity_names (
     updated_at INTEGER
 );
 
+-- Object version snapshots for auditing state changes
+CREATE TABLE IF NOT EXISTS object_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    object_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    digest TEXT,
+    state_json TEXT,
+    fetched_at INTEGER NOT NULL,
+    UNIQUE(object_id, version)
+);
+
+-- Config singleton version tracking
+CREATE TABLE IF NOT EXISTS config_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_type TEXT NOT NULL,
+    config_address TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    state_json TEXT,
+    fetched_at INTEGER NOT NULL,
+    UNIQUE(config_type, version)
+);
+
+-- Wallet activity profiles for bot detection
+CREATE TABLE IF NOT EXISTS wallet_activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wallet_address TEXT NOT NULL,
+    tx_count INTEGER DEFAULT 0,
+    avg_interval_seconds REAL,
+    interval_stddev REAL,
+    first_tx INTEGER,
+    last_tx INTEGER,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(wallet_address)
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -213,6 +248,9 @@ CREATE INDEX IF NOT EXISTS idx_item_ledger_timestamp ON item_ledger(timestamp);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(active);
 CREATE INDEX IF NOT EXISTS idx_tribe_cache_stale ON tribe_cache(is_stale);
 CREATE INDEX IF NOT EXISTS idx_tribe_cache_confirmed ON tribe_cache(last_confirmed_at);
+CREATE INDEX IF NOT EXISTS idx_object_versions_object ON object_versions(object_id);
+CREATE INDEX IF NOT EXISTS idx_config_snapshots_type ON config_snapshots(config_type);
+CREATE INDEX IF NOT EXISTS idx_wallet_activity_wallet ON wallet_activity(wallet_address);
 """
 
 FTS = """

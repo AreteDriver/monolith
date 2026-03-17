@@ -7,10 +7,16 @@ import time
 
 from backend.detection.assembly_checker import AssemblyChecker
 from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.bot_pattern_checker import BotPatternChecker
+from backend.detection.config_change_checker import ConfigChangeChecker
 from backend.detection.continuity_checker import ContinuityChecker
 from backend.detection.coordinated_buying_checker import CoordinatedBuyingChecker
 from backend.detection.economic_checker import EconomicChecker
+from backend.detection.inventory_audit_checker import InventoryAuditChecker
+from backend.detection.object_version_checker import ObjectVersionChecker
 from backend.detection.sequence_checker import SequenceChecker
+from backend.detection.tribe_hopping_checker import TribeHoppingChecker
+from backend.detection.wallet_concentration_checker import WalletConcentrationChecker
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +48,12 @@ class DetectionEngine:
             AssemblyChecker(self.conn),
             SequenceChecker(self.conn),
             CoordinatedBuyingChecker(self.conn),
+            ObjectVersionChecker(self.conn),
+            WalletConcentrationChecker(self.conn),
+            ConfigChangeChecker(self.conn),
+            InventoryAuditChecker(self.conn),
+            BotPatternChecker(self.conn),
+            TribeHoppingChecker(self.conn),
         ]
         for checker in self._checkers:
             logger.info("Registered checker: %s", checker.name)

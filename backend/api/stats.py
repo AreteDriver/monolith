@@ -221,8 +221,7 @@ def get_map_data(request: Request) -> dict:
     # All solar systems for background map layer
     all_systems = []
     all_ref = conn.execute(
-        "SELECT data_id, name, data_json FROM reference_data "
-        "WHERE data_type = 'solarsystems'"
+        "SELECT data_id, name, data_json FROM reference_data WHERE data_type = 'solarsystems'"
     ).fetchall()
     for ref in all_ref:
         try:

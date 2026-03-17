@@ -83,6 +83,54 @@ query GetCharacters($type: String!, $first: Int, $after: String) {
 }
 """
 
+GET_OBJECT_VERSIONS = """
+query GetObjectVersions($address: SuiAddress!, $first: Int) {
+  objectVersions(address: $address, first: $first) {
+    nodes {
+      version
+      digest
+      asMoveObject {
+        contents { json }
+      }
+    }
+    pageInfo { hasNextPage }
+  }
+}
+"""
+
+GET_OWNED_OBJECTS = """
+query GetOwnedObjects($owner: SuiAddress!, $first: Int, $after: String) {
+  objects(filter: { owner: $owner }, first: $first, after: $after) {
+    nodes {
+      address
+      version
+      asMoveObject {
+        contents {
+          json
+          type { repr }
+        }
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+"""
+
+GET_TRANSACTIONS = """
+query GetTransactions($address: SuiAddress!, $first: Int, $after: String) {
+  transactions(filter: { affectedAddress: $address }, first: $first, after: $after) {
+    nodes {
+      digest
+      effects {
+        status
+        timestamp
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+"""
+
 GET_KILLMAIL_OBJECTS = """
 query GetKillmailObjects($type: String!, $first: Int, $after: String) {
   objects(
@@ -367,6 +415,246 @@ class SuiGraphQLClient:
             logger.info("Character names: stored %d names from Sui objects", total_stored)
 
         return total_stored
+
+    async def audit_object_versions(self, client: httpx.AsyncClient, max_objects: int = 50) -> int:
+        """Fetch version history for tracked objects and store for auditing.
+
+        Queries objectVersions for objects in the objects table that have
+        recent activity. Stores each version snapshot for state diff analysis.
+        Returns count of new versions stored.
+        """
+        # Get objects with recent events (last 24h)
+        cutoff = int(time.time()) - 86400
+        rows = self.conn.execute(
+            "SELECT object_id FROM objects WHERE last_seen >= ? LIMIT ?",
+            (cutoff, max_objects),
+        ).fetchall()
+
+        total_stored = 0
+        for row in rows:
+            object_id = row["object_id"]
+            # Skip non-Sui addresses
+            if not object_id.startswith("0x"):
+                continue
+            try:
+                data = await self._query(
+                    client,
+                    GET_OBJECT_VERSIONS,
+                    {"address": object_id, "first": 10},
+                )
+            except Exception as e:
+                logger.debug("Object version fetch failed for %s: %s", object_id[:16], e)
+                continue
+
+            versions = data.get("objectVersions", {}).get("nodes", [])
+            for v in versions:
+                version_num = v.get("version", 0)
+                digest = v.get("digest", "")
+                state = v.get("asMoveObject", {}).get("contents", {}).get("json", {})
+
+                try:
+                    self.conn.execute(
+                        """INSERT OR IGNORE INTO object_versions
+                           (object_id, version, digest, state_json, fetched_at)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (
+                            object_id,
+                            version_num,
+                            digest,
+                            json.dumps(state) if state else "",
+                            int(time.time()),
+                        ),
+                    )
+                    total_stored += 1
+                except Exception:
+                    logger.debug("Failed to store version for %s", object_id[:16])
+
+        if total_stored > 0:
+            self.conn.commit()
+            logger.info("Object versions: stored %d version snapshots", total_stored)
+        return total_stored
+
+    async def poll_config_singletons(self, client: httpx.AsyncClient) -> int:
+        """Poll config singleton objects for version changes.
+
+        Tracks Energy, Fuel, and Gate config objects. Version bumps without
+        announced patches indicate potential exploits or bugs.
+        """
+        configs = {
+            "energy": "0xd77693d0df5656d68b1b833e2a23cc81eb3875d8d767e7bd249adde82bdbc952",
+            "fuel": "0x4fcf28a9be750d242bc5d2f324429e31176faecb5b84f0af7dff3a2a6e243550",
+            "gate": "0xd6d9230faec0230c839a534843396e97f5f79bdbd884d6d5103d0125dc135827",
+        }
+        stored = 0
+        for config_type, address in configs.items():
+            try:
+                data = await self._query(client, GET_OBJECT_WITH_DYNFIELDS, {"address": address})
+            except Exception as e:
+                logger.debug("Config poll failed for %s: %s", config_type, e)
+                continue
+
+            obj = data.get("object")
+            if not obj:
+                continue
+
+            version = obj.get("version", 0)
+            state = obj.get("asMoveObject", {}).get("contents", {}).get("json", {})
+
+            try:
+                self.conn.execute(
+                    """INSERT OR IGNORE INTO config_snapshots
+                       (config_type, config_address, version, state_json, fetched_at)
+                       VALUES (?, ?, ?, ?, ?)""",
+                    (
+                        config_type,
+                        address,
+                        version,
+                        json.dumps(state) if state else "",
+                        int(time.time()),
+                    ),
+                )
+                stored += 1
+            except Exception:
+                logger.debug("Failed to store config snapshot for %s", config_type)
+
+        if stored > 0:
+            self.conn.commit()
+            logger.info("Config snapshots: stored %d new versions", stored)
+        return stored
+
+    async def profile_wallet_activity(
+        self, client: httpx.AsyncClient, max_wallets: int = 30
+    ) -> int:
+        """Build activity profiles for wallets seen in recent events.
+
+        Queries transaction history per wallet and computes interval statistics
+        for bot detection. Regular intervals (low stddev) = likely bot.
+        """
+        import statistics
+
+        # Get distinct senders from recent chain events
+        cutoff = int(time.time()) - 86400
+        rows = self.conn.execute(
+            """SELECT DISTINCT json_extract(raw_json, '$.sender') as sender
+               FROM chain_events
+               WHERE timestamp >= ? AND raw_json LIKE '%"sender"%'
+               LIMIT ?""",
+            (cutoff, max_wallets),
+        ).fetchall()
+
+        updated = 0
+        for row in rows:
+            wallet = row["sender"]
+            if not wallet or not wallet.startswith("0x"):
+                continue
+
+            try:
+                data = await self._query(
+                    client,
+                    GET_TRANSACTIONS,
+                    {"address": wallet, "first": 50},
+                )
+            except Exception:
+                logger.debug("Transaction query failed for %s", wallet[:16])
+                continue
+
+            txs = data.get("transactions", {}).get("nodes", [])
+            if len(txs) < 3:
+                continue
+
+            # Extract timestamps and compute intervals
+            timestamps = []
+            for tx in txs:
+                ts_str = tx.get("effects", {}).get("timestamp")
+                if ts_str:
+                    # Sui timestamps are epoch milliseconds as string
+                    try:
+                        timestamps.append(
+                            int(ts_str) // 1000 if int(ts_str) > 1e12 else int(ts_str)
+                        )
+                    except (ValueError, TypeError):
+                        continue
+
+            timestamps.sort()
+            if len(timestamps) < 3:
+                continue
+
+            intervals = [timestamps[i + 1] - timestamps[i] for i in range(len(timestamps) - 1)]
+            avg_interval = statistics.mean(intervals)
+            stddev = statistics.stdev(intervals) if len(intervals) > 1 else 0.0
+
+            self.conn.execute(
+                """INSERT INTO wallet_activity
+                   (wallet_address, tx_count, avg_interval_seconds, interval_stddev,
+                    first_tx, last_tx, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(wallet_address) DO UPDATE SET
+                       tx_count = excluded.tx_count,
+                       avg_interval_seconds = excluded.avg_interval_seconds,
+                       interval_stddev = excluded.interval_stddev,
+                       last_tx = excluded.last_tx,
+                       updated_at = excluded.updated_at""",
+                (
+                    wallet,
+                    len(timestamps),
+                    avg_interval,
+                    stddev,
+                    timestamps[0],
+                    timestamps[-1],
+                    int(time.time()),
+                ),
+            )
+            updated += 1
+
+        if updated > 0:
+            self.conn.commit()
+            logger.info("Wallet profiles: updated %d activity profiles", updated)
+        return updated
+
+    async def scan_owned_objects(
+        self, client: httpx.AsyncClient, max_wallets: int = 20
+    ) -> dict[str, int]:
+        """Scan object ownership for concentration analysis.
+
+        Returns {wallet: object_count} for wallets with recent activity.
+        Stores results in wallet_activity.tx_count for concentration checks.
+        """
+        cutoff = int(time.time()) - 86400
+        rows = self.conn.execute(
+            """SELECT DISTINCT json_extract(raw_json, '$.sender') as sender
+               FROM chain_events
+               WHERE timestamp >= ? AND raw_json LIKE '%"sender"%'
+               LIMIT ?""",
+            (cutoff, max_wallets),
+        ).fetchall()
+
+        ownership: dict[str, int] = {}
+        for row in rows:
+            wallet = row["sender"]
+            if not wallet or not wallet.startswith("0x"):
+                continue
+
+            try:
+                data = await self._query(
+                    client,
+                    GET_OWNED_OBJECTS,
+                    {"owner": wallet, "first": 50},
+                )
+            except Exception:
+                logger.debug("Owned objects query failed for %s", wallet[:16])
+                continue
+
+            count = len(data.get("objects", {}).get("nodes", []))
+            if count > 0:
+                ownership[wallet] = count
+
+        if ownership:
+            logger.info(
+                "Ownership scan: %d wallets, max %d objects",
+                len(ownership),
+                max(ownership.values()),
+            )
+        return ownership
 
     async def enrich_locations(self, client: httpx.AsyncClient) -> int:
         """Run all location enrichment sources and update the database.

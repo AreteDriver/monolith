@@ -29,8 +29,13 @@ def _insert_ledger_row(conn, assembly_id, item_type_id, event_type="TRANSFER", q
 
 
 def _insert_anomaly(
-    conn, anomaly_id, detector="pod_checker", anomaly_type="POD_MISMATCH",
-    system_id="30012602", object_id="obj-1", severity="HIGH",
+    conn,
+    anomaly_id,
+    detector="pod_checker",
+    anomaly_type="POD_MISMATCH",
+    system_id="30012602",
+    object_id="obj-1",
+    severity="HIGH",
 ):
     now = int(time.time())
     conn.execute(
@@ -197,8 +202,12 @@ def test_stats_map_system_id_from_objects_fallback(client):
     conn = app.state.db
     _insert_object(conn, "obj-abc", "30012602")
     _insert_anomaly(
-        conn, "MAP-FB", detector="economic_checker",
-        anomaly_type="UNEXPLAINED_DESTRUCTION", system_id="", object_id="obj-abc",
+        conn,
+        "MAP-FB",
+        detector="economic_checker",
+        anomaly_type="UNEXPLAINED_DESTRUCTION",
+        system_id="",
+        object_id="obj-abc",
     )
     _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
 
@@ -218,8 +227,12 @@ def test_stats_map_anomaly_system_id_preferred_over_object(client):
     conn = app.state.db
     _insert_object(conn, "obj-xyz", "99999999")  # different system
     _insert_anomaly(
-        conn, "MAP-PR", detector="pod_checker",
-        anomaly_type="POD_MISMATCH", system_id="30012602", object_id="obj-xyz",
+        conn,
+        "MAP-PR",
+        detector="pod_checker",
+        anomaly_type="POD_MISMATCH",
+        system_id="30012602",
+        object_id="obj-xyz",
     )
     _insert_reference(conn, "30012602", "Terminus", -5103797186450162000, 1335601100954271700)
 
