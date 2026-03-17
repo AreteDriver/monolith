@@ -19,9 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from backend.alerts.discord import send_alert
 from backend.alerts.github_issues import file_github_issue
 from backend.alerts.subscription_dispatch import dispatch_to_subscribers
+from backend.api.anomalies import router as anomalies_router
 from backend.api.error_tracker import capture_error
 from backend.api.error_tracker import router as error_tracker_router
-from backend.api.anomalies import router as anomalies_router
 from backend.api.objects import router as objects_router
 from backend.api.public import router as public_router
 from backend.api.reports import router as reports_router
@@ -34,8 +34,8 @@ from backend.db.database import get_row_counts, init_db
 from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
-from backend.ingestion.graphql_client import SuiGraphQLClient
 from backend.ingestion.event_processor import EventProcessor
+from backend.ingestion.graphql_client import SuiGraphQLClient
 from backend.ingestion.nexus_consumer import configure as configure_nexus
 from backend.ingestion.nexus_consumer import router as nexus_router
 from backend.ingestion.pod_verifier import PodVerifier
@@ -210,7 +210,7 @@ async def graphql_enrichment_loop(
     gql_client: SuiGraphQLClient,
     interval: int,
 ) -> None:
-    """Background task: enrich object locations via Sui GraphQL queries."""
+    """Background task: enrich locations + entity names via Sui GraphQL."""
     # Wait for initial chain data before first enrichment pass
     await asyncio.sleep(90)
     while True:
@@ -219,6 +219,10 @@ async def graphql_enrichment_loop(
                 updated = await gql_client.enrich_locations(client)
                 if updated > 0:
                     logger.info("GraphQL enrichment: %d objects updated", updated)
+                # Also refresh character name cache (replaces NEXUS names)
+                names = await gql_client.fetch_character_names(client)
+                if names > 0:
+                    logger.info("GraphQL names: %d characters resolved", names)
         except Exception:
             logger.exception("GraphQL enrichment error")
         await asyncio.sleep(interval)

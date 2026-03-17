@@ -11,6 +11,7 @@ Uses patterns from Econmartin's jotunn.lol API reference (2026-03-15).
 import json
 import logging
 import sqlite3
+import time
 
 import httpx
 
@@ -59,6 +60,23 @@ query GetEvents($module: String!, $first: Int, $after: String) {
         type { repr }
       }
       timestamp
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+"""
+
+GET_CHARACTER_OBJECTS = """
+query GetCharacters($type: String!, $first: Int, $after: String) {
+  objects(
+    first: $first,
+    after: $after,
+    filter: { type: $type }
+  ) {
+    nodes {
+      asMoveObject {
+        contents { json }
+      }
     }
     pageInfo { hasNextPage endCursor }
   }
@@ -280,6 +298,75 @@ class SuiGraphQLClient:
         if mappings:
             logger.info("Location events: resolved %d object→system mappings", len(mappings))
         return mappings
+
+    async def fetch_character_names(
+        self,
+        client: httpx.AsyncClient,
+        max_pages: int = 30,
+    ) -> int:
+        """Bulk fetch all Character objects from Sui for name resolution.
+
+        Queries on-chain Character Move objects and extracts metadata.name.
+        Stores results in entity_names table. ~1,300 characters, ~27 pages.
+
+        This replaces the NEXUS dependency for entity name enrichment.
+        """
+        character_type = f"{self.package_id}::character::Character"
+        cursor = None
+        total_stored = 0
+
+        for page in range(max_pages):
+            try:
+                data = await self._query(
+                    client,
+                    GET_CHARACTER_OBJECTS,
+                    {"type": character_type, "first": 50, "after": cursor},
+                )
+            except Exception as e:
+                logger.warning("Character name fetch failed (page %d): %s", page, e)
+                break
+
+            objects = data.get("objects", {})
+            nodes = objects.get("nodes", [])
+
+            for node in nodes:
+                contents = node.get("asMoveObject", {}).get("contents", {}).get("json", {})
+                if not isinstance(contents, dict):
+                    continue
+
+                character_address = contents.get("character_address", "")
+                metadata = contents.get("metadata", {})
+                name = ""
+                if isinstance(metadata, dict):
+                    name = metadata.get("name", "")
+
+                if not character_address or not name:
+                    continue
+
+                tribe_id = str(contents.get("tribe_id", ""))
+
+                self.conn.execute(
+                    """INSERT INTO entity_names (entity_id, display_name, entity_type,
+                           tribe_id, updated_at)
+                       VALUES (?, ?, 'character', ?, ?)
+                       ON CONFLICT(entity_id) DO UPDATE SET
+                           display_name = excluded.display_name,
+                           tribe_id = excluded.tribe_id,
+                           updated_at = excluded.updated_at""",
+                    (character_address, name, tribe_id, int(time.time())),
+                )
+                total_stored += 1
+
+            page_info = objects.get("pageInfo", {})
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+
+        if total_stored > 0:
+            self.conn.commit()
+            logger.info("Character names: stored %d names from Sui objects", total_stored)
+
+        return total_stored
 
     async def enrich_locations(self, client: httpx.AsyncClient) -> int:
         """Run all location enrichment sources and update the database.

@@ -582,3 +582,184 @@ async def test_query_handles_http_error(gql_client):
 
     with pytest.raises(httpx.HTTPStatusError):
         await gql_client._query(mock_client, "query { test }")
+
+
+# ── Character Name Resolution Tests ──────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_fetch_character_names_stores_names(gql_client, db_conn):
+    """Character names are stored in entity_names table."""
+    mock_client = AsyncMock()
+    mock_client.post.return_value = _mock_graphql_response(
+        {
+            "objects": {
+                "nodes": [
+                    {
+                        "asMoveObject": {
+                            "contents": {
+                                "json": {
+                                    "character_address": "0xwallet1",
+                                    "metadata": {"name": "Kai Sunder"},
+                                    "tribe_id": 98000430,
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "asMoveObject": {
+                            "contents": {
+                                "json": {
+                                    "character_address": "0xwallet2",
+                                    "metadata": {"name": "Ghost Protocol"},
+                                    "tribe_id": 0,
+                                }
+                            }
+                        }
+                    },
+                ],
+                "pageInfo": {"hasNextPage": False},
+            }
+        }
+    )
+
+    stored = await gql_client.fetch_character_names(mock_client)
+    assert stored == 2
+
+    row = db_conn.execute(
+        "SELECT display_name, tribe_id FROM entity_names WHERE entity_id = ?",
+        ("0xwallet1",),
+    ).fetchone()
+    assert row["display_name"] == "Kai Sunder"
+    assert row["tribe_id"] == "98000430"
+
+
+@pytest.mark.asyncio
+async def test_fetch_character_names_skips_empty(gql_client, db_conn):
+    """Characters without names are skipped."""
+    mock_client = AsyncMock()
+    mock_client.post.return_value = _mock_graphql_response(
+        {
+            "objects": {
+                "nodes": [
+                    {
+                        "asMoveObject": {
+                            "contents": {
+                                "json": {
+                                    "character_address": "0xwallet1",
+                                    "metadata": {"name": ""},
+                                }
+                            }
+                        }
+                    },
+                ],
+                "pageInfo": {"hasNextPage": False},
+            }
+        }
+    )
+
+    stored = await gql_client.fetch_character_names(mock_client)
+    assert stored == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_character_names_upserts(gql_client, db_conn):
+    """Existing names are updated on re-fetch."""
+    # Seed an existing name
+    db_conn.execute(
+        "INSERT INTO entity_names (entity_id, display_name, entity_type, updated_at) "
+        "VALUES ('0xwallet1', 'Old Name', 'character', 1)",
+    )
+    db_conn.commit()
+
+    mock_client = AsyncMock()
+    mock_client.post.return_value = _mock_graphql_response(
+        {
+            "objects": {
+                "nodes": [
+                    {
+                        "asMoveObject": {
+                            "contents": {
+                                "json": {
+                                    "character_address": "0xwallet1",
+                                    "metadata": {"name": "New Name"},
+                                    "tribe_id": 0,
+                                }
+                            }
+                        }
+                    },
+                ],
+                "pageInfo": {"hasNextPage": False},
+            }
+        }
+    )
+
+    stored = await gql_client.fetch_character_names(mock_client)
+    assert stored == 1
+
+    row = db_conn.execute(
+        "SELECT display_name FROM entity_names WHERE entity_id = ?",
+        ("0xwallet1",),
+    ).fetchone()
+    assert row["display_name"] == "New Name"
+
+
+@pytest.mark.asyncio
+async def test_fetch_character_names_paginates(gql_client, db_conn):
+    """Name fetch follows pagination."""
+    page1 = _mock_graphql_response(
+        {
+            "objects": {
+                "nodes": [
+                    {
+                        "asMoveObject": {
+                            "contents": {
+                                "json": {
+                                    "character_address": "0xw1",
+                                    "metadata": {"name": "Pilot One"},
+                                    "tribe_id": 0,
+                                }
+                            }
+                        }
+                    },
+                ],
+                "pageInfo": {"hasNextPage": True, "endCursor": "c1"},
+            }
+        }
+    )
+    page2 = _mock_graphql_response(
+        {
+            "objects": {
+                "nodes": [
+                    {
+                        "asMoveObject": {
+                            "contents": {
+                                "json": {
+                                    "character_address": "0xw2",
+                                    "metadata": {"name": "Pilot Two"},
+                                    "tribe_id": 0,
+                                }
+                            }
+                        }
+                    },
+                ],
+                "pageInfo": {"hasNextPage": False},
+            }
+        }
+    )
+
+    mock_client = AsyncMock()
+    mock_client.post.side_effect = [page1, page2]
+
+    stored = await gql_client.fetch_character_names(mock_client)
+    assert stored == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_character_names_handles_error(gql_client, db_conn):
+    """Gracefully handles API errors."""
+    mock_client = AsyncMock()
+    mock_client.post.side_effect = Exception("timeout")
+
+    stored = await gql_client.fetch_character_names(mock_client)
+    assert stored == 0

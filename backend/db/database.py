@@ -159,6 +159,15 @@ CREATE TABLE IF NOT EXISTS tribe_cache (
     is_stale INTEGER DEFAULT 0
 );
 
+-- Entity name cache (replaces NEXUS name enrichment)
+CREATE TABLE IF NOT EXISTS entity_names (
+    entity_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    entity_type TEXT,
+    tribe_id TEXT,
+    updated_at INTEGER
+);
+
 -- Generated bug reports
 CREATE TABLE IF NOT EXISTS bug_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
