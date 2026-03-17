@@ -11,11 +11,14 @@ from backend.detection.bot_pattern_checker import BotPatternChecker
 from backend.detection.config_change_checker import ConfigChangeChecker
 from backend.detection.continuity_checker import ContinuityChecker
 from backend.detection.coordinated_buying_checker import CoordinatedBuyingChecker
+from backend.detection.dead_assembly_checker import DeadAssemblyChecker
 from backend.detection.economic_checker import EconomicChecker
+from backend.detection.engagement_checker import EngagementChecker
 from backend.detection.inventory_audit_checker import InventoryAuditChecker
 from backend.detection.object_version_checker import ObjectVersionChecker
 from backend.detection.sequence_checker import SequenceChecker
 from backend.detection.tribe_hopping_checker import TribeHoppingChecker
+from backend.detection.velocity_checker import VelocityChecker
 from backend.detection.wallet_concentration_checker import WalletConcentrationChecker
 
 logger = logging.getLogger(__name__)
@@ -54,6 +57,9 @@ class DetectionEngine:
             InventoryAuditChecker(self.conn),
             BotPatternChecker(self.conn),
             TribeHoppingChecker(self.conn),
+            EngagementChecker(self.conn),
+            DeadAssemblyChecker(self.conn),
+            VelocityChecker(self.conn),
         ]
         for checker in self._checkers:
             logger.info("Registered checker: %s", checker.name)

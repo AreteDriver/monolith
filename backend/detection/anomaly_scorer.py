@@ -60,6 +60,14 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     "BP1": ("MEDIUM", "BEHAVIORAL"),
     # Tribe hopping checker
     "TH1": ("MEDIUM", "BEHAVIORAL"),
+    # Engagement session checker
+    "ES1": ("HIGH", "DATA_INTEGRITY"),
+    "ES2": ("CRITICAL", "DATA_INTEGRITY"),
+    # Dead assembly checker
+    "DA1": ("LOW", "PERFORMANCE"),
+    # Velocity checker
+    "EV1": ("HIGH", "BEHAVIORAL"),
+    "EV2": ("MEDIUM", "PERFORMANCE"),
 }
 
 
