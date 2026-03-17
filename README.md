@@ -150,7 +150,7 @@ npm run dev
 ```bash
 source .venv/bin/activate
 python -m pytest tests/ -v
-# 203 tests passing
+# 241 tests passing
 ```
 
 ---
@@ -206,11 +206,22 @@ Monolith watches the chain continuously and catches these bugs with cryptographi
 
 ---
 
-## Also Built for This Hackathon
+## Aegis Stack
 
-- **[WatchTower](https://github.com/AreteDriver/watchtower)** — Chain archaeology + AI intelligence. Behavioral fingerprints, reputation scoring, kill network analysis, on-chain Sui subscriptions. [Live demo](https://watchtower-evefrontier.vercel.app/)
-- **[Frontier Tribe OS](https://github.com/AreteDriver/frontier-tribe-os)** — Full-stack tribe management. 7 modules (census, production, treasury, intel, alerts, threat analysis). [Live demo](https://frontend-ten-theta-80.vercel.app)
+Monolith is the detection layer of the **Aegis Stack** — a unified toolkit for EVE Frontier civilization.
+
+| Layer | Project | What It Does |
+|-------|---------|-------------|
+| **Intelligence** | [WatchTower](https://github.com/AreteDriver/watchtower) | Behavioral fingerprints, reputation scoring, alt detection, kill networks, on-chain reputation oracle |
+| **Detection** | [Monolith](https://github.com/AreteDriver/monolith) (this repo) | 31 anomaly detection rules, 14 checkers, threat heatmap, auto-filed bug reports with chain evidence |
+| **Operations** | [Frontier Tribe OS](https://github.com/AreteDriver/frontier-tribe-os) | Tribe management — census, production, treasury, intel, alerts, threat analysis |
+
+**Combined**: 1,227+ tests | 3 live deployments | On-chain Sui Move contracts | 24,502 systems mapped | Dual payment rails (Sui + Stripe)
+
+- [WatchTower Live Demo](https://watchtower-evefrontier.vercel.app/)
+- [Monolith Live Demo](https://monolith-evefrontier.fly.dev/)
+- [Frontier Tribe OS Live Demo](https://frontend-ten-theta-80.vercel.app)
 
 ---
 
-*Built by [AreteDriver](https://github.com/AreteDriver) for the EVE Frontier x Sui Hackathon 2026*
+*Aegis Stack — Built by [AreteDriver](https://github.com/AreteDriver) for the DeepSurge Hackathon 2026*
