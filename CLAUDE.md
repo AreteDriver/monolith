@@ -6,10 +6,10 @@ Blockchain anomaly detector and bug report engine for EVE Frontier
 
 ## Current State
 
-- **Version**: 0.2.0
+- **Version**: 0.3.0
 - **Language**: Python
-- **Files**: 136 across 4 languages
-- **Lines**: 18,699
+- **Files**: 163 across 4 languages
+- **Lines**: 23,181
 
 ## Architecture
 
@@ -32,6 +32,7 @@ monolith/
 │   ├── .vercel/
 │   ├── public/
 │   └── src/
+├── scripts/
 ├── tests/
 │   ├── test_alerts/
 │   ├── test_api/
@@ -55,7 +56,7 @@ monolith/
 
 ## Tech Stack
 
-- **Language**: Python, JavaScript, HTML, CSS
+- **Language**: Python, JavaScript, CSS, HTML
 - **Framework**: fastapi
 - **Package Manager**: pip
 - **Linters**: ruff
@@ -93,14 +94,14 @@ ruff format src/ tests/
 
 - Do NOT commit secrets, API keys, or credentials
 - Do NOT skip writing tests for new code
+- Do NOT use synchronous database calls in async endpoints
+- Do NOT return raw dicts — use Pydantic response models
+- Do NOT hardcode secrets in Dockerfiles — use environment variables
+- Do NOT use `latest` tag — pin specific versions
 - Do NOT use `os.path` — use `pathlib.Path` everywhere
 - Do NOT use bare `except:` — catch specific exceptions
 - Do NOT use mutable default arguments
 - Do NOT use `print()` for logging — use the `logging` module
-- Do NOT hardcode secrets in Dockerfiles — use environment variables
-- Do NOT use `latest` tag — pin specific versions
-- Do NOT use synchronous database calls in async endpoints
-- Do NOT return raw dicts — use Pydantic response models
 
 ## Dependencies
 
@@ -122,29 +123,29 @@ ruff format src/ tests/
 - `AnomalyStatus`
 - `AssemblyChecker`
 - `BaseChecker`
+- `BotPatternChecker`
 - `BulkStatusRequest`
 - `ChainReader`
+- `ConfigChangeChecker`
 - `ContinuityChecker`
+- `CoordinatedBuyingChecker`
+- `DeadAssemblyChecker`
 - `DetectionEngine`
 - `EconomicChecker`
+- `EngagementChecker`
 - `EventProcessor`
-- `FakeSettings`
-- `KillmailChecker`
-- `PodChecker`
-- `PodVerifier`
-- `SequenceChecker`
 
 ### Domain Terms
 - AI
+- Also Built
 - Anomaly Detail
 - Anomaly Feed
-- Blockchain Integrity Monitor
-- Bug Report
-- Bug Reports Each
+- Bug Reports
 - CCP
-- CLAUDE
 - CRITICAL
-- Configuration All
+- CSS
+- Chain Reader
+- DELETE
 
 ### API Endpoints
 - `/admin/errors`
@@ -152,28 +153,28 @@ ruff format src/ tests/
 - `/anomalies/{anomaly_id}`
 - `/api/health`
 - `/bulk/status`
+- `/coordinated-buying`
 - `/generate`
 - `/health`
 - `/ledger`
 - `/map`
+- `/map/enrich`
 - `/nexus/webhook`
 - `/resolve`
 - `/stats`
 - `/{anomaly_id}`
-- `/{anomaly_id}/status`
-- `/{full_path:path}`
 
 ### Enums/Constants
 - `CHAIN_RPC`
 - `CONFIRMED`
 - `FALSE_POSITIVE`
 - `FTS`
-- `GITHUB_API`
-- `GRAPHQL`
-- `INDEXES`
-- `INVESTIGATING`
-- `PACKAGE_ID`
-- `RESOLVED`
+- `GET_CHARACTER_OBJECTS`
+- `GET_EVENTS_BY_MODULE`
+- `GET_KILLMAIL_OBJECTS`
+- `GET_OBJECT_QUERY`
+- `GET_OBJECT_VERSIONS`
+- `GET_OBJECT_WITH_DYNFIELDS`
 
 ## AI Skills
 
