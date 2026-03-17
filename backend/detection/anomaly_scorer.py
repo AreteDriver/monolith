@@ -44,6 +44,9 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     # Killmail checker
     "K1": ("HIGH", "DATA_INTEGRITY"),
     "K2": ("MEDIUM", "DATA_INTEGRITY"),
+    # Coordinated buying checker
+    "CB1": ("MEDIUM", "BEHAVIORAL"),
+    "CB2": ("CRITICAL", "BEHAVIORAL"),
 }
 
 

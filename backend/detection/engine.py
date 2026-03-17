@@ -8,6 +8,7 @@ import time
 from backend.detection.assembly_checker import AssemblyChecker
 from backend.detection.base import Anomaly, BaseChecker
 from backend.detection.continuity_checker import ContinuityChecker
+from backend.detection.coordinated_buying_checker import CoordinatedBuyingChecker
 from backend.detection.economic_checker import EconomicChecker
 from backend.detection.sequence_checker import SequenceChecker
 
@@ -40,6 +41,7 @@ class DetectionEngine:
             EconomicChecker(self.conn),
             AssemblyChecker(self.conn),
             SequenceChecker(self.conn),
+            CoordinatedBuyingChecker(self.conn),
         ]
         for checker in self._checkers:
             logger.info("Registered checker: %s", checker.name)

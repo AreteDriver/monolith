@@ -90,6 +90,30 @@ def bulk_update_status(request: Request, body: BulkStatusRequest) -> dict:
     return {"updated": result.rowcount, "anomaly_type": body.anomaly_type, "status": body.status}
 
 
+@router.get("/coordinated-buying")
+def get_coordinated_buying(
+    request: Request,
+    system_id: str | None = None,
+    severity: str | None = None,
+    limit: int = Query(default=20, le=100),
+) -> dict:
+    """Get coordinated buying signals — fleet staging indicators."""
+    conn = _get_db(request)
+    query = "SELECT * FROM anomalies WHERE anomaly_type = 'COORDINATED_BUYING'"
+    params: list = []
+    if system_id:
+        query += " AND system_id = ?"
+        params.append(system_id)
+    if severity:
+        query += " AND severity = ?"
+        params.append(severity)
+    query += " ORDER BY detected_at DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, params).fetchall()
+    results = [_enrich_system_name(conn, _row_to_dict(r)) for r in rows]
+    return {"signals": results, "total": len(results)}
+
+
 @router.get("/{anomaly_id}")
 def get_anomaly(request: Request, anomaly_id: str) -> dict:
     """Get a single anomaly by ID."""
