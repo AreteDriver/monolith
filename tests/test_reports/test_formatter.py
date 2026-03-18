@@ -39,14 +39,14 @@ def _sample_report():
 def test_format_markdown_has_headers():
     """Markdown output includes all section headers."""
     md = format_markdown(_sample_report())
-    assert "# MONOLITH BUG REPORT" in md
-    assert "## Summary" in md
-    assert "## Affected Entities" in md
-    assert "## Evidence" in md
-    assert "## Chain References" in md
-    assert "## Reproduction Context" in md
-    assert "## Recommended Investigation" in md
-    assert "## Plain English" in md
+    assert "# MONOLITH — FIELD DISPATCH" in md
+    assert "## Situation" in md
+    assert "## Affected Assets" in md
+    assert "## Raw Evidence" in md
+    assert "## Chain Trail" in md
+    assert "## Detection Context" in md
+    assert "## Field Orders" in md
+    assert "## Intel Brief" in md
 
 
 def test_format_markdown_contains_report_metadata():
@@ -61,7 +61,7 @@ def test_format_markdown_chain_references():
     """Markdown renders chain reference links."""
     md = format_markdown(_sample_report())
     assert "0xdeadbeef" in md
-    assert "View on Explorer" in md
+    assert "Trace on Explorer" in md
 
 
 def test_format_markdown_investigation_numbered():
@@ -87,11 +87,11 @@ def test_format_json_structure():
 def test_format_text_has_sections():
     """Plain text output includes key sections."""
     txt = format_text(_sample_report())
-    assert "MONOLITH BUG REPORT" in txt
-    assert "SUMMARY" in txt
-    assert "EVIDENCE" in txt
-    assert "PLAIN ENGLISH" in txt
-    assert "RECOMMENDED INVESTIGATION" in txt
+    assert "MONOLITH — FIELD DISPATCH" in txt
+    assert "SITUATION" in txt
+    assert "RAW EVIDENCE" in txt
+    assert "INTEL BRIEF" in txt
+    assert "FIELD ORDERS" in txt
     assert "MNL-20260311-0001" in txt
 
 
@@ -102,20 +102,20 @@ def test_format_text_investigation_numbered():
     assert "  2. Query chain for object events" in txt
 
 
-def test_format_markdown_no_plain_english_when_empty():
-    """Markdown omits Plain English section when empty."""
+def test_format_markdown_no_intel_brief_when_empty():
+    """Markdown omits Intel Brief section when empty."""
     report = _sample_report()
     report["plain_english"] = ""
     md = format_markdown(report)
-    assert "## Plain English" not in md
+    assert "## Intel Brief" not in md
 
 
-def test_format_text_no_plain_english_when_empty():
-    """Text omits Plain English section when empty."""
+def test_format_text_no_intel_brief_when_empty():
+    """Text omits Intel Brief section when empty."""
     report = _sample_report()
     report["plain_english"] = ""
     txt = format_text(report)
-    assert "PLAIN ENGLISH" not in txt
+    assert "INTEL BRIEF" not in txt
 
 
 def test_format_json_zero_timestamp():

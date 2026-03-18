@@ -10,109 +10,116 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You write terse anomaly briefs for EVE Frontier chain engineers.
+SYSTEM_PROMPT = """You are a frontier intelligence analyst writing field dispatches for chain operatives.
+
+Voice: Terse. Grim. Like a telegraph from a deep-space outpost that's seen too much.
+Think: military intel briefing meets frontier marshal's incident log.
 
 Rules:
 - 2-3 sentences MAX. Never exceed 50 words.
-- Lead with WHAT happened, then WHY it matters.
-- No preamble, no hedging, no filler.
-- Use exact object IDs and values from the evidence.
-- State facts. Do not speculate."""
+- Lead with WHAT happened, then WHY it matters to anyone alive out here.
+- Reference object IDs and values from the evidence — be precise.
+- No preamble, no hedging, no corporate language.
+- State facts like you're filing them before the next blackout.
+- Use frontier language: "wreckage", "dark", "adrift", "burned", "seized", not "inconsistency" or "discrepancy"."""
 
 # Template fallbacks when LLM is unavailable
 TEMPLATES: dict[str, str] = {
     "ORPHAN_OBJECT": (
-        "A chain event was recorded for an object that has no creation record in the "
-        "monitoring system. This may indicate the object was created before monitoring "
-        "started, or that a creation event was missed by the indexer."
+        "Ghost signal. Chain event references an object with no birth record in our "
+        "ledgers. Either it predates our watch, or something slipped past the indexer "
+        "in the dark."
     ),
     "RESURRECTION": (
-        "An object that was previously marked as destroyed showed new activity on chain. "
-        "This is a critical data integrity issue — destroyed objects should not produce "
-        "new events. Either the destruction was incorrectly recorded, or the object's "
-        "state was reset without proper chain events."
+        "Wreckage is transmitting. An asset confirmed destroyed just resumed chain "
+        "activity. Destroyed objects don't come back — not without someone rewriting "
+        "history. Treat as hostile until proven otherwise."
     ),
     "STATE_GAP": (
-        "An object transitioned between states without going through the expected "
-        "intermediate states. The state machine should enforce valid transitions, "
-        "so this may indicate a contract bug or a missed intermediate event."
+        "Missing trajectory. Object jumped between states with no flight path on "
+        "record. The state machine should enforce every waypoint. Something punched "
+        "through the gate without stopping."
     ),
     "STUCK_OBJECT": (
-        "An assembly has been in a transitional state longer than expected with no "
-        "new chain activity. This may indicate a stuck transaction or a failed "
-        "state change that left the object in limbo."
+        "Assembly adrift. Caught in a transitional state with no new signals. "
+        "Could be a stuck transaction or a state change that died mid-flight, "
+        "leaving the hull in limbo."
     ),
     "SUPPLY_DISCREPANCY": (
-        "Fuel or item quantities changed between snapshots without corresponding "
-        "chain events. Either events were missed by the indexer, or the contract "
-        "modified state without emitting the expected events."
+        "Phantom ledger. Fuel or cargo quantities shifted between sweeps with no "
+        "chain events to explain it. Resources don't move themselves out here. "
+        "Either the indexer blinked, or someone found a back door."
     ),
     "UNEXPLAINED_DESTRUCTION": (
-        "An object disappeared from the API between polling cycles with no "
-        "destruction or unanchor event on chain. The object may have been removed "
-        "through a code path that doesn't emit events."
+        "Asset vanished between polling sweeps. No destruction event, no unanchor, "
+        "no wreckage. Gone like it was never here. Whatever removed it didn't "
+        "leave a trace on chain."
     ),
     "DUPLICATE_MINT": (
-        "Multiple events with identical characteristics were found for the same "
-        "transaction. This could indicate double-processing in the event pipeline "
-        "or a genuine duplicate event emission from the contract."
+        "Double stamp. Same asset minted twice in one transaction. Could be a "
+        "pipeline echo, could be the contract stuttering. Either way, there's "
+        "one too many of something that should be unique."
     ),
     "NEGATIVE_BALANCE": (
-        "A fuel or resource balance was found to be negative, which should be "
-        "mathematically impossible. This indicates an arithmetic error in the "
-        "contract or an accounting inconsistency in the state."
+        "Impossible arithmetic. A fuel or resource balance dropped below zero. "
+        "Conservation laws don't bend out here — this points to a contract math "
+        "error or corrupted state. Red alert."
     ),
     "CONTRACT_STATE_MISMATCH": (
-        "The state recorded by the last transition event does not match the current "
-        "API-reported state. Either an intermediate state change was not recorded, "
-        "or the API and chain have diverged."
+        "Forked reality. The last transition event tells one story, the API tells "
+        "another. Chain and world have diverged. Someone's lying, or something "
+        "changed in the dark between reads."
     ),
     "PHANTOM_ITEM_CHANGE": (
-        "Object properties changed between consecutive snapshots with no chain events "
-        "in the observation window. Either the indexer missed events, or the state "
-        "was modified through a code path that doesn't emit on-chain records."
+        "Shadow inventory. Cargo manifest changed between snapshots with no chain "
+        "events in the window. Items don't rearrange themselves. Something touched "
+        "this inventory off the books."
     ),
     "UNEXPLAINED_OWNERSHIP_CHANGE": (
-        "Object ownership changed between snapshots without a transfer event on chain. "
-        "This is a critical issue — ownership changes must always have an on-chain record "
-        "for security and auditability."
+        "Silent seizure. Ownership of this asset changed hands with no transfer "
+        "event on chain. Out here, every handoff gets recorded — or it's a theft. "
+        "Investigate immediately."
     ),
     "FREE_GATE_JUMP": (
-        "A gate jump was executed without a corresponding fuel consumption event in the "
-        "same transaction. Gates should consume fuel on each use. This may indicate a "
-        "contract bug allowing free travel, or a missing FuelEvent emission."
+        "Toll runner. Gate jump executed, fuel meter didn't move. Gates burn fuel — "
+        "that's the law. Someone found a way through without paying, or the "
+        "FuelEvent never fired. Either way, the gate's integrity is compromised."
     ),
     "FAILED_GATE_TRANSPORT": (
-        "Fuel was consumed on a gate but no jump event was recorded in the same "
-        "transaction. The player paid fuel but was not transported. This could indicate "
-        "a failed transaction that didn't properly refund, or a gate link issue."
+        "Gate tax lost. Fuel was burned at the gate but no jump completed. The "
+        "traveler paid the toll and never arrived. Failed transaction without "
+        "refund, or a broken gate link. Someone's out fuel and still stranded."
     ),
     "DUPLICATE_TRANSACTION": (
-        "A transaction emitted an unusually high number of events. While complex "
-        "transactions can produce many events, the count exceeds normal patterns "
-        "and may indicate processing issues."
+        "Event storm. A single transaction fired an abnormal number of events. "
+        "Complex operations can be noisy, but this exceeds normal patterns. "
+        "Could be processing issues or something deliberately flooding the pipe."
     ),
     "BLOCK_PROCESSING_GAP": (
-        "A large gap was detected in the sequence of processed blocks. Events in the "
-        "missing blocks may have been skipped. This likely indicates an RPC or indexer "
-        "availability issue rather than a chain problem."
+        "Blind spot. Large gap in processed block sequence — our surveillance "
+        "went dark during this window. Any events in those missing blocks are "
+        "unaccounted for. Likely an RPC dropout, but what happened while we "
+        "weren't watching?"
     ),
     "OWNERCAP_TRANSFER": (
-        "An OwnerCap object was transferred to a new address. This indicates "
-        "ownership delegation — the original SSU owner retains inventory access "
-        "but another entity now holds the capability object."
+        "Title deed transfer. An OwnerCap object changed hands. The original "
+        "owner keeps inventory access, but someone else now holds the keys. "
+        "Could be legitimate delegation — or the first move in a hostile takeover."
     ),
     "OWNERCAP_DELEGATION": (
-        "Object ownership changed between snapshots with a corresponding transfer "
-        "event on chain. This is a deliberate delegation, not an unexplained change."
+        "Ownership delegation confirmed on chain. Transfer event matches the "
+        "snapshot change — this one's deliberate, not a ghost. Still worth "
+        "tracking who's accumulating capability objects."
     ),
     "DUPLICATE_KILLMAIL": (
-        "The same victim was killed multiple times within a short window. "
-        "This may indicate a duplicate event emission or a genuine double-kill."
+        "Double tap. Same target registered as killed twice in rapid succession. "
+        "Either the chain stuttered and echoed the event, or someone genuinely "
+        "killed the same mark twice. Verify the receipts."
     ),
     "THIRD_PARTY_KILL_REPORT": (
-        "A kill was reported to chain by someone other than the killer. "
-        "While valid, third-party reporting is unusual and worth tracking."
+        "Witness report. This kill was logged to chain by someone other than "
+        "the shooter. Third-party reporting isn't forbidden, but it's unusual "
+        "enough to warrant a closer look at who's watching and why."
     ),
 }
 

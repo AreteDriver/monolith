@@ -10,86 +10,85 @@ import sqlite3
 import time
 from datetime import UTC, datetime
 
-from backend.detection.anomaly_scorer import RULE_CLASSIFICATION
+from backend.detection.anomaly_scorer import RULE_CLASSIFICATION, RULE_DISPLAY
 
 # Maps anomaly_type to investigation recommendations
 INVESTIGATION_STEPS: dict[str, list[str]] = {
     "ORPHAN_OBJECT": [
-        "Query chain for all events referencing this object ID",
-        "Check if object was created before monitoring started (backfill gap)",
-        "Verify Sui event ingestion is capturing all creation events",
+        "Sweep chain for all events referencing this object — trace its origin",
+        "Check if the object predates our watch (backfill gap from before deployment)",
+        "Verify Sui event ingestion hasn't dropped creation events",
     ],
     "RESURRECTION": [
-        "Verify destruction event was genuine (not a state flag reset)",
-        "Query chain for all post-destruction transactions",
-        "Check if object ID was recycled (new object, same ID)",
-        "This is a critical data integrity issue if confirmed",
+        "Confirm the destruction was genuine — not a state flag reset or ID recycle",
+        "Pull all post-destruction transactions for this object",
+        "If confirmed: something is rewriting state. Escalate immediately",
     ],
     "STATE_GAP": [
-        "Query chain for events between the two snapshot timestamps",
-        "Check if intermediate state transitions were processed but not recorded",
-        "Verify the valid transition map matches current contract logic",
+        "Query chain between the two snapshot timestamps — find the missing waypoints",
+        "Check if intermediate transitions were processed but never recorded",
+        "Verify the transition map matches current contract logic — rules may have changed",
     ],
     "STUCK_OBJECT": [
-        "Check if a pending transaction is stuck in the mempool",
-        "Verify the assembly contract's state machine allows resolution",
-        "Check if the player's wallet has sufficient gas",
+        "Check for a pending transaction stuck in the mempool",
+        "Verify the assembly's state machine has a valid exit from this state",
+        "Check if the wallet has gas — could be a simple fuel-out",
     ],
     "SUPPLY_DISCREPANCY": [
-        "Compare fuel burn rate against elapsed time",
-        "Check if fuel was consumed by a linked assembly",
-        "Query chain for depositFuel/withdrawFuel events in the window",
+        "Compare fuel burn rate against elapsed time — does the math check out?",
+        "Check if a linked assembly consumed fuel from this one",
+        "Query chain for depositFuel/withdrawFuel events in the observation window",
     ],
     "UNEXPLAINED_DESTRUCTION": [
-        "Check if object reappears in next API poll (transient API issue)",
-        "Query chain for destroyDeployable or unanchor events",
-        "Verify API pagination didn't skip this object",
+        "Wait for next API poll — could be a transient glitch (object reappears)",
+        "Query chain for destroyDeployable or unanchor events in the window",
+        "Verify API pagination didn't skip this object between sweeps",
     ],
     "DUPLICATE_MINT": [
-        "Examine transaction receipts for both events",
-        "Check if this is a known multi-event transaction pattern",
-        "Verify event deduplication in the ingestion layer",
+        "Pull transaction receipts for both events — compare timestamps and payloads",
+        "Check if this matches a known multi-event transaction pattern",
+        "Verify event deduplication in the ingestion layer isn't broken",
     ],
     "NEGATIVE_BALANCE": [
-        "This should be impossible — verify contract arithmetic",
+        "This violates conservation laws — verify contract arithmetic immediately",
         "Check for integer overflow/underflow in fuel calculations",
-        "Query historical fuel events to trace the balance to negative",
+        "Trace historical fuel events backward to find where the balance went negative",
     ],
     "CONTRACT_STATE_MISMATCH": [
-        "Query chain state directly (not via API) for this object",
-        "Check API cache/indexer lag — wait 2 minutes and re-check",
-        "If persistent: contract state and API are diverged",
+        "Query chain state directly (bypass API) for ground truth",
+        "Check for API cache lag — wait 2 minutes and sweep again",
+        "If it persists: chain and world have diverged. This is real",
     ],
     "PHANTOM_ITEM_CHANGE": [
-        "Query chain for ALL events referencing this object in the window",
-        "Check if Sui event ingestion missed events (cursor gap vs chain gap)",
-        "Verify the changed properties can only be modified via chain tx",
+        "Query chain for ALL events touching this object in the observation window",
+        "Check for cursor gaps in Sui event ingestion — missed events look like phantoms",
+        "Verify these properties can only change via on-chain transaction",
     ],
     "UNEXPLAINED_OWNERSHIP_CHANGE": [
-        "Query chain for transfer events for this object",
-        "Check if ownership was changed via admin/system function",
-        "This is critical — ownership should never change without on-chain record",
+        "Query chain for transfer events — find the missing handoff record",
+        "Check if an admin or system function bypassed normal transfer flow",
+        "No record means no authorization. Treat as potential theft until cleared",
     ],
     "FREE_GATE_JUMP": [
-        "Examine the transaction for fuel consumption events",
-        "Check if the gate has a fuel exemption or zero-fuel configuration",
-        "Verify gate's fuel balance before and after the jump",
-        "If confirmed: possible exploit allowing free gate travel",
+        "Examine the transaction for fuel consumption events — should be in same tx",
+        "Check if the gate is configured for zero-fuel or has an exemption",
+        "Verify gate fuel balance before and after the jump",
+        "If confirmed: someone's running gates for free. Possible exploit vector",
     ],
     "FAILED_GATE_TRANSPORT": [
-        "Check if the jump was rejected after fuel burn (revert without refund)",
-        "Examine gate link status — was the destination gate online?",
+        "Check if the jump was rejected after fuel burn — revert without refund",
+        "Examine gate link status — was the destination gate online at time of transit?",
         "Check transaction logs for error events in the same tx",
     ],
     "DUPLICATE_TRANSACTION": [
-        "Examine if this is a complex transaction with many sub-operations",
-        "Check for RPC response deduplication issues",
-        "Verify ingestion layer isn't double-processing blocks",
+        "Check if this is a legitimately complex transaction with many sub-operations",
+        "Look for RPC response deduplication failures",
+        "Verify the ingestion layer isn't double-processing blocks during recovery",
     ],
     "BLOCK_PROCESSING_GAP": [
-        "Check if the RPC node was unavailable during the gap window",
-        "Query the missing block range for any world contract events",
-        "This may indicate indexer downtime, not a chain issue",
+        "Check RPC node availability during the gap window — likely an outage",
+        "Query the missing block range for any world contract events we missed",
+        "Assess what could have happened while we were blind",
     ],
 }
 
@@ -154,15 +153,21 @@ def build_report(anomaly_row: dict, conn: sqlite3.Connection | None = None) -> d
 
 
 def _generate_title(anomaly: dict) -> str:
-    """Generate a concise report title."""
-    atype = anomaly["anomaly_type"].replace("_", " ").title()
+    """Generate a concise report title using frontier display names."""
+    rule_id = anomaly.get("rule_id", "")
+    entry = RULE_DISPLAY.get(rule_id)
+    if entry:
+        frontier_name = entry[0]
+    else:
+        frontier_name = anomaly["anomaly_type"].replace("_", " ").title()
+
     obj_id = anomaly.get("object_id", "")
     if obj_id and len(obj_id) > 16:
         obj_id = obj_id[:8] + "..." + obj_id[-4:]
     system = anomaly.get("system_id", "")
     if system and system != "0":
-        return f"{atype} — Object {obj_id} in System {system}"
-    return f"{atype} — Object {obj_id}"
+        return f"{frontier_name} — {obj_id} in System {system}"
+    return f"{frontier_name} — {obj_id}"
 
 
 def _extract_chain_references(evidence: dict, anomaly: dict) -> list[dict]:

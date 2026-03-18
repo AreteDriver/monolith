@@ -1,18 +1,28 @@
-"""Discord alerter — sends CRITICAL/HIGH anomaly alerts via webhook."""
+"""Discord alerter — sends anomaly intercepts via webhook."""
 
 import logging
 import time
 
 import httpx
 
+from backend.detection.anomaly_scorer import RULE_DISPLAY
+
 logger = logging.getLogger(__name__)
 
 # Severity → Discord embed color (decimal)
 SEVERITY_COLORS = {
-    "CRITICAL": 0xFF0000,  # Red
-    "HIGH": 0xFF8C00,  # Dark orange
-    "MEDIUM": 0xFFD700,  # Gold
-    "LOW": 0x808080,  # Gray
+    "CRITICAL": 0xFF0000,  # Red — hostile contact
+    "HIGH": 0xFF8C00,  # Amber — threat detected
+    "MEDIUM": 0xFFD700,  # Gold — anomaly flagged
+    "LOW": 0x808080,  # Gray — noise
+}
+
+# Severity → prefix for Discord titles
+SEVERITY_PREFIX = {
+    "CRITICAL": "PRIORITY INTERCEPT",
+    "HIGH": "SIGNAL FLAGGED",
+    "MEDIUM": "ANOMALY LOGGED",
+    "LOW": "NOISE",
 }
 
 # Rate limit tracking
@@ -44,35 +54,43 @@ async def send_alert(
         return False
 
     evidence = anomaly.get("evidence", {})
-    description = evidence.get("description", anomaly.get("anomaly_type", "Unknown"))
+    rule_id = anomaly.get("rule_id", "")
+    rule_entry = RULE_DISPLAY.get(rule_id)
+    frontier_name = rule_entry[0] if rule_entry else anomaly["anomaly_type"]
+    tagline = rule_entry[1] if rule_entry else ""
+
+    description = tagline or evidence.get(
+        "description", anomaly.get("anomaly_type", "Unknown")
+    )
+    prefix = SEVERITY_PREFIX.get(severity, "SIGNAL")
 
     embed = {
-        "title": f"🚨 {severity}: {anomaly['anomaly_type']}",
+        "title": f"{prefix}: {frontier_name}",
         "description": description[:200],
         "color": SEVERITY_COLORS.get(severity, 0x808080),
         "fields": [
             {
-                "name": "Anomaly ID",
+                "name": "Intercept ID",
                 "value": f"`{anomaly.get('anomaly_id', 'N/A')}`",
                 "inline": True,
             },
             {
-                "name": "Object",
+                "name": "Target",
                 "value": f"`{_truncate(anomaly.get('object_id', 'N/A'), 20)}`",
                 "inline": True,
             },
             {
-                "name": "Detector",
+                "name": "Source",
                 "value": anomaly.get("detector", "unknown"),
                 "inline": True,
             },
             {
-                "name": "Rule",
-                "value": anomaly.get("rule_id", "N/A"),
+                "name": "Classification",
+                "value": f"{rule_id} — {severity}",
                 "inline": True,
             },
         ],
-        "footer": {"text": "MONOLITH v0.2.0 — EVE Frontier Blockchain Integrity Monitor"},
+        "footer": {"text": "MONOLITH — Frontier Chain Intelligence"},
     }
 
     payload = {"embeds": [embed]}

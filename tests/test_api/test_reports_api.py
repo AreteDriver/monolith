@@ -136,7 +136,8 @@ def test_get_report_markdown(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["format"] == "markdown"
-    assert "MONOLITH BUG REPORT" in data["content"]
+    assert "MONOLITH" in data["content"]
+    assert "FIELD DISPATCH" in data["content"]
 
 
 def test_get_report_text(client):
@@ -149,7 +150,8 @@ def test_get_report_text(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["format"] == "text"
-    assert "MONOLITH BUG REPORT" in data["content"]
+    assert "MONOLITH" in data["content"]
+    assert "FIELD DISPATCH" in data["content"]
 
 
 def test_generate_report_missing_anomaly(client):
