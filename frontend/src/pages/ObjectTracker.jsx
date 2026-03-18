@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
+import { getDisplayName } from '../displayNames'
 
 export default function ObjectTracker() {
   const { id } = useParams()
@@ -82,7 +83,7 @@ export default function ObjectTracker() {
               >
                 <div className="flex items-center gap-3">
                   <SeverityBadge severity={a.severity} />
-                  <span className="mono text-sm">{a.anomaly_type}</span>
+                  <span className="mono text-sm">{getDisplayName(a)}</span>
                   <span className="text-xs text-[#6b7280]">{a.rule_id}</span>
                   <span className="ml-auto"><TimeAgo timestamp={a.detected_at} /></span>
                 </div>

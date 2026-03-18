@@ -81,19 +81,19 @@ export default function Landing() {
       <div className="border border-[#2a2a2a] p-6 mb-12">
         <h2 className="text-lg font-bold text-[#f59e0b] mb-4">Detection Rules</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <RuleRow id="C1" name="Orphan Object" severity="MEDIUM" />
-          <RuleRow id="C2" name="Resurrection" severity="CRITICAL" />
-          <RuleRow id="C3" name="State Gap" severity="HIGH" />
-          <RuleRow id="C4" name="Stuck Object" severity="MEDIUM" />
-          <RuleRow id="E1" name="Supply Discrepancy" severity="HIGH" />
-          <RuleRow id="E2" name="Unexplained Destruction" severity="HIGH" />
-          <RuleRow id="E3" name="Duplicate Mint" severity="CRITICAL" />
-          <RuleRow id="E4" name="Negative Balance" severity="CRITICAL" />
-          <RuleRow id="A1" name="Contract State Mismatch" severity="HIGH" />
-          <RuleRow id="A4" name="Phantom Item Change" severity="HIGH" />
-          <RuleRow id="A5" name="Unexplained Ownership" severity="CRITICAL" />
-          <RuleRow id="S2" name="Duplicate Transaction" severity="MEDIUM" />
-          <RuleRow id="S4" name="Block Processing Gap" severity="MEDIUM" />
+          <RuleRow id="C1" name="Ghost Signal" severity="MEDIUM" />
+          <RuleRow id="C2" name="Lazarus Event" severity="CRITICAL" />
+          <RuleRow id="C3" name="Missing Trajectory" severity="HIGH" />
+          <RuleRow id="C4" name="Dead Drift" severity="MEDIUM" />
+          <RuleRow id="E1" name="Phantom Ledger" severity="HIGH" />
+          <RuleRow id="E2" name="Vanishing Act" severity="HIGH" />
+          <RuleRow id="E3" name="Double Stamp" severity="CRITICAL" />
+          <RuleRow id="E4" name="Negative Mass" severity="CRITICAL" />
+          <RuleRow id="A1" name="Forked State" severity="HIGH" />
+          <RuleRow id="A4" name="Shadow Inventory" severity="HIGH" />
+          <RuleRow id="A5" name="Silent Seizure" severity="CRITICAL" />
+          <RuleRow id="S2" name="Event Storm" severity="MEDIUM" />
+          <RuleRow id="S4" name="Blind Spot" severity="MEDIUM" />
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export default function Landing() {
 
       {/* Footer */}
       <div className="text-center text-xs text-[#6b7280] pb-8 border-t border-[#2a2a2a] pt-6">
-        <p>MONOLITH v0.1.0 — EVE Frontier Blockchain Integrity Monitor</p>
+        <p>MONOLITH — Frontier Chain Intelligence</p>
         <p className="mt-1">
           Built by{' '}
           <a href="https://github.com/AreteDriver" className="text-[#f59e0b] hover:underline" target="_blank" rel="noopener noreferrer">

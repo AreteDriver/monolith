@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import { getTypeName } from '../displayNames'
 
 const SEVERITY_COLORS = {
   critical: '#ef4444',
@@ -528,7 +529,7 @@ function AnomalyMap() {
             <>
               <div className="text-white font-bold">{tooltip.event.system_name || tooltip.event.system_id}</div>
               <div className="text-xs mt-1" style={{ color: getTypeColor(tooltip.event.anomaly_type) }}>
-                {tooltip.event.anomaly_type.replace(/_/g, ' ')}
+                {getTypeName(tooltip.event.anomaly_type)}
               </div>
               <div className="text-[#a3a3a3] text-xs mt-1">
                 <span style={{ color: SEVERITY_COLORS[tooltip.event.severity.toLowerCase()] || '#6b7280' }}>
@@ -585,7 +586,7 @@ function AnomalyMap() {
           {Object.entries(TYPE_COLORS).map(([name, color]) => (
             <div key={name} className="flex items-center gap-2">
               <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-              <span className="text-[#6b7280]">{name.replace(/_/g, ' ').toLowerCase()}</span>
+              <span className="text-[#6b7280]">{getTypeName(name)}</span>
             </div>
           ))}
         </div>

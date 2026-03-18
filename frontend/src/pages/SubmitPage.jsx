@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import SeverityBadge from '../components/SeverityBadge'
+import { getTypeName } from '../displayNames'
 
 export default function SubmitPage() {
   const [objectId, setObjectId] = useState('')
@@ -121,12 +122,12 @@ export default function SubmitPage() {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <SeverityBadge severity={result.severity} />
-                <span className="mono text-sm text-[#f59e0b]">{result.anomaly_type}</span>
+                <span className="mono text-sm text-[#f59e0b]">{getTypeName(result.anomaly_type)}</span>
                 <span className="text-sm text-green-400 font-bold">Anomaly Detected</span>
               </div>
               <p className="text-sm text-[#a3a3a3] mb-3">
-                Monolith found a {result.anomaly_type} anomaly. A full bug report has
-                been generated with chain evidence attached.
+                Monolith detected a {getTypeName(result.anomaly_type)} anomaly. A full
+                report has been generated with chain evidence attached.
               </p>
               {result.report_id && (
                 <Link

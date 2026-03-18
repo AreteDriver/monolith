@@ -4,6 +4,7 @@ import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
 import { useSystemNames } from '../hooks/useWatchTower'
+import { getDisplayName } from '../displayNames'
 
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 
@@ -66,7 +67,7 @@ export default function AnomalyFeed() {
           >
             <div className="flex items-center gap-4">
               <SeverityBadge severity={a.severity} />
-              <span className="mono text-sm text-[#f59e0b]">{a.anomaly_type}</span>
+              <span className="mono text-sm text-[#f59e0b]">{getDisplayName(a)}</span>
               <span className="mono text-xs text-[#a3a3a3]">
                 {truncate(a.object_id, 20)}
               </span>
@@ -107,7 +108,7 @@ export default function AnomalyFeed() {
 
       {!loading && anomalies.length === 0 && (
         <p className="text-[#6b7280] text-center py-12">
-          No anomalies detected yet. The chain is clean.
+          No signals intercepted. The chain is quiet.
         </p>
       )}
     </div>

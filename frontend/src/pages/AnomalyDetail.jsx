@@ -4,6 +4,7 @@ import SeverityBadge from '../components/SeverityBadge'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
 import { useSystemNames, primeSystemNameCache } from '../hooks/useWatchTower'
+import { getDisplayName } from '../displayNames'
 
 const STATUS_OPTIONS = ['UNVERIFIED', 'CONFIRMED', 'FALSE_POSITIVE', 'INVESTIGATING', 'RESOLVED']
 
@@ -50,7 +51,7 @@ export default function AnomalyDetail() {
     <div>
       <div className="flex items-center gap-4 mb-6">
         <SeverityBadge severity={a.severity} />
-        <h1 className="text-xl font-bold">{a.anomaly_type}</h1>
+        <h1 className="text-xl font-bold">{getDisplayName(a)}</h1>
         <span className="mono text-sm text-[#a3a3a3]">{a.anomaly_id}</span>
         <TimeAgo timestamp={a.detected_at} />
       </div>

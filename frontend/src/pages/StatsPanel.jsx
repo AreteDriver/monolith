@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useApi } from '../hooks/useApi'
+import { getTypeName } from '../displayNames'
 
 const SEVERITY_COLORS = {
   CRITICAL: '#ef4444',
@@ -44,7 +45,7 @@ export default function StatsPanel() {
   const typeData = Object.entries(data.by_type || {})
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
-    .map(([name, count]) => ({ name, count }))
+    .map(([name, count]) => ({ name: getTypeName(name), count }))
 
   const ledgerEventData = ledgerData?.event_type_breakdown
     ? Object.entries(ledgerData.event_type_breakdown).map(([name, count]) => ({ name, count }))
