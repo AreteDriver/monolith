@@ -50,15 +50,11 @@ async def explore_world_api(client: httpx.AsyncClient) -> None:
     except Exception as e:
         print(f"  Config fetch failed: {e}")
 
-    # V2 endpoints
+    # V2 endpoints — only static data remains after CCP deprecated dynamic routes (2026-03-05)
     endpoints = {
-        "smartassemblies": "/v2/smartassemblies",
-        "smartcharacters": "/v2/smartcharacters",
         "solarsystems": "/v2/solarsystems",
         "types": "/v2/types",
-        "killmails": "/v2/killmails",
         "tribes": "/v2/tribes",
-        "fuels": "/v2/fuels",
     }
 
     for name, path in endpoints.items():
@@ -96,30 +92,9 @@ async def explore_world_api(client: httpx.AsyncClient) -> None:
         except Exception as e:
             print(f"  {name}: ERROR — {e}")
 
-    # Try fetching a single assembly detail
-    try:
-        resp = await client.get(f"{WORLD_API}/v2/smartassemblies", timeout=30)
-        if resp.status_code == 200:
-            data = resp.json()
-            items = data.get("data", data) if isinstance(data, dict) else data
-            if items and len(items) > 0:
-                first_id = items[0].get(
-                    "id", items[0].get("address", items[0].get("smartAssemblyId", ""))
-                )
-                if first_id:
-                    detail_resp = await client.get(
-                        f"{WORLD_API}/v2/smartassemblies/{first_id}", timeout=30
-                    )
-                    if detail_resp.status_code == 200:
-                        detail = detail_resp.json()
-                        (SAMPLE_DIR / "world_assembly_detail.json").write_text(
-                            json.dumps(detail, indent=2)
-                        )
-                        print(f"\n  Assembly detail saved (ID: {first_id})")
-                        if isinstance(detail, dict):
-                            print(f"    Detail fields: {list(detail.keys())}")
-    except Exception as e:
-        print(f"\n  Assembly detail fetch failed: {e}")
+    # NOTE: /v2/smartassemblies, /v2/smartcharacters, /v2/killmails, /v2/fuels
+    # were deprecated by CCP on 2026-03-05. Dynamic data is now chain-only.
+    # Use Sui GraphQL or RPC for assembly/character/killmail queries.
 
 
 async def explore_chain_rpc(client: httpx.AsyncClient) -> None:

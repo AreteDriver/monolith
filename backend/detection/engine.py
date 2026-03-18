@@ -15,7 +15,9 @@ from backend.detection.dead_assembly_checker import DeadAssemblyChecker
 from backend.detection.economic_checker import EconomicChecker
 from backend.detection.engagement_checker import EngagementChecker
 from backend.detection.inventory_audit_checker import InventoryAuditChecker
+from backend.detection.killmail_checker import KillmailChecker
 from backend.detection.object_version_checker import ObjectVersionChecker
+from backend.detection.ownership_checker import OwnershipChecker
 from backend.detection.sequence_checker import SequenceChecker
 from backend.detection.tribe_hopping_checker import TribeHoppingChecker
 from backend.detection.velocity_checker import VelocityChecker
@@ -40,10 +42,8 @@ class DetectionEngine:
         """Register all checker instances.
 
         NOTE: PodChecker (P1 rule) is async and cannot be registered here.
-        It requires a PodVerifier + httpx.AsyncClient and must be called via
-        run_async() from an async context. See backend/detection/pod_checker.py.
-        TODO: Wire PodChecker into detection_loop when async detection is supported,
-        or run it as a separate async background task alongside run_cycle().
+        It uses Sui GraphQL queries and must be called via run_async() from
+        an async context. See backend/detection/pod_checker.py.
         """
         self._checkers = [
             ContinuityChecker(self.conn),
@@ -60,6 +60,8 @@ class DetectionEngine:
             EngagementChecker(self.conn),
             DeadAssemblyChecker(self.conn),
             VelocityChecker(self.conn),
+            KillmailChecker(self.conn),
+            OwnershipChecker(self.conn),
         ]
         for checker in self._checkers:
             logger.info("Registered checker: %s", checker.name)

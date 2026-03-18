@@ -10,13 +10,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a blockchain engineer's assistant. You receive structured
-anomaly data from an EVE Frontier chain monitor and write plain English explanations
-for the "Plain English" section of bug reports.
+SYSTEM_PROMPT = """You write terse anomaly briefs for EVE Frontier chain engineers.
 
-Your audience is a CCP or Sui engineer. Be precise, factual, and concise.
-Max 100 words. Explain what happened, why it's a problem, and what it likely indicates.
-Do not speculate beyond what the evidence supports."""
+Rules:
+- 2-3 sentences MAX. Never exceed 50 words.
+- Lead with WHAT happened, then WHY it matters.
+- No preamble, no hedging, no filler.
+- Use exact object IDs and values from the evidence.
+- State facts. Do not speculate."""
 
 # Template fallbacks when LLM is unavailable
 TEMPLATES: dict[str, str] = {
@@ -96,6 +97,23 @@ TEMPLATES: dict[str, str] = {
         "missing blocks may have been skipped. This likely indicates an RPC or indexer "
         "availability issue rather than a chain problem."
     ),
+    "OWNERCAP_TRANSFER": (
+        "An OwnerCap object was transferred to a new address. This indicates "
+        "ownership delegation — the original SSU owner retains inventory access "
+        "but another entity now holds the capability object."
+    ),
+    "OWNERCAP_DELEGATION": (
+        "Object ownership changed between snapshots with a corresponding transfer "
+        "event on chain. This is a deliberate delegation, not an unexplained change."
+    ),
+    "DUPLICATE_KILLMAIL": (
+        "The same victim was killed multiple times within a short window. "
+        "This may indicate a duplicate event emission or a genuine double-kill."
+    ),
+    "THIRD_PARTY_KILL_REPORT": (
+        "A kill was reported to chain by someone other than the killer. "
+        "While valid, third-party reporting is unusual and worth tracking."
+    ),
 }
 
 
@@ -131,7 +149,7 @@ async def narrate_anomaly(
 
         response = await client.messages.create(
             model=model,
-            max_tokens=200,
+            max_tokens=100,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
         )

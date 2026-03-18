@@ -1,9 +1,15 @@
-"""POD checker — verifies local state against CCP's cryptographically signed POD data.
+"""POD checker — verifies local state against on-chain object state via GraphQL.
 
 Rules:
-  P1 — POD Verification Failure: local snapshot diverges from POD-signed authority data
+  P1 — Chain State Mismatch: local snapshot diverges from on-chain object data
+
+History:
+  Pre-2026-03-18: Verified against World API /v2/smartassemblies/{id} with POD signatures.
+  CCP deprecated /v2/smartassemblies (dynamic data removed, chain-only now).
+  Refactored to compare local snapshots against Sui GraphQL object queries.
 """
 
+import json
 import logging
 import sqlite3
 import time
@@ -11,19 +17,36 @@ import time
 import httpx
 
 from backend.detection.base import Anomaly, BaseChecker
-from backend.ingestion.pod_verifier import PodVerifier
 
 logger = logging.getLogger(__name__)
 
-# Max objects to check per cycle to avoid hammering the World API
-POD_CHECK_LIMIT = 5
+# Max objects to check per cycle
+CHAIN_CHECK_LIMIT = 5
+
+GET_OBJECT_STATE = """
+query GetObject($address: SuiAddress!) {
+  object(address: $address) {
+    address
+    version
+    owner {
+      ... on AddressOwner { owner { address } }
+      ... on Shared { initialSharedVersion }
+    }
+    asMoveObject {
+      contents {
+        type { repr }
+        json
+      }
+    }
+  }
+}
+"""
 
 
 class PodChecker(BaseChecker):
-    """Checks local state against CCP's POD-signed data for integrity verification.
+    """Checks local state against on-chain Sui object state via GraphQL.
 
-    This checker is async — it cannot be registered in the sync DetectionEngine.run_cycle().
-    Call run_async() from an async context instead.
+    This checker is async — call run_async() from an async context.
     """
 
     name = "pod_checker"
@@ -31,37 +54,28 @@ class PodChecker(BaseChecker):
     def __init__(
         self,
         conn: sqlite3.Connection,
-        pod_verifier: PodVerifier,
-        client: httpx.AsyncClient,
+        graphql_url: str = "https://graphql.testnet.sui.io/graphql",
     ):
         super().__init__(conn)
-        self.pod_verifier = pod_verifier
-        self.client = client
+        self.graphql_url = graphql_url
 
     def check(self) -> list[Anomaly]:
-        """Sync check() — not supported for PodChecker.
-
-        PodChecker requires async HTTP calls. Use run_async() instead.
-        """
+        """Sync check() — not supported for PodChecker."""
         raise NotImplementedError("PodChecker requires async execution. Use run_async() instead.")
 
-    async def run_async(self) -> list[Anomaly]:
-        """Run all POD verification rules asynchronously."""
-        anomalies: list[Anomaly] = []
-        anomalies.extend(await self._check_p1_pod_verification())
-        return anomalies
+    async def run_async(self, client: httpx.AsyncClient | None = None) -> list[Anomaly]:
+        """Run all chain state verification rules asynchronously."""
+        if client is None:
+            async with httpx.AsyncClient() as c:
+                return await self._check_p1_chain_state(c)
+        return await self._check_p1_chain_state(client)
 
-    async def _check_p1_pod_verification(self) -> list[Anomaly]:
-        """P1: Local state snapshot diverges from POD-signed World API data.
+    async def _check_p1_chain_state(self, client: httpx.AsyncClient) -> list[Anomaly]:
+        """P1: Local state snapshot diverges from on-chain object data.
 
-        Fetches POD-signed data for recent objects and compares key fields
-        (state, owner, fuel) against local snapshots. Mismatches indicate
-        either local data corruption or a chain integrity issue.
+        Fetches current object state from Sui GraphQL and compares key fields
+        (owner, version, contents) against local snapshots.
         """
-        if not self.pod_verifier.base_url:
-            return []
-
-        # Get recent objects with snapshots, rate-limited to POD_CHECK_LIMIT
         rows = self.conn.execute(
             """SELECT o.object_id, o.object_type, o.system_id,
                       ws.state_data, ws.snapshot_time
@@ -74,62 +88,24 @@ class PodChecker(BaseChecker):
                WHERE o.object_type = 'smartassemblies'
                ORDER BY ws.snapshot_time DESC
                LIMIT ?""",
-            (POD_CHECK_LIMIT,),
+            (CHAIN_CHECK_LIMIT,),
         ).fetchall()
 
         anomalies = []
         for row in rows:
             obj_id = row["object_id"]
             system_id = row["system_id"] or ""
-
-            # Parse local state
             local_state = self._parse_state(dict(row))
 
-            # Fetch POD-signed data from World API
-            pod_envelope = await self.pod_verifier.fetch_pod(
-                f"/v2/smartassemblies/{obj_id}",
-                self.client,
-            )
-            if pod_envelope is None:
-                # API unavailable or object not found — skip, don't flag
+            chain_obj = await self._fetch_chain_object(client, obj_id)
+            if chain_obj is None:
                 continue
 
-            # Verify the POD signature
-            verification = await self.pod_verifier.verify(pod_envelope, self.client)
-            if not verification.get("valid"):
-                anomalies.append(
-                    Anomaly(
-                        anomaly_type="POD_SIGNATURE_INVALID",
-                        rule_id="P1",
-                        detector=self.name,
-                        object_id=obj_id,
-                        system_id=system_id,
-                        severity="CRITICAL",
-                        category="EXPLOIT_VECTOR",
-                        evidence={
-                            "verification_error": verification.get("error", "unknown"),
-                            "snapshot_time": row["snapshot_time"],
-                            "description": (
-                                f"POD signature verification failed for "
-                                f"{obj_id[:16]}... — data authenticity cannot "
-                                f"be confirmed"
-                            ),
-                        },
-                    )
-                )
-                continue
-
-            # Extract POD data for field comparison
-            pod_data = self._extract_pod_data(pod_envelope)
-            if not pod_data:
-                continue
-
-            # Compare key fields between local snapshot and POD-signed data
-            mismatches = self._compare_fields(local_state, pod_data)
+            mismatches = self._compare_with_chain(local_state, chain_obj)
             if mismatches:
                 anomalies.append(
                     Anomaly(
-                        anomaly_type="POD_STATE_MISMATCH",
+                        anomaly_type="CHAIN_STATE_MISMATCH",
                         rule_id="P1",
                         detector=self.name,
                         object_id=obj_id,
@@ -139,10 +115,11 @@ class PodChecker(BaseChecker):
                         evidence={
                             "mismatches": mismatches,
                             "snapshot_time": row["snapshot_time"],
-                            "pod_fetch_time": int(time.time()),
+                            "chain_version": chain_obj.get("version"),
+                            "check_time": int(time.time()),
                             "description": (
-                                f"Local state diverges from POD-signed data "
-                                f"for {obj_id[:16]}...: "
+                                f"Local state diverges from chain for "
+                                f"{obj_id[:16]}...: "
                                 f"{', '.join(mismatches.keys())}"
                             ),
                         },
@@ -151,58 +128,86 @@ class PodChecker(BaseChecker):
 
         return anomalies
 
+    async def _fetch_chain_object(self, client: httpx.AsyncClient, object_id: str) -> dict | None:
+        """Fetch an object's current state from Sui GraphQL."""
+        try:
+            resp = await client.post(
+                self.graphql_url,
+                json={"query": GET_OBJECT_STATE, "variables": {"address": object_id}},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            result = resp.json()
+
+            if result.get("errors"):
+                logger.warning(
+                    "GraphQL error for %s: %s",
+                    object_id[:16],
+                    result["errors"][0].get("message", ""),
+                )
+                return None
+
+            obj = result.get("data", {}).get("object")
+            if not obj:
+                logger.debug("Object %s not found on chain", object_id[:16])
+                return None
+
+            return obj
+
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("Chain object fetch failed for %s: %s", object_id[:16], e)
+            return None
+
     @staticmethod
-    def _extract_pod_data(pod_envelope: dict) -> dict:
-        """Extract the actual data payload from a POD envelope.
+    def _compare_with_chain(local: dict, chain_obj: dict) -> dict:
+        """Compare local snapshot against on-chain object state.
 
-        POD envelopes wrap data in various formats depending on the endpoint.
-        Attempts to extract the inner data dict.
-        """
-        # Try common POD envelope structures
-        if "data" in pod_envelope:
-            data = pod_envelope["data"]
-            if isinstance(data, dict):
-                return data
-            if isinstance(data, list) and len(data) == 1:
-                return data[0] if isinstance(data[0], dict) else {}
-        # Fallback: envelope itself may be the data
-        return pod_envelope
-
-    @staticmethod
-    def _compare_fields(local: dict, pod: dict) -> dict:
-        """Compare key fields between local snapshot and POD-signed data.
-
-        Returns dict of mismatched fields: {field: {local: X, pod: Y}}.
+        Returns dict of mismatched fields: {field: {local: X, chain: Y}}.
         """
         mismatches = {}
 
-        # Compare state
-        local_state = local.get("state", "")
-        pod_state = pod.get("state", "")
-        if local_state and pod_state and local_state != pod_state:
-            mismatches["state"] = {"local": local_state, "pod": pod_state}
-
-        # Compare owner
+        # Compare owner if available
         local_owner = ""
-        pod_owner = ""
         l_owner = local.get("owner", {})
-        p_owner = pod.get("owner", {})
         if isinstance(l_owner, dict):
             local_owner = l_owner.get("address", "")
         elif isinstance(l_owner, str):
             local_owner = l_owner
-        if isinstance(p_owner, dict):
-            pod_owner = p_owner.get("address", "")
-        elif isinstance(p_owner, str):
-            pod_owner = p_owner
-        if local_owner and pod_owner and local_owner != pod_owner:
-            mismatches["owner"] = {"local": local_owner, "pod": pod_owner}
 
-        # Compare fuel amount
-        local_fuel = _nested_get(local, "networkNode", "fuel", "amount")
-        pod_fuel = _nested_get(pod, "networkNode", "fuel", "amount")
-        if local_fuel is not None and pod_fuel is not None and local_fuel != pod_fuel:
-            mismatches["fuel"] = {"local": local_fuel, "pod": pod_fuel}
+        chain_owner_data = chain_obj.get("owner", {})
+        chain_owner = ""
+        if isinstance(chain_owner_data, dict):
+            # AddressOwner has nested owner.address
+            inner = chain_owner_data.get("owner", {})
+            if isinstance(inner, dict):
+                chain_owner = inner.get("address", "")
+
+        if local_owner and chain_owner and local_owner != chain_owner:
+            mismatches["owner"] = {"local": local_owner, "chain": chain_owner}
+
+        # Compare state from contents JSON
+        contents = chain_obj.get("asMoveObject", {}).get("contents", {})
+        chain_json_str = contents.get("json", "")
+        if chain_json_str:
+            try:
+                chain_data = (
+                    json.loads(chain_json_str)
+                    if isinstance(chain_json_str, str)
+                    else chain_json_str
+                )
+            except (json.JSONDecodeError, TypeError):
+                chain_data = {}
+
+            local_state = local.get("state", "")
+            chain_state = chain_data.get("state", "")
+            if local_state and chain_state and local_state != chain_state:
+                mismatches["state"] = {"local": local_state, "chain": chain_state}
+
+            # Compare fuel if present
+            local_fuel = _nested_get(local, "networkNode", "fuel", "amount")
+            chain_fuel = _nested_get(chain_data, "networkNode", "fuel", "amount")
+            if local_fuel is not None and chain_fuel is not None and local_fuel != chain_fuel:
+                mismatches["fuel"] = {"local": local_fuel, "chain": chain_fuel}
 
         return mismatches
 

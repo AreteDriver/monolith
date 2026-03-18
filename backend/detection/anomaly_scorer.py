@@ -68,6 +68,8 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     # Velocity checker
     "EV1": ("HIGH", "BEHAVIORAL"),
     "EV2": ("MEDIUM", "PERFORMANCE"),
+    # Ownership checker
+    "OC1": ("MEDIUM", "BEHAVIORAL"),
 }
 
 

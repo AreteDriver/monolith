@@ -143,8 +143,8 @@ async def pod_check_loop(
     while True:
         try:
             async with httpx.AsyncClient() as client:
-                checker = PodChecker(conn, pod_verifier, client)
-                anomalies = await checker.run_async()
+                checker = PodChecker(conn)
+                anomalies = await checker.run_async(client)
                 for anomaly in anomalies:
                     if engine._is_duplicate(anomaly):
                         continue
@@ -167,38 +167,36 @@ async def pod_check_loop(
                 if anomalies:
                     logger.info("POD check: %d anomalies found", len(anomalies))
 
-                # Killmail reconciliation — same client, same loop
+                # Killmail reconciliation — now chain-internal (no World API needed)
                 try:
-                    world_api_url = settings.world_api_url if settings else ""
-                    if world_api_url:
-                        km_checker = KillmailChecker(conn, client, world_api_url)
-                        km_anomalies = await km_checker.run_async()
-                        for anomaly in km_anomalies:
-                            if engine._is_duplicate(anomaly):
-                                continue
-                            if engine._store_anomaly(anomaly):
-                                conn.commit()
-                                a = anomaly.to_dict()
-                                logger.warning(
-                                    "KILLMAIL ANOMALY [%s] %s — %s: %s",
-                                    a["severity"],
-                                    a["anomaly_type"],
-                                    a["object_id"][:20],
-                                    a["evidence"].get("description", "")[:80],
-                                )
-                                if webhook_url and a["severity"] in (
-                                    "CRITICAL",
-                                    "HIGH",
-                                ):
-                                    await send_alert(webhook_url, a, rate_limit)
-                                if github_repo and github_token and a["severity"] == "CRITICAL":
-                                    await file_github_issue(github_repo, github_token, a, conn)
-                                await dispatch_to_subscribers(conn, a)
-                        if km_anomalies:
-                            logger.info(
-                                "Killmail check: %d anomalies found",
-                                len(km_anomalies),
+                    km_checker = KillmailChecker(conn)
+                    km_anomalies = km_checker.check()
+                    for anomaly in km_anomalies:
+                        if engine._is_duplicate(anomaly):
+                            continue
+                        if engine._store_anomaly(anomaly):
+                            conn.commit()
+                            a = anomaly.to_dict()
+                            logger.warning(
+                                "KILLMAIL ANOMALY [%s] %s — %s: %s",
+                                a["severity"],
+                                a["anomaly_type"],
+                                a["object_id"][:20],
+                                a["evidence"].get("description", "")[:80],
                             )
+                            if webhook_url and a["severity"] in (
+                                "CRITICAL",
+                                "HIGH",
+                            ):
+                                await send_alert(webhook_url, a, rate_limit)
+                            if github_repo and github_token and a["severity"] == "CRITICAL":
+                                await file_github_issue(github_repo, github_token, a, conn)
+                            await dispatch_to_subscribers(conn, a)
+                    if km_anomalies:
+                        logger.info(
+                            "Killmail check: %d anomalies found",
+                            len(km_anomalies),
+                        )
                 except Exception:
                     logger.exception("Killmail reconciliation error")
         except Exception:
