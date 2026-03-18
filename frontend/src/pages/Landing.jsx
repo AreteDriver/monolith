@@ -13,11 +13,12 @@ export default function Landing() {
           MONOLITH
         </h1>
         <p className="text-xl text-[#a3a3a3] mb-2">
-          Blockchain Integrity Monitor for EVE Frontier
+          Frontier Chain Intelligence
         </p>
         <p className="text-sm text-[#6b7280] max-w-xl mx-auto">
-          Continuously reads Sui chain events, detects state anomalies that
-          indicate bugs, and generates structured bug reports with on-chain evidence.
+          Continuously reads Sui chain events, detects state anomalies across
+          33 detection rules, and generates structured intel reports with
+          on-chain evidence.
         </p>
       </div>
 
@@ -46,7 +47,7 @@ export default function Landing() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <FeatureCard
           title="Detect"
-          description="17 detection rules across 4 checkers. Pure deterministic logic — no ML, no guesswork. Rules are auditable and reproducible."
+          description="33 detection rules across 16 checkers. Pure deterministic logic — no ML, no guesswork. Rules are auditable and reproducible."
           link="/anomalies"
           linkText="View Anomaly Feed"
         />
@@ -70,7 +71,7 @@ export default function Landing() {
         <div className="space-y-3 text-sm text-[#a3a3a3]">
           <Step n={1} text="Ingestion layer polls Sui chain events via suix_queryEvents every 30 seconds" />
           <Step n={2} text="State snapshotter computes deltas between consecutive API snapshots" />
-          <Step n={3} text="Detection engine runs 17 rules: continuity, economic, assembly, and sequence checks" />
+          <Step n={3} text="Detection engine runs 33 rules across 16 checkers: continuity, economic, assembly, sequence, killmail, behavioral, and more" />
           <Step n={4} text="Anomalies are scored, deduplicated (24h window), and persisted with self-contained evidence" />
           <Step n={5} text="Report generator builds formatted bug reports with chain references and investigation steps" />
           <Step n={6} text="CRITICAL/HIGH anomalies fire Discord alerts immediately" />
@@ -90,10 +91,30 @@ export default function Landing() {
           <RuleRow id="E3" name="Double Stamp" severity="CRITICAL" />
           <RuleRow id="E4" name="Negative Mass" severity="CRITICAL" />
           <RuleRow id="A1" name="Forked State" severity="HIGH" />
+          <RuleRow id="A2" name="Toll Runner" severity="HIGH" />
+          <RuleRow id="A3" name="Gate Tax Lost" severity="MEDIUM" />
           <RuleRow id="A4" name="Shadow Inventory" severity="HIGH" />
           <RuleRow id="A5" name="Silent Seizure" severity="CRITICAL" />
-          <RuleRow id="S2" name="Event Storm" severity="MEDIUM" />
+          <RuleRow id="S2" name="Event Storm" severity="CRITICAL" />
           <RuleRow id="S4" name="Blind Spot" severity="MEDIUM" />
+          <RuleRow id="P1" name="Chain Divergence" severity="CRITICAL" />
+          <RuleRow id="K1" name="Double Tap" severity="HIGH" />
+          <RuleRow id="K2" name="Witness Report" severity="MEDIUM" />
+          <RuleRow id="CB1" name="Convoy Forming" severity="MEDIUM" />
+          <RuleRow id="CB2" name="Fleet Mobilization" severity="CRITICAL" />
+          <RuleRow id="OV1" name="State Rollback" severity="CRITICAL" />
+          <RuleRow id="OV2" name="Unauthorized Mod" severity="HIGH" />
+          <RuleRow id="WC1" name="Resource Baron" severity="HIGH" />
+          <RuleRow id="CC1" name="Contract Tamper" severity="CRITICAL" />
+          <RuleRow id="IA1" name="Matter Violation" severity="CRITICAL" />
+          <RuleRow id="BP1" name="Drone Signature" severity="MEDIUM" />
+          <RuleRow id="TH1" name="Drifter" severity="MEDIUM" />
+          <RuleRow id="ES1" name="Orphaned Kill" severity="HIGH" />
+          <RuleRow id="ES2" name="Phantom Kill" severity="CRITICAL" />
+          <RuleRow id="DA1" name="Derelict" severity="LOW" />
+          <RuleRow id="EV1" name="Gold Rush" severity="HIGH" />
+          <RuleRow id="EV2" name="Market Silence" severity="MEDIUM" />
+          <RuleRow id="OC1" name="Title Deed Transfer" severity="MEDIUM" />
         </div>
       </div>
 

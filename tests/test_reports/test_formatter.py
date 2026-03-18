@@ -7,7 +7,7 @@ from backend.reports.formatter import format_json, format_markdown, format_text
 
 def _sample_report():
     return {
-        "report_id": "MNL-20260311-0001",
+        "report_id": "MNLT-20260311-0001",
         "anomaly_id": "ANM-001",
         "title": "Orphan Object — Object 0xabcd...ef12",
         "severity": "MEDIUM",
@@ -52,7 +52,7 @@ def test_format_markdown_has_headers():
 def test_format_markdown_contains_report_metadata():
     """Markdown contains report ID, severity, category."""
     md = format_markdown(_sample_report())
-    assert "MNL-20260311-0001" in md
+    assert "MNLT-20260311-0001" in md
     assert "MEDIUM" in md
     assert "CONTINUITY" in md
 
@@ -74,7 +74,7 @@ def test_format_markdown_investigation_numbered():
 def test_format_json_structure():
     """JSON format contains all required keys."""
     result = format_json(_sample_report())
-    assert result["report_id"] == "MNL-20260311-0001"
+    assert result["report_id"] == "MNLT-20260311-0001"
     assert result["severity"] == "MEDIUM"
     assert result["category"] == "CONTINUITY"
     assert result["version"] == "0.3.0"
@@ -92,7 +92,7 @@ def test_format_text_has_sections():
     assert "RAW EVIDENCE" in txt
     assert "INTEL BRIEF" in txt
     assert "FIELD ORDERS" in txt
-    assert "MNL-20260311-0001" in txt
+    assert "MNLT-20260311-0001" in txt
 
 
 def test_format_text_investigation_numbered():

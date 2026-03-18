@@ -20,7 +20,7 @@ from backend.db.database import init_db
 
 def _sample_anomaly(severity="CRITICAL"):
     return {
-        "anomaly_id": "MNL-20260312-0001",
+        "anomaly_id": "MNLT-20260312-0001",
         "anomaly_type": "DUPLICATE_MINT",
         "severity": severity,
         "category": "EXPLOIT_VECTOR",
@@ -108,7 +108,7 @@ def test_build_issue_body_contains_fields():
     assert "DUPLICATE_MINT" in body
     assert "CRITICAL" in body
     assert "E3" in body
-    assert "MNL-20260312-0001" in body
+    assert "MNLT-20260312-0001" in body
     assert "0xabcdef1234567890" in body
     assert "0x123abc" in body  # tx_digest
     assert "Token minted twice" in body
@@ -302,7 +302,7 @@ async def test_filed_count_persisted_to_db(respx_mock):
 
     # Verify the record details
     row = conn.execute("SELECT * FROM filed_issues").fetchone()
-    assert row["anomaly_id"] == "MNL-20260312-0001"
+    assert row["anomaly_id"] == "MNLT-20260312-0001"
     assert row["issue_url"] == f"https://github.com/{repo}/issues/99"
     assert row["filed_at"] > 0
     conn.close()

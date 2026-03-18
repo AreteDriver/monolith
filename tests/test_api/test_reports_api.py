@@ -170,7 +170,7 @@ def test_generate_report_success(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["generated"] is True
-    assert data["report_id"].startswith("MNL-")
+    assert data["report_id"].startswith("MNLT-")
     assert data["anomaly_id"] == "ANM-001"
 
     # Verify persisted

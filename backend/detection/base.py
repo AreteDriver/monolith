@@ -35,7 +35,7 @@ class Anomaly:
         if not self.anomaly_id:
             date_str = datetime.now(tz=UTC).strftime("%Y%m%d")
             seq = next(_anomaly_counter)
-            self.anomaly_id = f"MNL-{date_str}-{seq:04d}"
+            self.anomaly_id = f"MNLT-{date_str}-{seq:04d}"
 
     def to_dict(self) -> dict:
         """Convert to dict for storage."""

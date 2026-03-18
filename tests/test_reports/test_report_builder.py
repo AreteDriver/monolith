@@ -11,9 +11,9 @@ from backend.reports.report_builder import (
 
 
 def test_report_id_format():
-    """Report ID matches MNL-YYYYMMDD-NNNN format."""
+    """Report ID matches MNLT-YYYYMMDD-NNNN format."""
     rid = generate_report_id()
-    assert rid.startswith("MNL-")
+    assert rid.startswith("MNLT-")
     parts = rid.split("-")
     assert len(parts) == 3
     assert len(parts[1]) == 8  # YYYYMMDD
@@ -23,7 +23,7 @@ def test_report_id_format():
 def _make_anomaly_row(anomaly_type="ORPHAN_OBJECT", severity="MEDIUM", category="CONTINUITY"):
     now = int(time.time())
     return {
-        "anomaly_id": f"MNL-20260311-{now % 10000:04d}",
+        "anomaly_id": f"MNLT-20260311-{now % 10000:04d}",
         "anomaly_type": anomaly_type,
         "severity": severity,
         "category": category,
@@ -47,7 +47,7 @@ def test_build_report_has_all_sections():
     """Built report contains all required fields."""
     report = build_report(_make_anomaly_row())
 
-    assert report["report_id"].startswith("MNL-")
+    assert report["report_id"].startswith("MNLT-")
     assert report["severity"] == "MEDIUM"
     assert report["category"] == "CONTINUITY"
     assert report["summary"]

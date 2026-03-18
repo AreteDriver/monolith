@@ -16,14 +16,14 @@ def test_anomaly_auto_classifies():
 
 
 def test_anomaly_generates_id():
-    """Anomaly generates an ID in MNL-YYYYMMDD-NNNN format."""
+    """Anomaly generates an ID in MNLT-YYYYMMDD-NNNN format."""
     a = Anomaly(
         anomaly_type="TEST",
         rule_id="C1",
         detector="test",
         object_id="obj-001",
     )
-    assert a.anomaly_id.startswith("MNL-")
+    assert a.anomaly_id.startswith("MNLT-")
     parts = a.anomaly_id.split("-")
     assert len(parts) == 3
 

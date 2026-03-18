@@ -94,10 +94,10 @@ INVESTIGATION_STEPS: dict[str, list[str]] = {
 
 
 def generate_report_id() -> str:
-    """Generate a report ID: MNL-{YYYYMMDD}-{seq}."""
+    """Generate a report ID: MNLT-{YYYYMMDD}-{seq}."""
     date_str = datetime.now(tz=UTC).strftime("%Y%m%d")
     seq = int(time.time()) % 10000
-    return f"MNL-{date_str}-{seq:04d}"
+    return f"MNLT-{date_str}-{seq:04d}"
 
 
 def build_report(anomaly_row: dict, conn: sqlite3.Connection | None = None) -> dict:

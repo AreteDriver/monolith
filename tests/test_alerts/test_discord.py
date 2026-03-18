@@ -7,7 +7,7 @@ from backend.alerts.discord import _last_sent, send_alert
 
 def _sample_anomaly(severity="CRITICAL"):
     return {
-        "anomaly_id": "MNL-20260311-0001",
+        "anomaly_id": "MNLT-20260311-0001",
         "anomaly_type": "RESURRECTION",
         "severity": severity,
         "object_id": "0xabcdef1234567890",
