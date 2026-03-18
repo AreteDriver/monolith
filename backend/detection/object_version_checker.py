@@ -61,9 +61,9 @@ class ObjectVersionChecker(BaseChecker):
                         "older_fetched_at": row["older_fetched"],
                         "newer_fetched_at": row["newer_fetched"],
                         "description": (
-                            f"Object {obj_id[:16]}... version decreased from "
-                            f"{row['older_version']} to {row['newer_version']} — "
-                            f"possible state rollback"
+                            f"State rollback — {obj_id[:16]}... version went "
+                            f"backward from {row['older_version']} to "
+                            f"{row['newer_version']}. History was rewritten"
                         ),
                     },
                 )
@@ -116,9 +116,9 @@ class ObjectVersionChecker(BaseChecker):
                         "window_start": row["first_fetch"],
                         "window_end": row["last_fetch"],
                         "description": (
-                            f"Object {obj_id[:16]}... version bumped from "
-                            f"{row['min_ver']} to {row['max_ver']} with no "
-                            f"chain event in the window"
+                            f"Unauthorized mod — {obj_id[:16]}... mutated "
+                            f"from v{row['min_ver']} to v{row['max_ver']} "
+                            f"with no chain event to explain it"
                         ),
                     },
                 )

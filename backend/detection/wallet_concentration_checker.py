@@ -74,9 +74,9 @@ class WalletConcentrationChecker(BaseChecker):
                                 "system_total": total,
                                 "concentration_ratio": round(ratio, 3),
                                 "description": (
-                                    f"Wallet {wallet[:16]}... accounts for "
-                                    f"{count}/{total} ({ratio:.0%}) of events "
-                                    f"in system {sys_id}"
+                                    f"Resource baron — {wallet[:16]}... controls "
+                                    f"{count}/{total} ({ratio:.0%}) of all activity "
+                                    f"in system {sys_id}. One wallet, too much power"
                                 ),
                             },
                         )

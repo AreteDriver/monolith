@@ -65,9 +65,9 @@ class InventoryAuditChecker(BaseChecker):
                             "item_type_id": item_type_id,
                             "net_balance": net,
                             "description": (
-                                f"Assembly {assembly_id[:16]}... has net balance "
-                                f"{net} for item {item_type_id[:16]}... — "
-                                f"items removed exceed items added"
+                                f"Matter violation — {assembly_id[:16]}... shows "
+                                f"net {net} for item {item_type_id[:16]}... "
+                                f"More left than ever arrived. Conservation broken"
                             ),
                         },
                     )

@@ -59,10 +59,10 @@ class BotPatternChecker(BaseChecker):
                             "interval_stddev": round(stddev, 2),
                             "coefficient_of_variation": round(cv, 4),
                             "description": (
-                                f"Wallet {row['wallet_address'][:16]}... has "
-                                f"{row['tx_count']} txns with CV={cv:.4f} "
-                                f"(avg interval {avg_interval:.1f}s) — "
-                                f"bot-like regularity"
+                                f"Drone signature — {row['wallet_address'][:16]}... "
+                                f"running {row['tx_count']} txns at machine-perfect "
+                                f"intervals ({avg_interval:.1f}s avg, CV={cv:.4f}). "
+                                f"No human is this regular"
                             ),
                         },
                     )

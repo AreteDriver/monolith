@@ -95,10 +95,10 @@ class OwnershipChecker(BaseChecker):
                         "transaction_hash": event.get("transaction_hash", ""),
                         "timestamp": event.get("timestamp", 0),
                         "description": (
-                            f"OwnerCap transferred"
+                            f"Title deed transfer — OwnerCap changed hands"
                             f"{' from ' + from_addr[:16] + '...' if from_addr else ''}"
                             f"{' to ' + to_addr[:16] + '...' if to_addr else ''}"
-                            f" — possible delegation or corp restructuring"
+                            f". Delegation or hostile takeover"
                         ),
                     },
                 )
@@ -166,10 +166,10 @@ class OwnershipChecker(BaseChecker):
                                 "old_snapshot": row["old_time"],
                                 "new_snapshot": row["new_time"],
                                 "description": (
-                                    f"Ownership of {row['object_id'][:16]}... "
-                                    f"changed from {old_owner[:16]}... to "
-                                    f"{new_owner[:16]}... with transfer event — "
-                                    f"deliberate delegation"
+                                    f"Ownership delegation — {row['object_id'][:16]}... "
+                                    f"handed from {old_owner[:16]}... to "
+                                    f"{new_owner[:16]}... with transfer on record. "
+                                    f"Deliberate, but worth tracking"
                                 ),
                             },
                         )

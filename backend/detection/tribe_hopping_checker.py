@@ -82,9 +82,9 @@ class TribeHoppingChecker(BaseChecker):
                             "tribe_count": len(tribes),
                             "window_days": 30,
                             "description": (
-                                f"Character {obj_id[:16]}... changed tribes "
-                                f"{len(tribes)} times in 30 days — "
-                                f"possible spy or asset shuffling"
+                                f"Drifter — {obj_id[:16]}... flew "
+                                f"{len(tribes)} flags in 30 days. "
+                                f"Loyalty to none. Possible spy or asset runner"
                             ),
                         },
                     )

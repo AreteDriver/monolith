@@ -80,9 +80,10 @@ class DeadAssemblyChecker(BaseChecker):
                     system_id=obj.get("system_id", ""),
                     evidence={
                         "description": (
-                            f"Assembly {object_id[:16]}... ({obj['object_type']}) "
-                            f"silent for {days_silent:.1f} days — last fuel event "
-                            f"{(now - last_fuel_ts) / 86400:.1f} days ago"
+                            f"Derelict — {obj['object_type']} {object_id[:16]}... "
+                            f"dark for {days_silent:.1f} days. Last fuel burn "
+                            f"{(now - last_fuel_ts) / 86400:.1f} days ago. "
+                            f"Presumed abandoned"
                         ),
                         "object_type": obj["object_type"],
                         "last_seen": last_seen,

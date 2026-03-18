@@ -122,8 +122,9 @@ class CoordinatedBuyingChecker(BaseChecker):
                 system_id=system_id,
                 evidence={
                     "description": (
-                        f"FLEET ACTION LIKELY — {buyer_count} wallets "
-                        f"acquiring assets in system {system_id}"
+                        f"Fleet mobilization — {buyer_count} wallets "
+                        f"arming up in system {system_id}. "
+                        f"Something's about to happen"
                     ),
                     "buyer_count": buyer_count,
                     "fleet_intel_count": fleet_intel_count,
@@ -144,8 +145,9 @@ class CoordinatedBuyingChecker(BaseChecker):
                 system_id=system_id,
                 evidence={
                     "description": (
-                        f"Coordinated intel acquisition detected in "
-                        f"system {system_id} — {buyer_count} unique wallets"
+                        f"Convoy forming — {buyer_count} wallets "
+                        f"transacting in system {system_id} within "
+                        f"a {WINDOW_SECONDS // 60}-minute window"
                     ),
                     "buyer_count": buyer_count,
                     "fleet_intel_count": fleet_intel_count,

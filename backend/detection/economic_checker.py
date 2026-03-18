@@ -95,8 +95,8 @@ class EconomicChecker(BaseChecker):
                         "new_snapshot_time": row["new_time"],
                         "chain_events_in_window": 0,
                         "description": (
-                            f"Fuel decreased by {delta} units between snapshots "
-                            f"with no chain events to explain it"
+                            f"Phantom ledger — {delta} units of fuel vanished "
+                            f"between sweeps with no chain trail"
                         ),
                     },
                 )
@@ -153,9 +153,9 @@ class EconomicChecker(BaseChecker):
                             "total_minted_deposited": row["total_in"],
                             "total_burned_withdrawn": row["total_out"],
                             "description": (
-                                f"Item {row['item_type_id'][:16]}... inventory mismatch: "
-                                f"expected {expected_balance} from ledger, "
-                                f"found {actual} in state"
+                                f"Phantom ledger — item {row['item_type_id'][:16]}... "
+                                f"doesn't add up: ledger says {expected_balance}, "
+                                f"cargo hold shows {actual}"
                             ),
                         },
                     )
@@ -224,8 +224,9 @@ class EconomicChecker(BaseChecker):
                         "object_type": state.get("type", row["object_type"]),
                         "chain_events_since": len(events),
                         "description": (
-                            f"Object last seen at {row['last_seen']} has not appeared "
-                            f"in subsequent API polls with no destruction event on chain"
+                            f"Vanishing act — last seen at {row['last_seen']}, "
+                            f"gone from all subsequent sweeps. No wreckage, "
+                            f"no destruction event. Just gone"
                         ),
                     },
                 )
@@ -288,10 +289,9 @@ class EconomicChecker(BaseChecker):
                         "duplicate_count": row["cnt"],
                         "event_ids": row["event_ids"],
                         "description": (
-                            f"Object {row['object_id'][:16]}... received "
-                            f"{row['cnt']}x {event_suffix} "
-                            f"in tx {row['transaction_hash'][:18]}... — "
-                            f"possible double-processing"
+                            f"Double stamp — {row['object_id'][:16]}... got "
+                            f"{row['cnt']}x {event_suffix} in a single tx "
+                            f"({row['transaction_hash'][:18]}...)"
                         ),
                     },
                 )
@@ -350,8 +350,8 @@ class EconomicChecker(BaseChecker):
                             "fuel_amount": fuel_amount,
                             "assembly_type": state.get("type", "unknown"),
                             "description": (
-                                f"Fuel amount is {fuel_amount} — negative balances "
-                                f"should be impossible"
+                                f"Negative mass — fuel balance hit {fuel_amount}. "
+                                f"Conservation laws don't bend out here"
                             ),
                         },
                     )
@@ -373,9 +373,9 @@ class EconomicChecker(BaseChecker):
                                     "item_type_id": item_type,
                                     "balance": balance,
                                     "description": (
-                                        f"Item {item_type[:16]}... balance is "
-                                        f"{balance} — negative inventory "
-                                        f"should be impossible"
+                                        f"Negative mass — item {item_type[:16]}... "
+                                        f"balance dropped to {balance}. "
+                                        f"Impossible arithmetic"
                                     ),
                                 },
                             )

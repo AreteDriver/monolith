@@ -118,9 +118,9 @@ class PodChecker(BaseChecker):
                             "chain_version": chain_obj.get("version"),
                             "check_time": int(time.time()),
                             "description": (
-                                f"Local state diverges from chain for "
-                                f"{obj_id[:16]}...: "
-                                f"{', '.join(mismatches.keys())}"
+                                f"Chain divergence — our records for "
+                                f"{obj_id[:16]}... don't match on-chain "
+                                f"truth: {', '.join(mismatches.keys())}"
                             ),
                         },
                     )

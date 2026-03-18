@@ -65,8 +65,8 @@ class SequenceChecker(BaseChecker):
                         "block_number": row["block"],
                         "event_types": row["event_types"],
                         "description": (
-                            f"Transaction {row['transaction_hash'][:18]}... emitted "
-                            f"{row['cnt']} events — suspiciously high count"
+                            f"Event storm — tx {row['transaction_hash'][:18]}... "
+                            f"fired {row['cnt']} events. That's not normal traffic"
                         ),
                     },
                 )
@@ -108,9 +108,9 @@ class SequenceChecker(BaseChecker):
                             "gap_size": gap,
                             "threshold": BLOCK_GAP_THRESHOLD,
                             "description": (
-                                f"Block gap of {gap} between block "
-                                f"{blocks[i - 1]} and {blocks[i]} — "
-                                f"may indicate missed events"
+                                f"Blind spot — {gap} blocks dark between "
+                                f"{blocks[i - 1]} and {blocks[i]}. "
+                                f"Anything could have happened"
                             ),
                         },
                     )

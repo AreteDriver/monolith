@@ -92,8 +92,8 @@ class AssemblyChecker(BaseChecker):
                         "transition_time": row["transition_time"],
                         "snapshot_time": row["snapshot_time"],
                         "description": (
-                            f"Last transition recorded state '{transition_state}' "
-                            f"but API shows '{api_state}' — unrecorded state change"
+                            f"Forked state — chain says '{transition_state}', "
+                            f"API says '{api_state}'. Someone's lying"
                         ),
                     },
                 )
@@ -147,8 +147,8 @@ class AssemblyChecker(BaseChecker):
                         "jump_event_id": jump["event_id"],
                         "timestamp": jump["timestamp"],
                         "description": (
-                            f"Gate jump on {gate_id[:16]}... in tx "
-                            f"{tx_hash[:18]}... without fuel consumption"
+                            f"Toll runner — gate {gate_id[:16]}... jumped "
+                            f"in tx {tx_hash[:18]}... without burning fuel"
                         ),
                     },
                 )
@@ -219,8 +219,9 @@ class AssemblyChecker(BaseChecker):
                         "fuel_event_id": fuel["event_id"],
                         "timestamp": fuel["timestamp"],
                         "description": (
-                            f"Fuel consumed on gate {gate_id[:16]}... in tx "
-                            f"{tx_hash[:18]}... but no jump completed"
+                            f"Gate tax lost — fuel burned at gate "
+                            f"{gate_id[:16]}... in tx {tx_hash[:18]}... "
+                            f"but traveler never arrived"
                         ),
                     },
                 )
@@ -278,8 +279,8 @@ class AssemblyChecker(BaseChecker):
                         "new_snapshot_time": snapshots[0]["snapshot_time"],
                         "chain_events_in_window": 0,
                         "description": (
-                            f"Properties changed between snapshots with no "
-                            f"chain events: {list(changes.keys())}"
+                            f"Shadow inventory — cargo shifted off the books: "
+                            f"{list(changes.keys())} changed with no chain events"
                         ),
                     },
                 )
@@ -345,8 +346,9 @@ class AssemblyChecker(BaseChecker):
                         "new_snapshot_time": snapshots[0]["snapshot_time"],
                         "chain_events_in_window": len(events),
                         "description": (
-                            f"Owner changed from {old_owner[:10]}... to "
-                            f"{new_owner[:10]}... without transfer event"
+                            f"Silent seizure — ownership taken from "
+                            f"{old_owner[:10]}... to {new_owner[:10]}... "
+                            f"with no transfer on record"
                         ),
                     },
                 )

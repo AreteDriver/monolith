@@ -111,10 +111,9 @@ class KillmailChecker(BaseChecker):
                                     event_id,
                                 ],
                                 "description": (
-                                    f"Victim {victim_id[:16]}... killed "
-                                    f"{len(kills)} times within "
-                                    f"{DUPLICATE_WINDOW_SECONDS}s window — "
-                                    f"possible duplicate event or double-kill"
+                                    f"Double tap — {victim_id[:16]}... killed "
+                                    f"{len(kills)} times in {DUPLICATE_WINDOW_SECONDS}s. "
+                                    f"Chain stuttered or someone shot a corpse"
                                 ),
                             },
                         )
@@ -150,9 +149,9 @@ class KillmailChecker(BaseChecker):
                             "transaction_hash": ck.get("transaction_hash", ""),
                             "timestamp": ck.get("timestamp", 0),
                             "description": (
-                                f"Kill reported by {reporter_id[:16]}... "
-                                f"but killer was {killer_id[:16]}... — "
-                                f"third-party kill report"
+                                f"Witness report — kill logged by "
+                                f"{reporter_id[:16]}..., not the shooter "
+                                f"({killer_id[:16]}...). Someone's watching"
                             ),
                         },
                     )

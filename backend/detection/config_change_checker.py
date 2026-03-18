@@ -72,8 +72,8 @@ class ConfigChangeChecker(BaseChecker):
                 address = new_snap["config_address"]
 
             evidence["description"] = (
-                f"{config_type} config version changed from "
-                f"{min_ver} to {max_ver} — game parameter modification"
+                f"Contract tamper — {config_type} config shifted from "
+                f"v{min_ver} to v{max_ver}. The rules of the frontier just changed"
             )
 
             anomalies.append(

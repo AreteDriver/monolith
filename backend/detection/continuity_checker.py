@@ -82,8 +82,8 @@ class ContinuityChecker(BaseChecker):
                         "block_number": row["block_number"],
                         "timestamp": row["timestamp"],
                         "description": (
-                            "Chain event references object with no creation record "
-                            "in tracked objects table"
+                            "Ghost signal — chain event references an object "
+                            "with no birth record in our ledgers"
                         ),
                     },
                 )
@@ -130,8 +130,9 @@ class ContinuityChecker(BaseChecker):
                             "timestamp": row["event_time"],
                         },
                         "description": (
-                            f"Object destroyed at {row['destroyed_at']} but chain "
-                            f"shows activity at {row['event_time']}"
+                            f"Wreckage is transmitting — destroyed at "
+                            f"{row['destroyed_at']} but chain picked up "
+                            f"new activity at {row['event_time']}"
                         ),
                     },
                 )
@@ -190,9 +191,10 @@ class ContinuityChecker(BaseChecker):
                             "snapshot_old_time": snapshots[1]["snapshot_time"],
                             "snapshot_new_time": snapshots[0]["snapshot_time"],
                             "description": (
-                                f"State jumped from '{old_state}' to '{new_state}' "
-                                f"but valid transitions from '{old_state}' are: "
-                                f"{sorted(valid_targets)}"
+                                f"Missing trajectory — jumped from "
+                                f"'{old_state}' to '{new_state}' with no "
+                                f"valid flight path (expected: "
+                                f"{sorted(valid_targets)})"
                             ),
                         },
                     )
@@ -249,8 +251,8 @@ class ContinuityChecker(BaseChecker):
                         "stuck_duration_seconds": now - row["last_seen"],
                         "threshold_seconds": STUCK_THRESHOLD,
                         "description": (
-                            f"Object in '{state}' state for "
-                            f"{now - row['last_seen']}s with no activity"
+                            f"Dead drift — assembly stuck in '{state}' "
+                            f"for {now - row['last_seen']}s, no signs of life"
                         ),
                     },
                 )

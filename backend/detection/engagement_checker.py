@@ -97,9 +97,10 @@ class EngagementChecker(BaseChecker):
                         system_id=km.get("system_id", ""),
                         evidence={
                             "description": (
-                                f"Killmail {km.get('event_id', '')[:16]} has no "
-                                f"preceding events for killer {killer_id[:16]}... "
-                                f"within {KILLER_WINDOW_SECONDS}s"
+                                f"Orphaned kill — killmail {km.get('event_id', '')[:16]} "
+                                f"but killer {killer_id[:16]}... had no chain "
+                                f"activity in the prior {KILLER_WINDOW_SECONDS}s. "
+                                f"Came from nowhere"
                             ),
                             "killer_id": killer_id,
                             "killmail_event_id": km.get("event_id", ""),
@@ -144,9 +145,9 @@ class EngagementChecker(BaseChecker):
                         system_id=km.get("system_id", ""),
                         evidence={
                             "description": (
-                                f"Victim {victim_id[:16]}... in killmail "
-                                f"{km.get('event_id', '')[:16]} has zero prior "
-                                f"chain events — appeared from nowhere"
+                                f"Phantom kill — victim {victim_id[:16]}... "
+                                f"in killmail {km.get('event_id', '')[:16]} "
+                                f"had zero chain history. Materialized to die"
                             ),
                             "victim_id": victim_id,
                             "killmail_event_id": km.get("event_id", ""),

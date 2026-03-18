@@ -84,10 +84,11 @@ class VelocityChecker(BaseChecker):
                         object_id=assembly_id,
                         evidence={
                             "description": (
-                                f"Assembly {assembly_id[:16]}... flow rate spiked: "
-                                f"{last_hour_count} events/hr vs "
-                                f"{avg_hourly:.2f} avg/hr (7-day) — "
-                                f"{last_hour_count / avg_hourly:.1f}x increase"
+                                f"Gold rush — {assembly_id[:16]}... surging at "
+                                f"{last_hour_count} events/hr "
+                                f"({last_hour_count / avg_hourly:.1f}x the "
+                                f"7-day baseline of {avg_hourly:.2f}/hr). "
+                                f"Something's happening here"
                             ),
                             "last_hour_count": last_hour_count,
                             "avg_hourly_7d": round(avg_hourly, 2),
@@ -139,8 +140,9 @@ class VelocityChecker(BaseChecker):
                         object_id=assembly_id,
                         evidence={
                             "description": (
-                                f"Assembly {assembly_id[:16]}... went silent — "
-                                f"0 events in 24h vs {avg_daily:.1f} avg/day (7-day)"
+                                f"Market silence — {assembly_id[:16]}... went dark. "
+                                f"Zero activity in 24h, was running "
+                                f"{avg_daily:.1f}/day. Region going cold"
                             ),
                             "avg_daily_7d": round(avg_daily, 1),
                             "seven_day_total": total_7d,

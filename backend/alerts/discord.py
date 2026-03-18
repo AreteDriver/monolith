@@ -59,9 +59,7 @@ async def send_alert(
     frontier_name = rule_entry[0] if rule_entry else anomaly["anomaly_type"]
     tagline = rule_entry[1] if rule_entry else ""
 
-    description = tagline or evidence.get(
-        "description", anomaly.get("anomaly_type", "Unknown")
-    )
+    description = tagline or evidence.get("description", anomaly.get("anomaly_type", "Unknown"))
     prefix = SEVERITY_PREFIX.get(severity, "SIGNAL")
 
     embed = {

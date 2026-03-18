@@ -156,10 +156,7 @@ def _generate_title(anomaly: dict) -> str:
     """Generate a concise report title using frontier display names."""
     rule_id = anomaly.get("rule_id", "")
     entry = RULE_DISPLAY.get(rule_id)
-    if entry:
-        frontier_name = entry[0]
-    else:
-        frontier_name = anomaly["anomaly_type"].replace("_", " ").title()
+    frontier_name = entry[0] if entry else anomaly["anomaly_type"].replace("_", " ").title()
 
     obj_id = anomaly.get("object_id", "")
     if obj_id and len(obj_id) > 16:
