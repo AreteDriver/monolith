@@ -68,8 +68,10 @@ function AnomalyMap() {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const [tooltip, setTooltip] = useState(null)
+  const [selectedSystem, setSelectedSystem] = useState(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const dragRef = useRef({ dragging: false, startX: 0, startY: 0, startTx: 0, startTy: 0 })
+  const touchRef = useRef({ active: false, lastDist: 0, lastX: 0, lastY: 0 })
   const transformRef = useRef(transform)
   const systemsRef = useRef([])
   const eventsRef = useRef([])
@@ -514,12 +516,119 @@ function AnomalyMap() {
       })
     }
     canvas.addEventListener('wheel', onWheel, { passive: false })
-    return () => canvas.removeEventListener('wheel', onWheel)
+
+    // Touch handlers for mobile
+    const getTouchDist = (touches) => {
+      const dx = touches[0].clientX - touches[1].clientX
+      const dy = touches[0].clientY - touches[1].clientY
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+    const getTouchCenter = (touches, rect) => ({
+      x: (touches[0].clientX + touches[1].clientX) / 2 - rect.left,
+      y: (touches[0].clientY + touches[1].clientY) / 2 - rect.top,
+    })
+
+    const onTouchStart = (e) => {
+      e.preventDefault()
+      const touch = touchRef.current
+      if (e.touches.length === 2) {
+        touch.active = true
+        touch.lastDist = getTouchDist(e.touches)
+        const rect = canvas.getBoundingClientRect()
+        const center = getTouchCenter(e.touches, rect)
+        touch.lastX = center.x
+        touch.lastY = center.y
+      } else if (e.touches.length === 1) {
+        const t = transformRef.current
+        dragRef.current = {
+          dragging: true,
+          startX: e.touches[0].clientX,
+          startY: e.touches[0].clientY,
+          startTx: t.x,
+          startTy: t.y,
+        }
+      }
+    }
+
+    const onTouchMove = (e) => {
+      e.preventDefault()
+      const touch = touchRef.current
+      if (e.touches.length === 2 && touch.active) {
+        const dist = getTouchDist(e.touches)
+        const rect = canvas.getBoundingClientRect()
+        const center = getTouchCenter(e.touches, rect)
+        const factor = dist / touch.lastDist
+        setTransform(prev => {
+          const newScale = Math.max(0.3, Math.min(10, prev.scale * factor))
+          const ratio = newScale / prev.scale
+          return {
+            scale: newScale,
+            x: center.x - (center.x - prev.x) * ratio + (center.x - touch.lastX),
+            y: center.y - (center.y - prev.y) * ratio + (center.y - touch.lastY),
+          }
+        })
+        touch.lastDist = dist
+        touch.lastX = center.x
+        touch.lastY = center.y
+      } else if (e.touches.length === 1 && dragRef.current.dragging) {
+        const drag = dragRef.current
+        setTransform(prev => ({
+          ...prev,
+          x: drag.startTx + (e.touches[0].clientX - drag.startX),
+          y: drag.startTy + (e.touches[0].clientY - drag.startY),
+        }))
+      }
+    }
+
+    const onTouchEnd = (e) => {
+      touchRef.current.active = false
+      dragRef.current.dragging = false
+      // Tap to select — if no drag happened
+      if (e.changedTouches.length === 1) {
+        const rect = canvas.getBoundingClientRect()
+        const mx = e.changedTouches[0].clientX - rect.left
+        const my = e.changedTouches[0].clientY - rect.top
+        const drag = dragRef.current
+        const moved = Math.abs(e.changedTouches[0].clientX - drag.startX) + Math.abs(e.changedTouches[0].clientY - drag.startY)
+        if (moved < 10) {
+          // Hit test
+          const t = transformRef.current
+          const systems = systemsRef.current
+          const pad = 60
+          const drawW = rect.width - pad * 2
+          const drawH = rect.height - pad * 2
+          const maxCount = Math.max(...systems.map(s => s.count), 1)
+          for (const sys of systems) {
+            const sx = pad + sys.nx * drawW
+            const sy = pad + sys.nz * drawH
+            const px = sx * t.scale + t.x
+            const py = sy * t.scale + t.y
+            const radius = (4 + (sys.count / maxCount) * 16) * t.scale
+            if (Math.sqrt((mx - px) ** 2 + (my - py) ** 2) <= Math.max(radius, 16)) {
+              setSelectedSystem(sys)
+              return
+            }
+          }
+          setSelectedSystem(null)
+        }
+      }
+    }
+
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('touchend', onTouchEnd)
+
+    return () => {
+      canvas.removeEventListener('wheel', onWheel)
+      canvas.removeEventListener('touchstart', onTouchStart)
+      canvas.removeEventListener('touchmove', onTouchMove)
+      canvas.removeEventListener('touchend', onTouchEnd)
+    }
   }, [])
 
   const handleClick = useCallback(() => {
     if (tooltip?.sys) {
-      window.location.href = `/anomalies?system=${tooltip.sys.system_id}`
+      setSelectedSystem(tooltip.sys)
     } else if (tooltip?.event) {
       window.location.href = `/anomalies/${tooltip.event.anomaly_id}`
     }
@@ -585,7 +694,7 @@ function AnomalyMap() {
       )}
       {/* Stats HUD */}
       {data?.systems?.length > 0 && (
-        <div className="absolute top-4 left-4 bg-[#0a0a0a]/80 border border-[#f59e0b]/30 px-4 py-2 text-xs font-mono flex gap-6 items-center">
+        <div className="absolute top-4 left-4 bg-[#0a0a0a]/80 border border-[#f59e0b]/30 px-3 py-2 text-xs font-mono flex flex-wrap gap-3 md:gap-6 items-center max-w-[calc(100vw-240px)]">
           <div>
             <span className="text-[#f59e0b] font-bold text-lg">{data.systems.reduce((s, sys) => s + sys.count, 0)}</span>
             <span className="text-[#6b7280] ml-1.5">ANOMALIES</span>
@@ -631,9 +740,42 @@ function AnomalyMap() {
           ))}
         </div>
       </div>
-      {/* Layer controls */}
-      <div className="absolute top-4 right-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs space-y-1.5">
-        <div className="text-[#a3a3a3] font-bold uppercase mb-1">Layers</div>
+      {/* Right panel — system info + layer controls */}
+      <div className="absolute top-4 right-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs space-y-2 max-w-[200px]">
+        {/* Selected system info */}
+        {selectedSystem ? (
+          <div className="space-y-1.5 pb-2 border-b border-[#2a2a2a]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#f59e0b] font-bold uppercase text-[10px]">Selected</span>
+              <button
+                onClick={() => setSelectedSystem(null)}
+                className="text-[#6b7280] hover:text-white text-[10px]"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="text-white font-bold text-sm">{selectedSystem.name || selectedSystem.system_id}</div>
+            <div className="text-[#a3a3a3]">{selectedSystem.count} anomalies</div>
+            <div className="flex gap-2 flex-wrap">
+              {selectedSystem.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>C:{selectedSystem.critical}</span>}
+              {selectedSystem.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>H:{selectedSystem.high}</span>}
+              {selectedSystem.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>M:{selectedSystem.medium}</span>}
+              {selectedSystem.low > 0 && <span style={{ color: SEVERITY_COLORS.low }}>L:{selectedSystem.low}</span>}
+            </div>
+            <a
+              href={`/anomalies?system=${selectedSystem.system_id}`}
+              className="block text-[#f59e0b] hover:underline mt-1"
+            >
+              View anomalies &rarr;
+            </a>
+          </div>
+        ) : (
+          <div className="text-[#6b7280] pb-2 border-b border-[#2a2a2a] italic">
+            Tap a system to inspect
+          </div>
+        )}
+        {/* Layer toggles */}
+        <div className="text-[#a3a3a3] font-bold uppercase text-[10px]">Layers</div>
         {[
           { key: 'background', label: 'All Systems' },
           { key: 'heatmap', label: 'Heatmap' },
