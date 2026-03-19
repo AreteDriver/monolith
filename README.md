@@ -24,7 +24,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic
 ## Features
 
 - **13 Sui event types** ingested via `suix_queryEvents` + GraphQL enrichment
-- **31 detection rules** across 14 checkers — zero ML, fully deterministic and auditable
+- **35 detection rules** across 17 checkers — zero ML, fully deterministic and auditable
 - **Canvas2D map** — 24,502 systems, scanline-sweep heatmap, animated markers, 60fps
 - **Item ledger** — tracks mints, transfers, destructions for economic integrity
 - **POD verification** — validates Provable Object Datatypes against chain state
@@ -40,10 +40,10 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic
 |---------|-------|---------|
 | **Continuity** | C1-C4 | Orphan objects, resurrection, state gaps, stuck objects |
 | **Economic** | E1-E4 | Supply discrepancy, unexplained destruction, duplicate mint, negative balance |
-| **Assembly** | A1, A4-A5 | Contract/API mismatch, phantom changes, ownership without transfer |
-| **Sequence** | S2, S4 | Duplicate transactions, block processing gaps |
-| **POD** | P1-P2 | Invalid POD signatures, state/chain mismatch |
-| **Killmail** | K1 | Killmail chain inconsistencies |
+| **Assembly** | A1-A5 | Contract/API mismatch, toll runners, gate tax loss, phantom changes, silent seizure |
+| **Sequence** | S1-S4 | Broken ledger, duplicate ingestion, sequence drift, block gaps |
+| **POD** | P1 | Chain divergence — local state vs on-chain truth |
+| **Killmail** | K1-K2 | Duplicate kills, third-party kill reporters |
 | **Coordinated Buying** | CB1-CB2 | Fleet staging signals, clustered wallet activity |
 | **Object Version** | OV1-OV2 | State rollbacks, unauthorized modifications |
 | **Wallet Concentration** | WC1 | Monopoly detection, asset hoarding |
@@ -54,6 +54,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic
 | **Engagement Session** | ES1-ES2 | Orphaned killmails, ghost victims |
 | **Dead Assembly** | DA1 | Abandoned infrastructure (7+ days silent) |
 | **Velocity** | EV1-EV2 | Flow rate spikes, sudden activity drops |
+| **Ownership** | OC1 | OwnerCap transfers and delegation detection |
 
 Every rule is a pure function: `(events, states) -> anomaly | None`. No guesswork. Every detection ships with chain tx digests for independent verification.
 
@@ -82,8 +83,8 @@ Sui Testnet (suix_queryEvents)
 ┌─────────────┐  ┌──────────────┐
 │  Detection  │  │  Item Ledger │
 │  Engine     │  │  (economic)  │
-│  14 checkers │  └──────────────┘
-│  31 rules   │
+│  17 checkers │  └──────────────┘
+│  35 rules   │
 └──────┬──────┘
        │
        ▼
@@ -202,7 +203,7 @@ EVE Frontier runs a live game economy on Sui. Every smart assembly, gate jump, k
 
 Monolith watches the chain continuously and catches these bugs with cryptographic proof. It doesn't guess. It shows the exact transaction digests, the before/after states, and the rule that fired. CRITICAL anomalies auto-file GitHub issues so nothing gets lost.
 
-**16,500+ chain events ingested. 309+ anomalies detected. 31 rules. 14 checkers. Zero false positive tolerance.**
+**16,500+ chain events ingested. 309+ anomalies detected. 35 rules. 17 checkers. Zero false positive tolerance.**
 
 ---
 
@@ -213,7 +214,7 @@ Monolith is the detection layer of the **Aegis Stack** — a unified toolkit for
 | Layer | Project | What It Does |
 |-------|---------|-------------|
 | **Intelligence** | [WatchTower](https://github.com/AreteDriver/watchtower) | Behavioral fingerprints, reputation scoring, alt detection, kill networks, on-chain reputation oracle |
-| **Detection** | [Monolith](https://github.com/AreteDriver/monolith) (this repo) | 31 anomaly detection rules, 14 checkers, threat heatmap, auto-filed bug reports with chain evidence |
+| **Detection** | [Monolith](https://github.com/AreteDriver/monolith) (this repo) | 35 anomaly detection rules, 17 checkers, threat heatmap, auto-filed bug reports with chain evidence |
 | **Operations** | [Frontier Tribe OS](https://github.com/AreteDriver/frontier-tribe-os) | Tribe management — census, production, treasury, intel, alerts, threat analysis |
 
 **Combined**: 1,227+ tests | 3 live deployments | On-chain Sui Move contracts | 24,502 systems mapped | Dual payment rails (Sui + Stripe)

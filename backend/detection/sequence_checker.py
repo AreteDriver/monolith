@@ -33,11 +33,14 @@ class SequenceChecker(BaseChecker):
         return anomalies
 
     def _check_s2_duplicate_transactions(self) -> list[Anomaly]:
-        """S2: Same transaction hash appears more than expected.
+        """S2: Suspiciously high event count per transaction.
 
-        A single transaction can emit multiple log entries (different log indexes),
-        but the same (tx_hash, log_index) pair should never appear twice.
-        We check for suspiciously high event counts per transaction.
+        A single transaction legitimately emits many events — fuel ticks
+        batch-update 20-30+ assemblies per tx (BURNING_UPDATED). We exclude
+        fuel-only transactions and flag remaining high-count txs that could
+        indicate replay attacks or ingestion bugs.
+
+        Threshold: >50 non-fuel events per transaction.
         """
         rows = self.conn.execute(
             """SELECT transaction_hash, COUNT(*) as cnt,
@@ -45,8 +48,9 @@ class SequenceChecker(BaseChecker):
                       GROUP_CONCAT(DISTINCT event_type) as event_types
                FROM chain_events
                WHERE transaction_hash != ''
+                 AND event_type NOT LIKE '%::fuel::FuelEvent'
                GROUP BY transaction_hash
-               HAVING cnt > 20
+               HAVING cnt > 50
                ORDER BY cnt DESC
                LIMIT 50"""
         ).fetchall()
@@ -66,7 +70,8 @@ class SequenceChecker(BaseChecker):
                         "event_types": row["event_types"],
                         "description": (
                             f"Event storm — tx {row['transaction_hash'][:18]}... "
-                            f"fired {row['cnt']} events. That's not normal traffic"
+                            f"fired {row['cnt']} non-fuel events. "
+                            f"Possible replay or ingestion anomaly"
                         ),
                     },
                 )

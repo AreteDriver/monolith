@@ -14,9 +14,9 @@ def _insert_event(conn, event_id, tx_hash, block, event_type="test"):
     conn.commit()
 
 
-def test_s2_high_event_count(db_conn):
-    """S2: Transaction with >20 events triggers DUPLICATE_TRANSACTION."""
-    for i in range(25):
+def test_s2_high_nonfuel_event_count(db_conn):
+    """S2: Transaction with >50 non-fuel events triggers DUPLICATE_TRANSACTION."""
+    for i in range(55):
         _insert_event(db_conn, f"tx-spam:0x{i:02x}", "tx-spam", 100)
 
     checker = SequenceChecker(db_conn)
@@ -24,13 +24,42 @@ def test_s2_high_event_count(db_conn):
 
     dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_TRANSACTION"]
     assert len(dupes) >= 1
-    assert dupes[0].evidence["event_count"] == 25
+    assert dupes[0].evidence["event_count"] == 55
+
+
+def test_s2_fuel_events_excluded(db_conn):
+    """S2: Fuel batch ticks (30+ per tx) do not trigger — normal game behavior."""
+    fuel_type = "0xd12a70c74c1e::fuel::FuelEvent"
+    for i in range(60):
+        _insert_event(db_conn, f"fuel:{i}", "tx-fuel-batch", 100, fuel_type)
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker.check()
+
+    dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_TRANSACTION"]
+    assert len(dupes) == 0
 
 
 def test_s2_normal_event_count_no_flag(db_conn):
-    """S2: Transaction with <=20 events does not trigger."""
-    for i in range(5):
+    """S2: Transaction with <=50 non-fuel events does not trigger."""
+    for i in range(20):
         _insert_event(db_conn, f"tx-ok:0x{i}", "tx-ok", 100)
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker.check()
+
+    dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_TRANSACTION"]
+    assert len(dupes) == 0
+
+
+def test_s2_mixed_fuel_and_nonfuel(db_conn):
+    """S2: Mixed tx with fuel + non-fuel only counts non-fuel events."""
+    fuel_type = "0xd12a70c74c1e::fuel::FuelEvent"
+    # 40 fuel events (excluded) + 10 non-fuel events (under threshold)
+    for i in range(40):
+        _insert_event(db_conn, f"fuel-mix:{i}", "tx-mixed", 100, fuel_type)
+    for i in range(10):
+        _insert_event(db_conn, f"other-mix:{i}", "tx-mixed", 100, "GateEvent")
 
     checker = SequenceChecker(db_conn)
     anomalies = checker.check()

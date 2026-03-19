@@ -92,7 +92,7 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     "A5": ("CRITICAL", "DATA_INTEGRITY"),
     # Sequence checker
     "S1": ("CRITICAL", "DATA_INTEGRITY"),
-    "S2": ("CRITICAL", "DATA_INTEGRITY"),
+    "S2": ("MEDIUM", "DATA_INTEGRITY"),
     "S3": ("HIGH", "STATE_INCONSISTENCY"),
     "S4": ("MEDIUM", "PERFORMANCE"),
     # POD checker

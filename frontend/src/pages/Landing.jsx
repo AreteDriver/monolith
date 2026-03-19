@@ -17,7 +17,7 @@ export default function Landing() {
         </p>
         <p className="text-sm text-[#6b7280] max-w-xl mx-auto">
           Continuously reads Sui chain events, detects state anomalies across
-          33 detection rules, and generates structured intel reports with
+          35 detection rules, and generates structured intel reports with
           on-chain evidence.
         </p>
       </div>
@@ -47,7 +47,7 @@ export default function Landing() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <FeatureCard
           title="Detect"
-          description="33 detection rules across 16 checkers. Pure deterministic logic — no ML, no guesswork. Rules are auditable and reproducible."
+          description="35 detection rules across 17 checkers. Pure deterministic logic — no ML, no guesswork. Rules are auditable and reproducible."
           link="/anomalies"
           linkText="View Anomaly Feed"
         />
@@ -71,7 +71,7 @@ export default function Landing() {
         <div className="space-y-3 text-sm text-[#a3a3a3]">
           <Step n={1} text="Ingestion layer polls Sui chain events via suix_queryEvents every 30 seconds" />
           <Step n={2} text="State snapshotter computes deltas between consecutive API snapshots" />
-          <Step n={3} text="Detection engine runs 33 rules across 16 checkers: continuity, economic, assembly, sequence, killmail, behavioral, and more" />
+          <Step n={3} text="Detection engine runs 33 rules across 17 checkers: continuity, economic, assembly, sequence, killmail, behavioral, and more" />
           <Step n={4} text="Anomalies are scored, deduplicated (24h window), and persisted with self-contained evidence" />
           <Step n={5} text="Report generator builds formatted bug reports with chain references and investigation steps" />
           <Step n={6} text="CRITICAL/HIGH anomalies fire Discord alerts immediately" />
