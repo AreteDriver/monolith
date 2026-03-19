@@ -32,7 +32,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic
 - **Discord alerting** — webhook embeds for CRITICAL/HIGH, rate-limited
 - **Webhook subscriptions** — push anomaly events to any HTTP endpoint
 - **Public API v1** — read anomalies, stats, health, object history
-- **241 tests passing**
+- **248 tests passing**
 
 ### Detection Rules
 
@@ -151,7 +151,7 @@ npm run dev
 ```bash
 source .venv/bin/activate
 python -m pytest tests/ -v
-# 241 tests passing
+# 248 tests passing
 ```
 
 ---
