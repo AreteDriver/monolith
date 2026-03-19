@@ -40,7 +40,7 @@ def resolve_system_names(
             system_ids,
         ).fetchall()
         result = {row["data_id"]: row["name"] for row in rows}
-    except Exception:
+    except sqlite3.OperationalError:
         result = {}
 
     return {"data": result}
@@ -63,7 +63,7 @@ def get_system(request: Request, system_id: str) -> dict:
             "SELECT * FROM reference_data WHERE data_type = 'solarsystems' AND data_id = ?",
             (system_id,),
         ).fetchone()
-    except Exception:
+    except sqlite3.OperationalError:
         return {"error": "reference_data table not available"}
 
     if not row:

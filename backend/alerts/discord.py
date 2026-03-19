@@ -102,7 +102,7 @@ async def send_alert(
                 return True
             logger.warning("Discord webhook returned %d: %s", resp.status_code, resp.text[:200])
             return False
-    except Exception:
+    except (httpx.HTTPError, OSError):
         logger.exception("Discord alert failed")
         return False
 

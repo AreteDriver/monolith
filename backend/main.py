@@ -426,7 +426,7 @@ async def _check_sui_rpc(rpc_url: str) -> str:
             if r.status_code == 200:
                 return "ok"
             return f"http_{r.status_code}"
-    except Exception:
+    except (httpx.HTTPError, OSError):
         return "unreachable"
 
 
@@ -451,7 +451,7 @@ async def health() -> dict:
             "SELECT event_type, COUNT(*) as cnt FROM nexus_events GROUP BY event_type"
         ).fetchall():
             nexus_stats[row["event_type"]] = row["cnt"]
-    except Exception:
+    except sqlite3.OperationalError:
         nexus_stats = {"error": "nexus_events table not available"}
 
     # Tribe cache stats
@@ -463,7 +463,7 @@ async def health() -> dict:
             "total": tribe_total[0] if tribe_total else 0,
             "stale": tribe_stale[0] if tribe_stale else 0,
         }
-    except Exception:
+    except sqlite3.OperationalError:
         tribe_cache_stats = {"total": 0, "stale": 0}
 
     return {

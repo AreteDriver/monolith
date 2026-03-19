@@ -288,5 +288,6 @@ def store_report(report: dict, conn: sqlite3.Connection) -> bool:
         )
         conn.commit()
         return True
-    except Exception:
+    except sqlite3.Error:
+        logger.warning("Failed to store bug report %s", report.get("report_id", "?"))
         return False

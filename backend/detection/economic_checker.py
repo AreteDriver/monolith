@@ -10,6 +10,7 @@ Rules:
 import contextlib
 import json
 import logging
+import sqlite3
 
 from backend.detection.base import Anomaly, BaseChecker
 
@@ -117,7 +118,7 @@ class EconomicChecker(BaseChecker):
                    HAVING total_in > 0 OR total_out > 0
                    LIMIT 500"""
             ).fetchall()
-        except Exception:
+        except sqlite3.OperationalError:
             # Table may not exist in older databases
             return []
 

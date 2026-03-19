@@ -109,7 +109,7 @@ def get_stats(request: Request) -> dict:
             ")",
             (cutoff_24h,),
         ).fetchone()[0]
-    except Exception:
+    except sqlite3.OperationalError:
         pod_24h = 0
 
     return {
@@ -366,7 +366,7 @@ def get_ledger_stats(request: Request) -> dict:
         ).fetchall():
             by_event_type[row["event_type"]] = row["cnt"]
 
-    except Exception:
+    except sqlite3.OperationalError:
         return {
             "total_items_tracked": 0,
             "total_events": 0,

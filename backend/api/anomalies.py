@@ -173,7 +173,7 @@ def _enrich_system_name(conn: sqlite3.Connection, row_dict: dict) -> dict:
             (system_id,),
         ).fetchone()
         row_dict["system_name"] = ref_row["name"] if ref_row else None
-    except Exception:
+    except (sqlite3.Error, KeyError):
         row_dict["system_name"] = None
 
     return row_dict

@@ -45,6 +45,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Lint frontend
+        working-directory: frontend
+        run: npx eslint . --max-warnings 0
+
       - name: Build frontend
         working-directory: frontend
         run: npm run build

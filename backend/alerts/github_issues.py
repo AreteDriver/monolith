@@ -180,7 +180,7 @@ async def file_github_issue(
                 resp.text[:200],
             )
             return False
-    except Exception:
+    except (httpx.HTTPError, OSError):
         logger.exception("GitHub issue filing failed (non-blocking)")
         return False
 
