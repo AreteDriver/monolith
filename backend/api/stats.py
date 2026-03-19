@@ -1,14 +1,23 @@
 """Stats API — anomaly rates and system health metrics."""
 
 import json
+import logging
 import sqlite3
 import time
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from backend.alerts.github_issues import get_filed_count
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/stats", tags=["stats"])
+
+# In-memory cache for static background systems (24K systems, ~2MB JSON).
+# Reference data changes only on server restart, so cache indefinitely.
+_bg_systems_cache: list[dict] | None = None
+_bg_systems_etag: str | None = None
 
 
 def _get_db(request: Request) -> sqlite3.Connection:
@@ -218,7 +227,18 @@ def get_map_data(request: Request) -> dict:
             }
         )
 
-    # All solar systems for background map layer
+    return {
+        "systems": systems,
+        "recent_events": recent_events,
+    }
+
+
+def _load_bg_systems(conn: sqlite3.Connection) -> list[dict]:
+    """Load and cache background systems from reference_data."""
+    global _bg_systems_cache, _bg_systems_etag  # noqa: PLW0603
+    if _bg_systems_cache is not None:
+        return _bg_systems_cache
+
     all_systems = []
     all_ref = conn.execute(
         "SELECT data_id, name, data_json FROM reference_data WHERE data_type = 'solarsystems'"
@@ -242,11 +262,32 @@ def get_map_data(request: Request) -> dict:
         except (json.JSONDecodeError, TypeError):
             pass
 
-    return {
-        "systems": systems,
-        "recent_events": recent_events,
-        "all_systems": all_systems,
-    }
+    _bg_systems_cache = all_systems
+    _bg_systems_etag = str(len(all_systems))
+    logger.info("Background systems cached: %d systems", len(all_systems))
+    return all_systems
+
+
+@router.get("/map/systems")
+def get_background_systems(request: Request):
+    """Get all 24K background systems. Cached in memory — load once, serve forever."""
+    conn = _get_db(request)
+    systems = _load_bg_systems(conn)
+
+    # Support ETag for client-side caching
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match == _bg_systems_etag:
+        from starlette.responses import Response
+
+        return Response(status_code=304)
+
+    return JSONResponse(
+        content={"all_systems": systems},
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "ETag": _bg_systems_etag or "",
+        },
+    )
 
 
 @router.post("/map/enrich")

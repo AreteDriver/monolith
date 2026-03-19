@@ -70,17 +70,21 @@ function AnomalyMap() {
   const [tooltip, setTooltip] = useState(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 })
   const dragRef = useRef({ dragging: false, startX: 0, startY: 0, startTx: 0, startTy: 0 })
+  const transformRef = useRef(transform)
   const systemsRef = useRef([])
   const eventsRef = useRef([])
   const bgSystemsRef = useRef([])
   const animRef = useRef(null)
   const [layers, setLayers] = useState({ background: true, heatmap: true, events: true, markers: true })
+  const layersRef = useRef(layers)
 
   const { data, loading } = useApi('/api/stats/map', { poll: 60000 })
+  // Background systems are static — fetch once, cache in browser
+  const { data: bgData } = useApi('/api/stats/map/systems', { poll: 0 })
 
   // Compute normalized positions once when data arrives
   useEffect(() => {
-    const bgSystems = data?.all_systems || []
+    const bgSystems = bgData?.all_systems || []
     const systems = data?.systems || []
     const events = data?.recent_events || []
 
@@ -111,12 +115,20 @@ function AnomalyMap() {
     bgSystemsRef.current = bgSystems.map(normalize)
     systemsRef.current = systems.map(normalize)
     eventsRef.current = events.map(normalize)
-  }, [data])
+  }, [data, bgData])
+
+  // Keep refs synced with state
+  useEffect(() => { transformRef.current = transform }, [transform])
+  useEffect(() => { layersRef.current = layers }, [layers])
 
   const draw = useCallback((timestamp) => {
     const canvas = canvasRef.current
     const container = containerRef.current
     if (!canvas || !container) return
+
+    // Read from refs to avoid re-creating draw on every state change
+    const transform = transformRef.current
+    const layers = layersRef.current
 
     const rect = container.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
@@ -370,15 +382,15 @@ function AnomalyMap() {
 
     // Continue animation loop
     animRef.current = requestAnimationFrame(draw)
-  }, [transform, layers])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Start/stop animation loop
+  // Start/stop animation loop — runs once, draw reads from refs
   useEffect(() => {
     animRef.current = requestAnimationFrame(draw)
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current)
     }
-  }, [draw, data])
+  }, [draw])
 
   // Resize observer
   useEffect(() => {
@@ -398,6 +410,7 @@ function AnomalyMap() {
     const rect = canvas.getBoundingClientRect()
     const mx = e.clientX - rect.left
     const my = e.clientY - rect.top
+    const t = transformRef.current
 
     // Drag
     const drag = dragRef.current
@@ -423,9 +436,9 @@ function AnomalyMap() {
     for (const sys of systems) {
       const sx = pad + sys.nx * drawW
       const sy = pad + sys.nz * drawH
-      const px = sx * transform.scale + transform.x
-      const py = sy * transform.scale + transform.y
-      const radius = (4 + (sys.count / maxCount) * 16) * transform.scale
+      const px = sx * t.scale + t.x
+      const py = sy * t.scale + t.y
+      const radius = (4 + (sys.count / maxCount) * 16) * t.scale
       const dist = Math.sqrt((mx - px) ** 2 + (my - py) ** 2)
       if (dist <= Math.max(radius, 8)) {
         hit = sys
@@ -440,8 +453,8 @@ function AnomalyMap() {
       for (const ev of events) {
         const sx = pad + ev.nx * drawW
         const sy = pad + ev.nz * drawH
-        const px = sx * transform.scale + transform.x
-        const py = sy * transform.scale + transform.y
+        const px = sx * t.scale + t.x
+        const py = sy * t.scale + t.y
         const dist = Math.sqrt((mx - px) ** 2 + (my - py) ** 2)
         if (dist <= 10) {
           hitEvent = ev
@@ -460,18 +473,19 @@ function AnomalyMap() {
       canvas.style.cursor = 'grab'
       setTooltip(null)
     }
-  }, [transform])
+  }, [])
 
   const handleMouseDown = useCallback((e) => {
+    const t = transformRef.current
     dragRef.current = {
       dragging: true,
       startX: e.clientX,
       startY: e.clientY,
-      startTx: transform.x,
-      startTy: transform.y,
+      startTx: t.x,
+      startTy: t.y,
     }
     if (canvasRef.current) canvasRef.current.style.cursor = 'grabbing'
-  }, [transform])
+  }, [])
 
   const handleMouseUp = useCallback(() => {
     dragRef.current.dragging = false
