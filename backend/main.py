@@ -243,7 +243,9 @@ async def static_data_loop(
     interval: int,
 ) -> None:
     """Background task: refresh static reference data periodically."""
-    # Initial fetch on startup
+    # Delay initial fetch so HTTP server starts accepting requests first
+    await asyncio.sleep(5)
+    # Initial fetch
     async with httpx.AsyncClient() as client:
         try:
             counts = await poller.poll_static_data(client)
