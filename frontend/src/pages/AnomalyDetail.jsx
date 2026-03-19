@@ -67,8 +67,8 @@ export default function AnomalyDetail() {
       {/* Object */}
       <div className="border border-[#2a2a2a] p-4 mb-6">
         <h2 className="text-sm font-bold text-[#a3a3a3] mb-2">AFFECTED OBJECT</h2>
-        <div className="flex gap-6">
-          <span className="text-sm">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
+          <span className="text-sm break-all">
             <span className="text-[#6b7280]">ID: </span>
             <Link to={`/objects/${a.object_id}`} className="mono text-[#f59e0b] no-underline hover:underline">
               {a.object_id}
@@ -108,11 +108,11 @@ export default function AnomalyDetail() {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {reportId ? (
           <Link
             to={`/reports/${reportId}`}
-            className="bg-[#f59e0b] text-black px-4 py-2 text-sm font-bold no-underline hover:bg-[#d97706]"
+            className="bg-[#f59e0b] text-black px-4 py-2.5 text-sm font-bold no-underline hover:bg-[#d97706] text-center"
           >
             View Report
           </Link>

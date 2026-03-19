@@ -8,14 +8,14 @@ export default function Landing() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Hero */}
-      <div className="text-center py-16">
-        <h1 className="text-5xl font-bold tracking-wider text-[#f59e0b] mb-4">
+      <div className="text-center py-10 md:py-16 px-4">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-wider text-[#f59e0b] mb-4">
           MONOLITH
         </h1>
-        <p className="text-xl text-[#a3a3a3] mb-2">
+        <p className="text-lg md:text-xl text-[#a3a3a3] mb-2">
           Frontier Chain Intelligence
         </p>
-        <p className="text-sm text-[#6b7280] max-w-xl mx-auto">
+        <p className="text-sm text-[#6b7280] max-w-xl mx-auto px-2">
           Continuously reads Sui chain events, detects state anomalies across
           35 detection rules, and generates structured intel reports with
           on-chain evidence.
@@ -126,11 +126,11 @@ export default function Landing() {
           QA tool for that migration. Every bug it finds before launch is a player who
           doesn't lose their assets to a contract error.
         </p>
-        <div className="flex gap-4">
-          <Link to="/anomalies" className="bg-[#f59e0b] text-black px-4 py-2 text-sm font-bold no-underline hover:bg-[#d97706]">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <Link to="/anomalies" className="bg-[#f59e0b] text-black px-4 py-2.5 text-sm font-bold no-underline hover:bg-[#d97706] text-center">
             View Live Feed
           </Link>
-          <Link to="/stats" className="border border-[#2a2a2a] text-[#e5e5e5] px-4 py-2 text-sm no-underline hover:bg-[#1a1a1a]">
+          <Link to="/stats" className="border border-[#2a2a2a] text-[#e5e5e5] px-4 py-2.5 text-sm no-underline hover:bg-[#1a1a1a] text-center">
             System Health
           </Link>
         </div>

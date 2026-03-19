@@ -47,7 +47,7 @@ export default function AnomalyFeed() {
           placeholder="Filter by type..."
           value={anomalyType}
           onChange={(e) => setAnomalyType(e.target.value.toUpperCase())}
-          className="bg-[#1a1a1a] border border-[#2a2a2a] text-[#e5e5e5] px-3 py-1.5 text-sm w-48"
+          className="bg-[#1a1a1a] border border-[#2a2a2a] text-[#e5e5e5] px-3 py-1.5 text-sm w-full sm:w-48"
         />
       </div>
 
@@ -65,10 +65,10 @@ export default function AnomalyFeed() {
                 : 'border-[#2a2a2a]'
             }`}
           >
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
               <SeverityBadge severity={a.severity} />
               <span className="mono text-sm text-[#f59e0b]">{getDisplayName(a)}</span>
-              <span className="mono text-xs text-[#a3a3a3]">
+              <span className="mono text-xs text-[#a3a3a3] hidden sm:inline">
                 {truncate(a.object_id, 20)}
               </span>
               {a.system_id && (
@@ -93,7 +93,7 @@ export default function AnomalyFeed() {
                   </Link>
                 </span>
               )}
-              <span className="ml-auto">
+              <span className="ml-auto text-nowrap">
                 <TimeAgo timestamp={a.detected_at} />
               </span>
             </div>
