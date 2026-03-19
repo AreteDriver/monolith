@@ -15,6 +15,16 @@ import time
 
 import httpx
 
+from backend.ingestion.graphql_queries import (
+    GET_CHARACTER_OBJECTS,
+    GET_EVENTS_BY_MODULE,
+    GET_KILLMAIL_OBJECTS,
+    GET_OBJECT_VERSIONS,
+    GET_OBJECT_WITH_DYNFIELDS,
+    GET_OWNED_OBJECTS,
+    GET_TRANSACTIONS,
+)
+
 logger = logging.getLogger(__name__)
 
 # Sui GraphQL endpoint (Stillness = testnet)
@@ -23,132 +33,6 @@ SUI_GRAPHQL_URL = "https://graphql.testnet.sui.io/graphql"
 # Stillness registry addresses (confirmed via Econmartin + memory)
 LOCATION_REGISTRY = "0xc87dca9c6b2c95e4a0cbe1f8f9eeff50171123f176fbfdc7b49eef4824fc596b"
 KILLMAIL_REGISTRY = "0x7fd9a32d0bbe7b1cfbb7140b1dd4312f54897de946c399edb21c3a12e52ce283"
-
-# ── GraphQL Queries ──────────────────────────────────────────────────────────
-
-GET_OBJECT_WITH_DYNFIELDS = """
-query GetObject($address: SuiAddress!) {
-  object(address: $address) {
-    address
-    version
-    asMoveObject {
-      contents {
-        type { repr }
-        json
-      }
-      dynamicFields {
-        nodes {
-          name { json type { repr } }
-          value {
-            ... on MoveValue {
-              json
-            }
-          }
-        }
-      }
-    }
-  }
-}
-"""
-
-GET_EVENTS_BY_MODULE = """
-query GetEvents($module: String!, $first: Int, $after: String) {
-  events(filter: { module: $module }, first: $first, after: $after) {
-    nodes {
-      contents {
-        json
-        type { repr }
-      }
-      timestamp
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}
-"""
-
-GET_CHARACTER_OBJECTS = """
-query GetCharacters($type: String!, $first: Int, $after: String) {
-  objects(
-    first: $first,
-    after: $after,
-    filter: { type: $type }
-  ) {
-    nodes {
-      asMoveObject {
-        contents { json }
-      }
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}
-"""
-
-GET_OBJECT_VERSIONS = """
-query GetObjectVersions($address: SuiAddress!, $first: Int) {
-  objectVersions(address: $address, first: $first) {
-    nodes {
-      version
-      digest
-      asMoveObject {
-        contents { json }
-      }
-    }
-    pageInfo { hasNextPage }
-  }
-}
-"""
-
-GET_OWNED_OBJECTS = """
-query GetOwnedObjects($owner: SuiAddress!, $first: Int, $after: String) {
-  objects(filter: { owner: $owner }, first: $first, after: $after) {
-    nodes {
-      address
-      version
-      asMoveObject {
-        contents {
-          json
-          type { repr }
-        }
-      }
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}
-"""
-
-GET_TRANSACTIONS = """
-query GetTransactions($address: SuiAddress!, $first: Int, $after: String) {
-  transactions(filter: { affectedAddress: $address }, first: $first, after: $after) {
-    nodes {
-      digest
-      effects {
-        status
-        timestamp
-      }
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}
-"""
-
-GET_KILLMAIL_OBJECTS = """
-query GetKillmailObjects($type: String!, $first: Int, $after: String) {
-  objects(
-    first: $first,
-    after: $after,
-    filter: { type: $type }
-  ) {
-    nodes {
-      address
-      version
-      asMoveObject {
-        contents { json }
-      }
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}
-"""
 
 
 class SuiGraphQLClient:
