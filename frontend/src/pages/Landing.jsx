@@ -23,7 +23,7 @@ export default function Landing() {
       </div>
 
       {/* Live Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
         <LiveStat
           label="Anomalies (24h)"
           value={stats?.anomaly_rate_24h}
@@ -40,6 +40,10 @@ export default function Landing() {
         <LiveStat
           label="Chain Events"
           value={health?.row_counts?.chain_events}
+        />
+        <LiveStat
+          label="Bugs Reported"
+          value={health?.row_counts?.bug_reports}
         />
       </div>
 

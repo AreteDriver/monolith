@@ -6,6 +6,7 @@ FastAPI application entry point with background polling tasks.
 import asyncio
 import contextlib
 import logging
+import sqlite3
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
