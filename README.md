@@ -2,7 +2,7 @@
 
 **Blockchain anomaly detector and bug report engine for EVE Frontier.**
 
-Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
+Monolith ingests 13 Sui on-chain event types in real time, runs 35 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
 
 > **Live demo**: [monolith-evefrontier.fly.dev](https://monolith-evefrontier.fly.dev/)
 
@@ -31,8 +31,9 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 31 deterministic
 - **Auto-filed GitHub issues** for CRITICAL anomalies
 - **Discord alerting** — webhook embeds for CRITICAL/HIGH, rate-limited
 - **Webhook subscriptions** — push anomaly events to any HTTP endpoint
-- **Public API v1** — read anomalies, stats, health, object history
-- **248 tests passing**
+- **Public API v1** — read anomalies, stats, health, object history (rate limited: 60 req/min)
+- **282 tests passing**, 80% coverage gate
+- **MIT Licensed**
 
 ### Detection Rules
 
@@ -151,7 +152,7 @@ npm run dev
 ```bash
 source .venv/bin/activate
 python -m pytest tests/ -v
-# 248 tests passing
+# 282 tests passing
 ```
 
 ---
@@ -203,7 +204,7 @@ EVE Frontier runs a live game economy on Sui. Every smart assembly, gate jump, k
 
 Monolith watches the chain continuously and catches these bugs with cryptographic proof. It doesn't guess. It shows the exact transaction digests, the before/after states, and the rule that fired. CRITICAL anomalies auto-file GitHub issues so nothing gets lost.
 
-**16,500+ chain events ingested. 309+ anomalies detected. 35 rules. 17 checkers. Zero false positive tolerance.**
+**10,774+ chain events ingested. 304+ anomalies detected. 35 rules. 17 checkers. Zero false positive tolerance.**
 
 ---
 

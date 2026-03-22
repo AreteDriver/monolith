@@ -89,7 +89,7 @@ class SuiGraphQLClient:
             data = await self._query(
                 client, GET_OBJECT_WITH_DYNFIELDS, {"address": LOCATION_REGISTRY}
             )
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, KeyError) as e:
             logger.warning("Location Registry query failed: %s", e)
             return mappings
 
@@ -254,7 +254,7 @@ class SuiGraphQLClient:
                     GET_CHARACTER_OBJECTS,
                     {"type": character_type, "first": 50, "after": cursor},
                 )
-            except Exception as e:
+            except (httpx.HTTPError, ValueError, KeyError) as e:
                 logger.warning("Character name fetch failed (page %d): %s", page, e)
                 break
 
@@ -326,7 +326,7 @@ class SuiGraphQLClient:
                     GET_OBJECT_VERSIONS,
                     {"address": object_id, "first": 10},
                 )
-            except Exception as e:
+            except (httpx.HTTPError, ValueError, KeyError) as e:
                 logger.debug("Object version fetch failed for %s: %s", object_id[:16], e)
                 continue
 
@@ -350,7 +350,7 @@ class SuiGraphQLClient:
                         ),
                     )
                     total_stored += 1
-                except Exception:
+                except sqlite3.Error:
                     logger.debug("Failed to store version for %s", object_id[:16])
 
         if total_stored > 0:
@@ -373,7 +373,7 @@ class SuiGraphQLClient:
         for config_type, address in configs.items():
             try:
                 data = await self._query(client, GET_OBJECT_WITH_DYNFIELDS, {"address": address})
-            except Exception as e:
+            except (httpx.HTTPError, ValueError, KeyError) as e:
                 logger.debug("Config poll failed for %s: %s", config_type, e)
                 continue
 
@@ -398,7 +398,7 @@ class SuiGraphQLClient:
                     ),
                 )
                 stored += 1
-            except Exception:
+            except sqlite3.Error:
                 logger.debug("Failed to store config snapshot for %s", config_type)
 
         if stored > 0:
@@ -438,7 +438,7 @@ class SuiGraphQLClient:
                     GET_TRANSACTIONS,
                     {"address": wallet, "first": 50},
                 )
-            except Exception:
+            except (httpx.HTTPError, ValueError, KeyError):
                 logger.debug("Transaction query failed for %s", wallet[:16])
                 continue
 
@@ -524,7 +524,7 @@ class SuiGraphQLClient:
                     GET_OWNED_OBJECTS,
                     {"owner": wallet, "first": 50},
                 )
-            except Exception:
+            except (httpx.HTTPError, ValueError, KeyError):
                 logger.debug("Owned objects query failed for %s", wallet[:16])
                 continue
 

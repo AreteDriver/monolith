@@ -29,7 +29,7 @@ jobs:
         run: ruff format --check backend/ tests/
 
       - name: Run tests with coverage
-        run: pytest tests/ -x -q --cov=backend --cov-fail-under=65
+        run: pytest tests/ -x -q --cov=backend --cov-fail-under=80
 
   frontend:
     runs-on: ubuntu-latest

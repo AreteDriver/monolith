@@ -24,6 +24,7 @@ from backend.api.anomalies import router as anomalies_router
 from backend.api.error_tracker import capture_error
 from backend.api.error_tracker import router as error_tracker_router
 from backend.api.objects import router as objects_router
+from backend.api.public import limiter
 from backend.api.public import router as public_router
 from backend.api.reports import router as reports_router
 from backend.api.stats import router as stats_router
@@ -373,6 +374,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -380,6 +383,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+try:
+    from slowapi.errors import RateLimitExceeded
+except ImportError:
+    from slowapi._rate_limit_decorator import RateLimitExceeded
+
+
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Return 429 when a client exceeds the rate limit."""
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Try again later."},
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 
 @app.exception_handler(Exception)

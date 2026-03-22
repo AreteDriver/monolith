@@ -5,6 +5,10 @@ import sqlite3
 import time
 
 from fastapi import APIRouter, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/api/v1", tags=["public"])
 
@@ -28,6 +32,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
 
 
 @router.get("/anomalies")
+@limiter.limit("60/minute")
 def list_anomalies(
     request: Request,
     severity: str | None = None,
@@ -75,6 +80,7 @@ def list_anomalies(
 
 
 @router.get("/anomalies/{anomaly_id}")
+@limiter.limit("60/minute")
 def get_anomaly(request: Request, anomaly_id: str) -> dict:
     """Get a single anomaly by ID (read-only).
 
@@ -93,6 +99,7 @@ def get_anomaly(request: Request, anomaly_id: str) -> dict:
 
 
 @router.get("/health")
+@limiter.limit("60/minute")
 def health(request: Request) -> dict:
     """Simplified public health endpoint.
 
@@ -112,6 +119,7 @@ def health(request: Request) -> dict:
 
 
 @router.get("/stats")
+@limiter.limit("60/minute")
 def stats(request: Request) -> dict:
     """Public anomaly statistics — counts by severity and type.
 
