@@ -38,6 +38,7 @@ from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
 from backend.ingestion.event_processor import EventProcessor
 from backend.ingestion.graphql_client import SuiGraphQLClient
+from backend.ingestion.name_resolver import NameResolver
 from backend.ingestion.nexus_consumer import configure as configure_nexus
 from backend.ingestion.nexus_consumer import router as nexus_router
 from backend.ingestion.pod_verifier import PodVerifier
@@ -208,6 +209,7 @@ async def pod_check_loop(
 
 async def graphql_enrichment_loop(
     gql_client: SuiGraphQLClient,
+    name_resolver: NameResolver,
     interval: int,
 ) -> None:
     """Background task: enrich locations + entity names via Sui GraphQL."""
@@ -219,10 +221,10 @@ async def graphql_enrichment_loop(
                 updated = await gql_client.enrich_locations(client)
                 if updated > 0:
                     logger.info("GraphQL enrichment: %d objects updated", updated)
-                # Also refresh character name cache (replaces NEXUS names)
-                names = await gql_client.fetch_character_names(client)
+                # Refresh character name cache via NameResolver (replaces NEXUS)
+                names = await name_resolver._fetch_characters(client)
                 if names > 0:
-                    logger.info("GraphQL names: %d characters resolved", names)
+                    logger.info("NameResolver: %d characters resolved", names)
                 # Audit object versions for state change detection
                 versions = await gql_client.audit_object_versions(client)
                 if versions > 0:
@@ -319,7 +321,9 @@ async def lifespan(app: FastAPI):
     app.state.pod_verifier = pod_verifier
 
     gql_client = SuiGraphQLClient(conn, package_id)
+    name_resolver = NameResolver(conn, package_id)
     app.state.gql_client = gql_client
+    app.state.name_resolver = name_resolver
     app.state.world_poller = world_poller
     app.state.chain_reader = chain_reader
     app.state.event_processor = event_processor
@@ -336,7 +340,9 @@ async def lifespan(app: FastAPI):
             detection_loop(detection_engine, settings.detection_interval, settings, conn)
         ),
         asyncio.create_task(static_data_loop(world_poller, settings.static_data_interval)),
-        asyncio.create_task(graphql_enrichment_loop(gql_client, settings.static_data_interval)),
+        asyncio.create_task(
+            graphql_enrichment_loop(gql_client, name_resolver, settings.static_data_interval)
+        ),
         asyncio.create_task(
             pod_check_loop(
                 conn,
