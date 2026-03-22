@@ -219,7 +219,9 @@ def test_handle_status_changed(db_conn):
     )
     processor._dispatch_event(event)
 
-    obj = db_conn.execute("SELECT current_state FROM objects WHERE object_id = 'asm-status'").fetchone()
+    obj = db_conn.execute(
+        "SELECT current_state FROM objects WHERE object_id = 'asm-status'"
+    ).fetchone()
     state = json.loads(obj["current_state"])
     assert state["state"] == "ONLINE"
     assert state["last_action"] == "fuel_added"
@@ -250,7 +252,9 @@ def test_handle_killmail(db_conn):
     )
     processor._dispatch_event(event)
 
-    victim = db_conn.execute("SELECT destroyed_at FROM objects WHERE object_id = 'victim-1'").fetchone()
+    victim = db_conn.execute(
+        "SELECT destroyed_at FROM objects WHERE object_id = 'victim-1'"
+    ).fetchone()
     assert victim["destroyed_at"] is not None
 
 
@@ -261,7 +265,8 @@ def test_handle_ownership_transfer(db_conn):
     """OwnerCapTransferred updates object owner."""
     now = int(time.time())
     db_conn.execute(
-        "INSERT INTO objects (object_id, object_type, current_owner, current_state, last_seen, created_at) "
+        "INSERT INTO objects (object_id, object_type, current_owner,"
+        " current_state, last_seen, created_at) "
         "VALUES (?, ?, ?, ?, ?, ?)",
         ("asm-own", "smartassemblies", "0xold", json.dumps({"state": "ONLINE"}), now, now),
     )
@@ -274,7 +279,9 @@ def test_handle_ownership_transfer(db_conn):
     )
     processor._dispatch_event(event)
 
-    obj = db_conn.execute("SELECT current_owner FROM objects WHERE object_id = 'asm-own'").fetchone()
+    obj = db_conn.execute(
+        "SELECT current_owner FROM objects WHERE object_id = 'asm-own'"
+    ).fetchone()
     assert obj["current_owner"] == "0xnew"
 
 
@@ -296,7 +303,9 @@ def test_handle_fuel_event(db_conn):
     )
     processor._dispatch_event(event)
 
-    obj = db_conn.execute("SELECT current_state FROM objects WHERE object_id = 'asm-fuel'").fetchone()
+    obj = db_conn.execute(
+        "SELECT current_state FROM objects WHERE object_id = 'asm-fuel'"
+    ).fetchone()
     state = json.loads(obj["current_state"])
     assert "networkNode" in state or "fuel" in state
 

@@ -6,11 +6,14 @@ and recommended investigation steps.
 """
 
 import json
+import logging
 import sqlite3
 import time
 from datetime import UTC, datetime
 
-from backend.detection.anomaly_scorer import RULE_CLASSIFICATION, RULE_DISPLAY
+from backend.detection.anomaly_scorer import RULE_CLASSIFICATION, RULE_DISPLAY  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 # Maps anomaly_type to investigation recommendations
 INVESTIGATION_STEPS: dict[str, list[str]] = {

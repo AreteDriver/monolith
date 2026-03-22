@@ -46,7 +46,8 @@ async def test_p1_no_objects(db_conn):
 async def test_p1_matching_state(db_conn):
     """P1: Local state matches chain → no anomaly."""
     obj_id = "0xabc123"
-    _seed_object_with_snapshot(db_conn, obj_id, {"owner": {"address": "0xowner1"}, "state": "ONLINE"})
+    state = {"owner": {"address": "0xowner1"}, "state": "ONLINE"}
+    _seed_object_with_snapshot(db_conn, obj_id, state)
 
     chain_response = {
         "data": {
