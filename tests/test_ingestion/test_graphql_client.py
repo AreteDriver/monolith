@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 
 from backend.ingestion.graphql_client import SuiGraphQLClient
@@ -96,7 +97,7 @@ async def test_location_registry_empty_on_not_found(gql_client):
 async def test_location_registry_handles_error(gql_client):
     """Returns empty dict on HTTP error."""
     mock_client = AsyncMock()
-    mock_client.post.side_effect = Exception("connection refused")
+    mock_client.post.side_effect = httpx.ConnectError("connection refused")
 
     mappings = await gql_client.query_location_registry(mock_client)
     assert mappings == {}
@@ -759,7 +760,7 @@ async def test_fetch_character_names_paginates(gql_client, db_conn):
 async def test_fetch_character_names_handles_error(gql_client, db_conn):
     """Gracefully handles API errors."""
     mock_client = AsyncMock()
-    mock_client.post.side_effect = Exception("timeout")
+    mock_client.post.side_effect = httpx.ConnectError("timeout")
 
     stored = await gql_client.fetch_character_names(mock_client)
     assert stored == 0

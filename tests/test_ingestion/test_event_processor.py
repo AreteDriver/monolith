@@ -6,8 +6,9 @@ import time
 from backend.ingestion.event_processor import EventProcessor
 
 
-def _make_event(event_type, object_id, parsed_json, tx_hash="tx-test",
-                system_id="", object_type="inventory"):
+def _make_event(
+    event_type, object_id, parsed_json, tx_hash="tx-test", system_id="", object_type="inventory"
+):
     """Create a minimal chain_event row dict."""
     return {
         "id": 1,
@@ -115,8 +116,16 @@ def test_process_unprocessed_batch(db_conn):
         "INSERT INTO chain_events (event_id, event_type, object_id, object_type, "
         "system_id, transaction_hash, timestamp, raw_json, processed) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
-        ("evt-1", "0xpkg::assembly::AssemblyCreatedEvent", "obj-1", "assembly",
-         "sys-1", "tx-1", now, json.dumps({"parsedJson": {"typeId": "gate"}})),
+        (
+            "evt-1",
+            "0xpkg::assembly::AssemblyCreatedEvent",
+            "obj-1",
+            "assembly",
+            "sys-1",
+            "tx-1",
+            now,
+            json.dumps({"parsedJson": {"typeId": "gate"}}),
+        ),
     )
     db_conn.commit()
 
@@ -158,9 +167,11 @@ def test_handle_assembly_created(db_conn):
     """AssemblyCreatedEvent creates object in database."""
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::assembly::AssemblyCreatedEvent", "asm-new",
+        "0xpkg::assembly::AssemblyCreatedEvent",
+        "asm-new",
         {"typeId": "ssu", "status": "anchored", "owner": "0xowner1"},
-        system_id="sys-100", object_type="assembly",
+        system_id="sys-100",
+        object_type="assembly",
     )
     processor._dispatch_event(event)
 
@@ -174,7 +185,8 @@ def test_handle_assembly_created_empty_id(db_conn):
     """AssemblyCreatedEvent with empty object_id is skipped."""
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::assembly::AssemblyCreatedEvent", "",
+        "0xpkg::assembly::AssemblyCreatedEvent",
+        "",
         {"typeId": "ssu"},
     )
     processor._dispatch_event(event)
@@ -187,7 +199,8 @@ def test_handle_character_created(db_conn):
     """CharacterCreatedEvent creates character object."""
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::character::CharacterCreatedEvent", "char-1",
+        "0xpkg::character::CharacterCreatedEvent",
+        "char-1",
         {"tribeId": "tribe-42", "characterAddress": "0xaddr1"},
         object_type="character",
     )
@@ -213,7 +226,8 @@ def test_handle_status_changed(db_conn):
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::status::StatusChangedEvent", "asm-status",
+        "0xpkg::status::StatusChangedEvent",
+        "asm-status",
         {"status": "ONLINE", "action": "fuel_added"},
         object_type="smartassemblies",
     )
@@ -239,15 +253,15 @@ def test_handle_killmail(db_conn):
     """KillmailCreatedEvent marks victim as destroyed."""
     now = int(time.time())
     db_conn.execute(
-        "INSERT INTO objects (object_id, object_type, last_seen, created_at) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO objects (object_id, object_type, last_seen, created_at) VALUES (?, ?, ?, ?)",
         ("victim-1", "character", now, now),
     )
     db_conn.commit()
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::killmail::KillmailCreatedEvent", "",
+        "0xpkg::killmail::KillmailCreatedEvent",
+        "",
         {"victimId": "victim-1", "killerId": "killer-1"},
     )
     processor._dispatch_event(event)
@@ -274,7 +288,8 @@ def test_handle_ownership_transfer(db_conn):
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::ownership::OwnerCapTransferred", "",
+        "0xpkg::ownership::OwnerCapTransferred",
+        "",
         {"authorizedObjectId": "asm-own", "newOwner": "0xnew"},
     )
     processor._dispatch_event(event)
@@ -297,7 +312,8 @@ def test_handle_fuel_event(db_conn):
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::fuel::FuelEvent", "asm-fuel",
+        "0xpkg::fuel::FuelEvent",
+        "asm-fuel",
         {"fuelAmount": 5000, "variant": "BURNING_UPDATED"},
         object_type="smartassemblies",
     )
@@ -314,17 +330,18 @@ def test_handle_jump_event(db_conn):
     """JumpEvent updates last_seen and system_id."""
     now = int(time.time())
     db_conn.execute(
-        "INSERT INTO objects (object_id, object_type, last_seen, created_at) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO objects (object_id, object_type, last_seen, created_at) VALUES (?, ?, ?, ?)",
         ("gate-1", "gate", now, now),
     )
     db_conn.commit()
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "0xpkg::gate::JumpEvent", "gate-1",
+        "0xpkg::gate::JumpEvent",
+        "gate-1",
         {"traveller": "0xtraveller"},
-        object_type="gate", system_id="sys-200",
+        object_type="gate",
+        system_id="sys-200",
     )
     processor._dispatch_event(event)
 

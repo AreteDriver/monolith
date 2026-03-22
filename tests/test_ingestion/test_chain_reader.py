@@ -257,9 +257,7 @@ async def test_query_events_rpc_error(db_conn):
 
     mock_resp = MagicMock()
     mock_resp.raise_for_status = MagicMock()
-    mock_resp.json.return_value = {
-        "error": {"code": -32000, "message": "Internal error"}
-    }
+    mock_resp.json.return_value = {"error": {"code": -32000, "message": "Internal error"}}
 
     client = AsyncMock(spec=httpx.AsyncClient)
     client.post.return_value = mock_resp

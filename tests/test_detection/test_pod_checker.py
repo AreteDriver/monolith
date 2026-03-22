@@ -120,9 +120,7 @@ async def test_p1_state_mismatch(db_conn):
                 "address": obj_id,
                 "version": 3,
                 "owner": {},
-                "asMoveObject": {
-                    "contents": {"json": json.dumps({"state": "OFFLINE"})}
-                },
+                "asMoveObject": {"contents": {"json": json.dumps({"state": "OFFLINE"})}},
             }
         }
     }
@@ -208,9 +206,7 @@ def test_compare_with_chain_fuel_mismatch():
     chain_obj = {
         "owner": {},
         "asMoveObject": {
-            "contents": {
-                "json": json.dumps({"networkNode": {"fuel": {"amount": 500}}})
-            }
+            "contents": {"json": json.dumps({"networkNode": {"fuel": {"amount": 500}}})}
         },
     }
     mismatches = PodChecker._compare_with_chain(local, chain_obj)
