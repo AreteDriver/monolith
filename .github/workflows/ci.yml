@@ -31,6 +31,14 @@ jobs:
       - name: Run tests with coverage
         run: pytest tests/ -x -q --cov=backend --cov-fail-under=80
 
+      - name: Run eval suite (detection quality)
+        run: |
+          python demo_seed.py --db eval_test.db
+          python eval/detection_quality.py --db eval_test.db --fail-on-regression
+
+      - name: Run narration eval (informational — no API key in CI)
+        run: python eval/narration_eval.py --db eval_test.db || true
+
   frontend:
     runs-on: ubuntu-latest
     steps:

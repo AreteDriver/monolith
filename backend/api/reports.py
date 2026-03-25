@@ -96,14 +96,16 @@ async def generate_report(request: Request, anomaly_id: str) -> dict:
         except json.JSONDecodeError:
             evidence = {}
 
-    narration = await narrate_anomaly(
+    narration_result = await narrate_anomaly(
         anomaly_type=anomaly["anomaly_type"],
         evidence=evidence,
         rule_id=anomaly.get("rule_id", ""),
         severity=anomaly["severity"],
         api_key=settings.anthropic_api_key,
     )
-    report["plain_english"] = narration
+    report["plain_english"] = narration_result["narration"]
+    report["input_tokens"] = narration_result["input_tokens"]
+    report["output_tokens"] = narration_result["output_tokens"]
 
     # Store formatted outputs
     report["format_markdown"] = format_markdown(report)

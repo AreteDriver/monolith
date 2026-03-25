@@ -11,13 +11,19 @@ from backend.reports.report_builder import (
 
 
 def test_report_id_format():
-    """Report ID matches MNLT-YYYYMMDD-NNNN format."""
+    """Report ID matches MNLT-YYYYMMDD-NNNNN format."""
     rid = generate_report_id()
     assert rid.startswith("MNLT-")
     parts = rid.split("-")
     assert len(parts) == 3
     assert len(parts[1]) == 8  # YYYYMMDD
-    assert len(parts[2]) == 4  # seq
+    assert len(parts[2]) == 5  # seq (5 digits with counter)
+
+
+def test_report_id_unique_in_same_second():
+    """Multiple calls in the same second produce unique IDs."""
+    ids = {generate_report_id() for _ in range(10)}
+    assert len(ids) == 10
 
 
 def _make_anomaly_row(anomaly_type="ORPHAN_OBJECT", severity="MEDIUM", category="CONTINUITY"):

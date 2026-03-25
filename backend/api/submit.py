@@ -76,14 +76,16 @@ async def submit_observation(request: Request, body: SubmitRequest) -> dict:
             f"Player-reported: {body.description}\n\nAuto-detected: {report['summary']}"
         )
 
-        narration = await narrate_anomaly(
+        narration_result = await narrate_anomaly(
             anomaly_type=anomaly["anomaly_type"],
             evidence=json.loads(anomaly.get("evidence_json", "{}")),
             rule_id=anomaly.get("rule_id", ""),
             severity=anomaly["severity"],
             api_key=settings.anthropic_api_key,
         )
-        report["plain_english"] = narration
+        report["plain_english"] = narration_result["narration"]
+        report["input_tokens"] = narration_result["input_tokens"]
+        report["output_tokens"] = narration_result["output_tokens"]
         report["format_markdown"] = format_markdown(report)
         report["format_json"] = json.dumps(format_json(report))
 

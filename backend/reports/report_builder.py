@@ -5,6 +5,7 @@ summary, affected entities, evidence, chain references, reproduction context,
 and recommended investigation steps.
 """
 
+import itertools
 import json
 import logging
 import sqlite3
@@ -96,11 +97,18 @@ INVESTIGATION_STEPS: dict[str, list[str]] = {
 }
 
 
+_report_counter = itertools.count()
+
+
 def generate_report_id() -> str:
-    """Generate a report ID: MNLT-{YYYYMMDD}-{seq}."""
+    """Generate a unique report ID: MNLT-{YYYYMMDD}-{seq}.
+
+    Uses a monotonic counter combined with time to avoid collisions
+    when multiple reports are generated in the same second.
+    """
     date_str = datetime.now(tz=UTC).strftime("%Y%m%d")
-    seq = int(time.time()) % 10000
-    return f"MNLT-{date_str}-{seq:04d}"
+    seq = (int(time.time()) % 10000) * 10 + (next(_report_counter) % 10)
+    return f"MNLT-{date_str}-{seq:05d}"
 
 
 def build_report(anomaly_row: dict, conn: sqlite3.Connection | None = None) -> dict:
@@ -265,8 +273,9 @@ def store_report(report: dict, conn: sqlite3.Connection) -> bool:
                (report_id, anomaly_id, title, severity, category, summary,
                 evidence_json, plain_english, chain_references,
                 reproduction_context, recommended_investigation,
-                generated_at, format_markdown, format_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                generated_at, format_markdown, format_json,
+                input_tokens, output_tokens)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 report["report_id"],
                 report["anomaly_id"],
@@ -282,6 +291,8 @@ def store_report(report: dict, conn: sqlite3.Connection) -> bool:
                 report["generated_at"],
                 report.get("format_markdown", ""),
                 report.get("format_json", ""),
+                report.get("input_tokens"),
+                report.get("output_tokens"),
             ),
         )
         # Update anomaly with report_id

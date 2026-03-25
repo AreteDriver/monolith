@@ -1,6 +1,11 @@
 """Tests for anomaly scorer — severity classification."""
 
-from backend.detection.anomaly_scorer import classify_anomaly, severity_weight
+from backend.detection.anomaly_scorer import (
+    classify_anomaly,
+    display_name,
+    display_tagline,
+    severity_weight,
+)
 
 
 def test_classify_critical_rules():
@@ -37,3 +42,23 @@ def test_severity_weights():
     assert severity_weight("HIGH") > severity_weight("MEDIUM")
     assert severity_weight("MEDIUM") > severity_weight("LOW")
     assert severity_weight("UNKNOWN") == 0
+
+
+def test_display_name_known():
+    name = display_name("C1")
+    assert isinstance(name, str)
+    assert name != "C1"
+
+
+def test_display_name_unknown():
+    assert display_name("Z99") == "Z99"
+
+
+def test_display_tagline_known():
+    tagline = display_tagline("C1")
+    assert isinstance(tagline, str)
+    assert len(tagline) > 0
+
+
+def test_display_tagline_unknown():
+    assert display_tagline("Z99") == ""

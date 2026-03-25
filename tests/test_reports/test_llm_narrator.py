@@ -15,7 +15,9 @@ async def test_template_fallback_no_api_key():
         severity="MEDIUM",
         api_key="",
     )
-    assert TEMPLATES["ORPHAN_OBJECT"] in result
+    assert TEMPLATES["ORPHAN_OBJECT"] in result["narration"]
+    assert result["input_tokens"] is None
+    assert result["output_tokens"] is None
 
 
 @pytest.mark.asyncio
@@ -28,7 +30,7 @@ async def test_template_fallback_unknown_type():
         severity="LOW",
         api_key="",
     )
-    assert "UNKNOWN_TYPE" in result
+    assert "UNKNOWN_TYPE" in result["narration"]
 
 
 @pytest.mark.asyncio
@@ -41,8 +43,8 @@ async def test_template_appends_specifics():
         severity="CRITICAL",
         api_key="",
     )
-    assert "Specifics:" in result
-    assert "Object xyz reappeared" in result
+    assert "Specifics:" in result["narration"]
+    assert "Object xyz reappeared" in result["narration"]
 
 
 @pytest.mark.asyncio
@@ -56,7 +58,7 @@ async def test_template_no_duplicate_description():
         severity="MEDIUM",
         api_key="",
     )
-    assert "Specifics:" not in result
+    assert "Specifics:" not in result["narration"]
 
 
 @pytest.mark.asyncio
@@ -99,4 +101,5 @@ async def test_api_failure_falls_back(monkeypatch):
         api_key="sk-fake-key",
     )
     # Should fall back to template
-    assert TEMPLATES["ORPHAN_OBJECT"] in result
+    assert TEMPLATES["ORPHAN_OBJECT"] in result["narration"]
+    assert result["input_tokens"] is None

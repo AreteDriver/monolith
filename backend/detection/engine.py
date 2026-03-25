@@ -68,6 +68,8 @@ class DetectionEngine:
 
     def run_cycle(self) -> list[dict]:
         """Run all checkers and persist new anomalies. Returns list of new anomaly dicts."""
+        started_at = time.time()
+        error_msg = None
         all_anomalies: list[Anomaly] = []
 
         for checker in self._checkers:
@@ -94,6 +96,21 @@ class DetectionEngine:
                 len(new_anomalies),
                 len(all_anomalies),
             )
+
+        # Record cycle timing for eval/system_metrics.py
+        finished_at = time.time()
+        try:
+            self.conn.execute(
+                """INSERT INTO detection_cycles
+                   (started_at, finished_at, anomalies_found, events_processed, error)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (started_at, finished_at, len(new_anomalies), len(all_anomalies), error_msg),
+            )
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            # Table may not exist on older DBs — silently skip
+            pass
+
         return new_anomalies
 
     def _is_duplicate(self, anomaly: Anomaly) -> bool:

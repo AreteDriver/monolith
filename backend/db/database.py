@@ -220,7 +220,19 @@ CREATE TABLE IF NOT EXISTS bug_reports (
     generated_at INTEGER,
     format_markdown TEXT,
     format_json TEXT,
+    input_tokens INTEGER,
+    output_tokens INTEGER,
     FOREIGN KEY (anomaly_id) REFERENCES anomalies(anomaly_id)
+);
+
+-- Detection cycle timing for eval/system_metrics.py
+CREATE TABLE IF NOT EXISTS detection_cycles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at REAL,
+    finished_at REAL,
+    anomalies_found INTEGER DEFAULT 0,
+    events_processed INTEGER DEFAULT 0,
+    error TEXT
 );
 """
 
@@ -251,6 +263,7 @@ CREATE INDEX IF NOT EXISTS idx_tribe_cache_confirmed ON tribe_cache(last_confirm
 CREATE INDEX IF NOT EXISTS idx_object_versions_object ON object_versions(object_id);
 CREATE INDEX IF NOT EXISTS idx_config_snapshots_type ON config_snapshots(config_type);
 CREATE INDEX IF NOT EXISTS idx_wallet_activity_wallet ON wallet_activity(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_detection_cycles_started ON detection_cycles(started_at);
 """
 
 FTS = """
@@ -289,9 +302,25 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
             logger.warning("FTS5 not available — full-text search disabled: %s", e)
         else:
             raise
+    # Migrations: add columns to existing tables (safe to run repeatedly)
+    _migrate_add_column(conn, "bug_reports", "input_tokens", "INTEGER")
+    _migrate_add_column(conn, "bug_reports", "output_tokens", "INTEGER")
     conn.commit()
     logger.info("Database initialized: %s", db_path)
     return conn
+
+
+def _migrate_add_column(conn: sqlite3.Connection, table: str, column: str, col_type: str) -> None:
+    """Add a column if it doesn't already exist (idempotent migration)."""
+    if not column_exists(conn, table, column):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")  # noqa: S608
+        logger.info("Migration: added %s.%s (%s)", table, column, col_type)
+
+
+def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    """Check if a column exists on a table."""
+    cursor = conn.execute(f"PRAGMA table_info({table})")  # noqa: S608
+    return any(row[1] == column for row in cursor.fetchall())
 
 
 def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
@@ -307,6 +336,7 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "nexus_events",
         "item_ledger",
         "tribe_cache",
+        "detection_cycles",
     ]
     counts = {}
     for table in tables:
