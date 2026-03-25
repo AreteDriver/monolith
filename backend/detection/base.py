@@ -70,10 +70,12 @@ class BaseChecker:
         raise NotImplementedError
 
     def _get_recent_events(self, hours: int = 1) -> list[dict]:
-        """Get chain events from the last N hours."""
+        """Get chain events from the last N hours (excludes raw_json for memory)."""
         cutoff = int(time.time()) - (hours * 3600)
         rows = self.conn.execute(
-            "SELECT * FROM chain_events WHERE timestamp >= ? ORDER BY timestamp ASC",
+            "SELECT event_id, event_type, object_id, object_type, system_id, "
+            "block_number, transaction_hash, timestamp, processed "
+            "FROM chain_events WHERE timestamp >= ? ORDER BY timestamp ASC",
             (cutoff,),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -113,9 +115,11 @@ class BaseChecker:
         return [dict(r) for r in rows]
 
     def _events_for_object(self, object_id: str, since: int = 0) -> list[dict]:
-        """Get chain events referencing an object since a timestamp."""
+        """Get chain events referencing an object since a timestamp (excludes raw_json)."""
         rows = self.conn.execute(
-            "SELECT * FROM chain_events WHERE object_id = ? AND timestamp >= ? "
+            "SELECT event_id, event_type, object_id, object_type, system_id, "
+            "block_number, transaction_hash, timestamp, processed "
+            "FROM chain_events WHERE object_id = ? AND timestamp >= ? "
             "ORDER BY timestamp ASC",
             (object_id, since),
         ).fetchall()

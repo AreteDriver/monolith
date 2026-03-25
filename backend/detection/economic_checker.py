@@ -328,7 +328,7 @@ class EconomicChecker(BaseChecker):
             """SELECT object_id, current_state, system_id
                FROM objects
                WHERE object_type = 'smartassemblies'
-               LIMIT 2000"""
+               LIMIT 500"""
         ).fetchall()
 
         anomalies = []

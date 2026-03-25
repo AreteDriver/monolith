@@ -58,21 +58,21 @@ async def chain_poll_loop(
     reader: ChainReader,
     processor: EventProcessor,
     interval: int,
+    client: httpx.AsyncClient | None = None,
 ) -> None:
     """Background task: poll chain events, then process into object state."""
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                stored = await reader.poll(client)
-                if stored > 0:
-                    logger.info("Chain poll: %d new events", stored)
-                # Process any unprocessed events into object state
-                processed = processor.process_unprocessed()
-                if processed > 0:
-                    logger.info("Event processor: %d events → object state", processed)
-            except Exception:
-                logger.exception("Chain poll error")
-            await asyncio.sleep(interval)
+    while True:
+        try:
+            stored = await reader.poll(client)
+            if stored > 0:
+                logger.info("Chain poll: %d new events", stored)
+            # Process any unprocessed events into object state
+            processed = processor.process_unprocessed()
+            if processed > 0:
+                logger.info("Event processor: %d events → object state", processed)
+        except Exception:
+            logger.exception("Chain poll error")
+        await asyncio.sleep(interval)
 
 
 async def snapshot_loop(snapshotter: StateSnapshotter, interval: int) -> None:
@@ -131,6 +131,7 @@ async def pod_check_loop(
     engine: DetectionEngine,
     interval: int,
     settings=None,
+    client: httpx.AsyncClient | None = None,
 ) -> None:
     """Background task: run async POD verification checks on interval."""
     from backend.detection.killmail_checker import KillmailChecker
@@ -145,63 +146,62 @@ async def pod_check_loop(
 
     while True:
         try:
-            async with httpx.AsyncClient() as client:
-                checker = PodChecker(conn)
-                anomalies = await checker.run_async(client)
-                for anomaly in anomalies:
+            checker = PodChecker(conn)
+            anomalies = await checker.run_async(client)
+            for anomaly in anomalies:
+                if engine._is_duplicate(anomaly):
+                    continue
+                if engine._store_anomaly(anomaly):
+                    conn.commit()
+                    a = anomaly.to_dict()
+                    logger.warning(
+                        "POD ANOMALY [%s] %s — %s: %s",
+                        a["severity"],
+                        a["anomaly_type"],
+                        a["object_id"][:20],
+                        a["evidence"].get("description", "")[:80],
+                    )
+                    if webhook_url and a["severity"] in ("CRITICAL", "HIGH"):
+                        await send_alert(webhook_url, a, rate_limit)
+                    if github_repo and github_token and a["severity"] == "CRITICAL":
+                        await file_github_issue(github_repo, github_token, a, conn)
+                    # Dispatch to subscriber webhooks (filters applied inside)
+                    await dispatch_to_subscribers(conn, a)
+            if anomalies:
+                logger.info("POD check: %d anomalies found", len(anomalies))
+
+            # Killmail reconciliation — now chain-internal (no World API needed)
+            try:
+                km_checker = KillmailChecker(conn)
+                km_anomalies = km_checker.check()
+                for anomaly in km_anomalies:
                     if engine._is_duplicate(anomaly):
                         continue
                     if engine._store_anomaly(anomaly):
                         conn.commit()
                         a = anomaly.to_dict()
                         logger.warning(
-                            "POD ANOMALY [%s] %s — %s: %s",
+                            "KILLMAIL ANOMALY [%s] %s — %s: %s",
                             a["severity"],
                             a["anomaly_type"],
                             a["object_id"][:20],
                             a["evidence"].get("description", "")[:80],
                         )
-                        if webhook_url and a["severity"] in ("CRITICAL", "HIGH"):
+                        if webhook_url and a["severity"] in (
+                            "CRITICAL",
+                            "HIGH",
+                        ):
                             await send_alert(webhook_url, a, rate_limit)
                         if github_repo and github_token and a["severity"] == "CRITICAL":
                             await file_github_issue(github_repo, github_token, a, conn)
-                        # Dispatch to subscriber webhooks (filters applied inside)
                         await dispatch_to_subscribers(conn, a)
-                if anomalies:
-                    logger.info("POD check: %d anomalies found", len(anomalies))
-
-                # Killmail reconciliation — now chain-internal (no World API needed)
-                try:
-                    km_checker = KillmailChecker(conn)
-                    km_anomalies = km_checker.check()
-                    for anomaly in km_anomalies:
-                        if engine._is_duplicate(anomaly):
-                            continue
-                        if engine._store_anomaly(anomaly):
-                            conn.commit()
-                            a = anomaly.to_dict()
-                            logger.warning(
-                                "KILLMAIL ANOMALY [%s] %s — %s: %s",
-                                a["severity"],
-                                a["anomaly_type"],
-                                a["object_id"][:20],
-                                a["evidence"].get("description", "")[:80],
-                            )
-                            if webhook_url and a["severity"] in (
-                                "CRITICAL",
-                                "HIGH",
-                            ):
-                                await send_alert(webhook_url, a, rate_limit)
-                            if github_repo and github_token and a["severity"] == "CRITICAL":
-                                await file_github_issue(github_repo, github_token, a, conn)
-                            await dispatch_to_subscribers(conn, a)
-                    if km_anomalies:
-                        logger.info(
-                            "Killmail check: %d anomalies found",
-                            len(km_anomalies),
-                        )
-                except Exception:
-                    logger.exception("Killmail reconciliation error")
+                if km_anomalies:
+                    logger.info(
+                        "Killmail check: %d anomalies found",
+                        len(km_anomalies),
+                    )
+            except Exception:
+                logger.exception("Killmail reconciliation error")
         except Exception:
             logger.exception("POD check error")
         await asyncio.sleep(interval)
@@ -211,40 +211,107 @@ async def graphql_enrichment_loop(
     gql_client: SuiGraphQLClient,
     name_resolver: NameResolver,
     interval: int,
+    client: httpx.AsyncClient | None = None,
 ) -> None:
     """Background task: enrich locations + entity names via Sui GraphQL."""
+    import gc
+
     # Wait for initial chain data + static data to finish before enrichment
     await asyncio.sleep(120)
     while True:
         try:
-            async with httpx.AsyncClient() as client:
-                updated = await gql_client.enrich_locations(client)
-                if updated > 0:
-                    logger.info("GraphQL enrichment: %d objects updated", updated)
-                # Refresh character name cache via NameResolver (replaces NEXUS)
-                names = await name_resolver._fetch_characters(client)
-                if names > 0:
-                    logger.info("NameResolver: %d characters resolved", names)
-                # Audit object versions for state change detection
-                versions = await gql_client.audit_object_versions(client)
-                if versions > 0:
-                    logger.info("GraphQL versions: %d snapshots stored", versions)
-                # Poll config singletons for change detection
-                configs = await gql_client.poll_config_singletons(client)
-                if configs > 0:
-                    logger.info("GraphQL configs: %d config versions stored", configs)
-                # Profile wallet activity for bot detection
-                profiles = await gql_client.profile_wallet_activity(client)
-                if profiles > 0:
-                    logger.info("GraphQL profiles: %d wallets profiled", profiles)
+            updated = await gql_client.enrich_locations(client)
+            if updated > 0:
+                logger.info("GraphQL enrichment: %d objects updated", updated)
+            gc.collect()
+
+            # Refresh character name cache via NameResolver (replaces NEXUS)
+            names = await name_resolver._fetch_characters(client, max_pages=10)
+            if names > 0:
+                logger.info("NameResolver: %d characters resolved", names)
+            gc.collect()
+
+            # Audit object versions for state change detection
+            versions = await gql_client.audit_object_versions(client)
+            if versions > 0:
+                logger.info("GraphQL versions: %d snapshots stored", versions)
+            gc.collect()
+
+            # Poll config singletons for change detection
+            configs = await gql_client.poll_config_singletons(client)
+            if configs > 0:
+                logger.info("GraphQL configs: %d config versions stored", configs)
+            gc.collect()
+
+            # Profile wallet activity for bot detection
+            profiles = await gql_client.profile_wallet_activity(client, max_wallets=10)
+            if profiles > 0:
+                logger.info("GraphQL profiles: %d wallets profiled", profiles)
+            gc.collect()
         except Exception:
             logger.exception("GraphQL enrichment error")
+        await asyncio.sleep(interval)
+
+
+async def table_prune_loop(conn: sqlite3.Connection, interval: int = 21600) -> None:
+    """Background task: prune stale rows from world_states and state_transitions.
+
+    Runs every 6 hours (default). Keeps the 2 most recent world_states per
+    object_id, deletes anything older than 7 days. Prunes state_transitions
+    older than 30 days.
+    """
+    # Delay to avoid competing with startup I/O
+    await asyncio.sleep(300)
+    while True:
+        try:
+            now = int(time.time())
+
+            # Prune world_states older than 7 days, keeping 2 most recent per object_id
+            seven_days_ago = now - (7 * 86400)
+            result = conn.execute(
+                """DELETE FROM world_states
+                   WHERE snapshot_time < ?
+                     AND rowid NOT IN (
+                       SELECT rowid FROM (
+                         SELECT rowid, ROW_NUMBER() OVER (
+                           PARTITION BY object_id ORDER BY snapshot_time DESC
+                         ) as rn
+                         FROM world_states
+                       ) WHERE rn <= 2
+                     )""",
+                (seven_days_ago,),
+            )
+            ws_pruned = result.rowcount
+            if ws_pruned > 0:
+                conn.commit()
+                logger.info("Table pruning: deleted %d stale world_states rows", ws_pruned)
+
+            # Prune state_transitions older than 30 days
+            thirty_days_ago = now - (30 * 86400)
+            result = conn.execute(
+                "DELETE FROM state_transitions WHERE timestamp < ?",
+                (thirty_days_ago,),
+            )
+            st_pruned = result.rowcount
+            if st_pruned > 0:
+                conn.commit()
+                logger.info("Table pruning: deleted %d stale state_transitions rows", st_pruned)
+
+            if ws_pruned > 0 or st_pruned > 0:
+                logger.info(
+                    "Table pruning complete — world_states: %d, state_transitions: %d",
+                    ws_pruned,
+                    st_pruned,
+                )
+        except Exception:
+            logger.exception("Table pruning error")
         await asyncio.sleep(interval)
 
 
 async def static_data_loop(
     poller: WorldPoller,
     interval: int,
+    client: httpx.AsyncClient | None = None,
 ) -> None:
     """Background task: refresh static reference data periodically.
 
@@ -253,36 +320,34 @@ async def static_data_loop(
     # Delay so HTTP server starts first, and chain_poll_loop gets priority
     await asyncio.sleep(15)
     # Initial fetch — sequential with GC between endpoints (inside poll_static_data)
-    async with httpx.AsyncClient() as client:
+    try:
+        counts = await poller.poll_static_data(client)
+        if counts:
+            logger.info("Initial static data fetch: %s", counts)
+    except Exception:
+        logger.exception("Initial static data fetch failed")
+    # Pause before tribes to let memory settle
+    await asyncio.sleep(5)
+    try:
+        tribe_count = await poller.poll_tribes(client)
+        if tribe_count > 0:
+            logger.info("Tribe cache refreshed: %d tribes", tribe_count)
+    except Exception:
+        logger.exception("Initial tribe cache fetch failed")
+
+    while True:
+        await asyncio.sleep(interval)
         try:
-            counts = await poller.poll_static_data(client)
-            if counts:
-                logger.info("Initial static data fetch: %s", counts)
+            await poller.poll_static_data(client)
         except Exception:
-            logger.exception("Initial static data fetch failed")
-        # Pause before tribes to let memory settle
+            logger.exception("Static data refresh failed")
         await asyncio.sleep(5)
         try:
             tribe_count = await poller.poll_tribes(client)
             if tribe_count > 0:
                 logger.info("Tribe cache refreshed: %d tribes", tribe_count)
         except Exception:
-            logger.exception("Initial tribe cache fetch failed")
-
-    while True:
-        await asyncio.sleep(interval)
-        async with httpx.AsyncClient() as client:
-            try:
-                await poller.poll_static_data(client)
-            except Exception:
-                logger.exception("Static data refresh failed")
-            await asyncio.sleep(5)
-            try:
-                tribe_count = await poller.poll_tribes(client)
-                if tribe_count > 0:
-                    logger.info("Tribe cache refreshed: %d tribes", tribe_count)
-            except Exception:
-                logger.exception("Tribe cache refresh failed")
+            logger.exception("Tribe cache refresh failed")
 
 
 @asynccontextmanager
@@ -336,18 +401,31 @@ async def lifespan(app: FastAPI):
     app.state.snapshotter = snapshotter
     app.state.detection_engine = detection_engine
 
+    # Shared HTTP client for all background tasks — bounded connection pool
+    http_client = httpx.AsyncClient(
+        limits=httpx.Limits(max_connections=5, max_keepalive_connections=2),
+        timeout=httpx.Timeout(30.0, connect=10.0),
+    )
+    app.state.http_client = http_client
+
     # Start background tasks
     tasks = [
         asyncio.create_task(
-            chain_poll_loop(chain_reader, event_processor, settings.chain_poll_interval)
+            chain_poll_loop(
+                chain_reader, event_processor, settings.chain_poll_interval, client=http_client
+            )
         ),
         asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
         asyncio.create_task(
             detection_loop(detection_engine, settings.detection_interval, settings, conn)
         ),
-        asyncio.create_task(static_data_loop(world_poller, settings.static_data_interval)),
         asyncio.create_task(
-            graphql_enrichment_loop(gql_client, name_resolver, settings.static_data_interval)
+            static_data_loop(world_poller, settings.static_data_interval, client=http_client)
+        ),
+        asyncio.create_task(
+            graphql_enrichment_loop(
+                gql_client, name_resolver, settings.static_data_interval, client=http_client
+            )
         ),
         asyncio.create_task(
             pod_check_loop(
@@ -356,8 +434,10 @@ async def lifespan(app: FastAPI):
                 detection_engine,
                 settings.detection_interval,
                 settings,
+                client=http_client,
             )
         ),
+        asyncio.create_task(table_prune_loop(conn)),
     ]
 
     logger.info(
@@ -375,6 +455,7 @@ async def lifespan(app: FastAPI):
         with contextlib.suppress(asyncio.CancelledError):
             await task
 
+    await http_client.aclose()
     conn.close()
     logger.info("Monolith shutdown")
 

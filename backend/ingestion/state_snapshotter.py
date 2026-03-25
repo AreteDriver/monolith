@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 class StateSnapshotter:
     """Compares consecutive snapshots to detect state changes and write transitions."""
 
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn: sqlite3.Connection, recency_seconds: int = 3600):
         self.conn = conn
+        self.recency_seconds = recency_seconds
 
     def get_latest_two_snapshots(self, object_id: str) -> tuple[dict | None, dict | None]:
         """Get the two most recent snapshots for an object."""
@@ -68,30 +69,50 @@ class StateSnapshotter:
 
     def process_all_objects(self) -> int:
         """Compare latest snapshots for all tracked objects. Returns count of deltas found."""
-        objects = self.conn.execute("SELECT object_id FROM objects").fetchall()
         delta_count = 0
         now = int(time.time())
+        batch_size = 100
+        offset = 0
 
-        for row in objects:
-            object_id = row["object_id"]
-            newest, previous = self.get_latest_two_snapshots(object_id)
+        while True:
+            objects = self.conn.execute(
+                """SELECT o.object_id FROM objects o
+                   WHERE EXISTS (
+                       SELECT 1 FROM world_states ws
+                       WHERE ws.object_id = o.object_id
+                       AND ws.snapshot_time >= (strftime('%s', 'now') - ?)
+                   )
+                   LIMIT ? OFFSET ?""",
+                (self.recency_seconds, batch_size, offset),
+            ).fetchall()
+            if not objects:
+                break
+            offset += batch_size
 
-            if not newest or not previous:
-                continue
+            for row in objects:
+                object_id = row["object_id"]
+                newest, previous = self.get_latest_two_snapshots(object_id)
 
-            delta = self.compute_delta(previous, newest)
-            if delta:
-                self.record_transition(
-                    object_id=object_id,
-                    from_state=json.dumps(
-                        json.loads(previous.get("state_data", "{}")), sort_keys=True
-                    ),
-                    to_state=json.dumps(json.loads(newest.get("state_data", "{}")), sort_keys=True),
-                    timestamp=now,
-                )
-                delta_count += 1
+                if not newest or not previous:
+                    continue
+
+                delta = self.compute_delta(previous, newest)
+                if delta:
+                    self.record_transition(
+                        object_id=object_id,
+                        from_state=json.dumps(
+                            json.loads(previous.get("state_data", "{}")), sort_keys=True
+                        ),
+                        to_state=json.dumps(
+                            json.loads(newest.get("state_data", "{}")), sort_keys=True
+                        ),
+                        timestamp=now,
+                    )
+                    delta_count += 1
+
+            if delta_count:
+                self.conn.commit()
 
         if delta_count:
-            self.conn.commit()
             logger.info("Snapshotter found %d state deltas", delta_count)
         return delta_count

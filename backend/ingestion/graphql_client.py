@@ -234,7 +234,7 @@ class SuiGraphQLClient:
     async def fetch_character_names(
         self,
         client: httpx.AsyncClient,
-        max_pages: int = 30,
+        max_pages: int = 10,
     ) -> int:
         """Bulk fetch all Character objects from Sui for name resolution.
 

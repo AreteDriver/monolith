@@ -61,21 +61,24 @@ def test_process_all_objects_no_data(db_conn):
 
 def test_process_all_objects_with_delta(db_conn):
     """Delta detected between two snapshots."""
+    import time
+
+    now = int(time.time())
     # Insert an object
     db_conn.execute(
         "INSERT INTO objects (object_id, object_type, last_seen) VALUES (?, ?, ?)",
-        ("obj-001", "gate", 1000),
+        ("obj-001", "gate", now),
     )
-    # Insert two snapshots with different state
+    # Insert two snapshots with different state (recent timestamps for recency filter)
     db_conn.execute(
         "INSERT INTO world_states (object_id, object_type, state_data, snapshot_time, source) "
         "VALUES (?, ?, ?, ?, ?)",
-        ("obj-001", "gate", json.dumps({"fuel": 100}), 1000, "world_api"),
+        ("obj-001", "gate", json.dumps({"fuel": 100}), now - 60, "world_api"),
     )
     db_conn.execute(
         "INSERT INTO world_states (object_id, object_type, state_data, snapshot_time, source) "
         "VALUES (?, ?, ?, ?, ?)",
-        ("obj-001", "gate", json.dumps({"fuel": 80}), 2000, "world_api"),
+        ("obj-001", "gate", json.dumps({"fuel": 80}), now, "world_api"),
     )
     db_conn.commit()
 
