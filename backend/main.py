@@ -213,8 +213,8 @@ async def graphql_enrichment_loop(
     interval: int,
 ) -> None:
     """Background task: enrich locations + entity names via Sui GraphQL."""
-    # Wait for initial chain data before first enrichment pass
-    await asyncio.sleep(90)
+    # Wait for initial chain data + static data to finish before enrichment
+    await asyncio.sleep(120)
     while True:
         try:
             async with httpx.AsyncClient() as client:
@@ -246,10 +246,13 @@ async def static_data_loop(
     poller: WorldPoller,
     interval: int,
 ) -> None:
-    """Background task: refresh static reference data periodically."""
-    # Delay initial fetch so HTTP server starts accepting requests first
-    await asyncio.sleep(5)
-    # Initial fetch
+    """Background task: refresh static reference data periodically.
+
+    Staggers initial fetch to avoid memory spikes from concurrent HTTP responses.
+    """
+    # Delay so HTTP server starts first, and chain_poll_loop gets priority
+    await asyncio.sleep(15)
+    # Initial fetch — sequential with GC between endpoints (inside poll_static_data)
     async with httpx.AsyncClient() as client:
         try:
             counts = await poller.poll_static_data(client)
@@ -257,6 +260,8 @@ async def static_data_loop(
                 logger.info("Initial static data fetch: %s", counts)
         except Exception:
             logger.exception("Initial static data fetch failed")
+        # Pause before tribes to let memory settle
+        await asyncio.sleep(5)
         try:
             tribe_count = await poller.poll_tribes(client)
             if tribe_count > 0:
@@ -271,6 +276,7 @@ async def static_data_loop(
                 await poller.poll_static_data(client)
             except Exception:
                 logger.exception("Static data refresh failed")
+            await asyncio.sleep(5)
             try:
                 tribe_count = await poller.poll_tribes(client)
                 if tribe_count > 0:

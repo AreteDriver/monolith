@@ -29,8 +29,8 @@ STATIC_ENDPOINTS: dict[str, str] = {
     "constellations": "/v2/constellations",
 }
 
-# Max items per page (World API pagination)
-PAGE_LIMIT = 1000
+# Max items per page — keep low to limit per-request memory spike
+PAGE_LIMIT = 200
 
 
 class WorldPoller:
@@ -49,7 +49,10 @@ class WorldPoller:
     # -- Static data polling --
 
     async def poll_static_data(self, client: httpx.AsyncClient) -> dict[str, int]:
-        """Fetch all static reference data. Returns counts per type."""
+        """Fetch all static reference data sequentially with pauses to limit memory."""
+        import asyncio
+        import gc
+
         if not self.base_url:
             return {}
 
@@ -61,6 +64,9 @@ class WorldPoller:
             except (httpx.HTTPError, ValueError) as e:
                 logger.warning("Failed to fetch %s: %s", data_type, e)
                 counts[data_type] = 0
+            # Release memory between endpoints
+            gc.collect()
+            await asyncio.sleep(2)
 
         total = sum(counts.values())
         if total > 0:
