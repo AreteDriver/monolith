@@ -112,7 +112,7 @@ def health(request: Request) -> dict:
     settings = request.app.state.settings
     return {
         "status": "ok",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "uptime_seconds": int(time.time() - START_TIME),
         "chain": settings.chain,
     }

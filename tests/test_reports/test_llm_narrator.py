@@ -103,3 +103,36 @@ async def test_api_failure_falls_back(monkeypatch):
     # Should fall back to template
     assert TEMPLATES["ORPHAN_OBJECT"] in result["narration"]
     assert result["input_tokens"] is None
+
+
+@pytest.mark.asyncio
+async def test_api_success_returns_tokens(monkeypatch):
+    """Successful API call returns narration + token counts."""
+    import sys
+    from unittest.mock import AsyncMock, MagicMock
+
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock(text="  Wreckage adrift. Investigate immediately.  ")]
+    mock_response.usage.input_tokens = 250
+    mock_response.usage.output_tokens = 30
+
+    mock_client = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+    mock_anthropic_mod = MagicMock()
+    mock_anthropic_mod.AsyncAnthropic.return_value = mock_client
+
+    # Patch anthropic in sys.modules so `import anthropic` inside the function
+    # picks up our mock instead of the real SDK
+    monkeypatch.setitem(sys.modules, "anthropic", mock_anthropic_mod)
+
+    result = await narrate_anomaly(
+        anomaly_type="ORPHAN_OBJECT",
+        evidence={"description": "ghost object"},
+        rule_id="C1",
+        severity="MEDIUM",
+        api_key="sk-test-key",  # noqa: S106
+    )
+    assert result["narration"] == "Wreckage adrift. Investigate immediately."
+    assert result["input_tokens"] == 250
+    assert result["output_tokens"] == 30

@@ -92,7 +92,7 @@ def _build_issue_body(anomaly: dict) -> str:
 ```
 
 ---
-*Filed automatically by MONOLITH v0.2.0 detection engine.*
+*Filed automatically by MONOLITH v0.4.0 detection engine.*
 """
     return body
 

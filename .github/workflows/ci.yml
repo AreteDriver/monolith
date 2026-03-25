@@ -23,10 +23,10 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Ruff check
-        run: ruff check backend/ tests/
+        run: ruff check backend/ tests/ eval/
 
       - name: Ruff format check
-        run: ruff format --check backend/ tests/
+        run: ruff format --check backend/ tests/ eval/
 
       - name: Run tests with coverage
         run: pytest tests/ -x -q --cov=backend --cov-fail-under=80
@@ -36,8 +36,8 @@ jobs:
           python demo_seed.py --db eval_test.db
           python eval/detection_quality.py --db eval_test.db --fail-on-regression
 
-      - name: Run narration eval (informational — no API key in CI)
-        run: python eval/narration_eval.py --db eval_test.db || true
+      - name: Run narration eval (template mode — no API key in CI)
+        run: python eval/narration_eval.py --db eval_test.db --fail-on-regression
 
   frontend:
     runs-on: ubuntu-latest

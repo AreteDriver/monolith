@@ -8,7 +8,7 @@ generates LLM-narrated bug reports, and alerts via Discord/GitHub/webhooks.
 
 ## Current State
 
-- **Version**: 0.3.0
+- **Version**: 0.4.0
 - **Tests**: 312 | **Coverage**: 75% (CI gate: 80%)
 - **Status**: LIVE on Fly.io + Vercel
 - **Chain**: EVE Frontier "Stillness" (Sui testnet)

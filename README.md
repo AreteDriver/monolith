@@ -226,4 +226,6 @@ Monolith is the detection layer of the **Aegis Stack** — a unified toolkit for
 
 ---
 
+[Discord](https://discord.gg/fdzQkrt8) — Join the community
+
 *Aegis Stack — Built by [AreteDriver](https://github.com/AreteDriver) for the DeepSurge Hackathon 2026*

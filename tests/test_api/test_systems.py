@@ -63,3 +63,22 @@ def test_get_system_not_found(client):
     resp = client.get("/api/systems/99999999")
     assert resp.status_code == 200
     assert resp.json()["error"] == "not_found"
+
+
+def test_get_system_malformed_json(client):
+    conn = app.state.db
+    _insert_reference(conn, "30012602", "Jita", data_json="not-valid-json")
+    resp = client.get("/api/systems/30012602")
+    body = resp.json()
+    assert body["name"] == "Jita"
+    assert body["data"] == {}
+
+
+def test_resolve_multiple_systems(client):
+    conn = app.state.db
+    _insert_reference(conn, "30012602", "Jita")
+    _insert_reference(conn, "30004759", "Amarr")
+    resp = client.get("/api/systems/resolve", params={"ids": "30012602,30004759"})
+    data = resp.json()["data"]
+    assert data["30012602"] == "Jita"
+    assert data["30004759"] == "Amarr"
