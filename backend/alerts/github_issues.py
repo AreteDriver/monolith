@@ -34,17 +34,41 @@ def _dedup_key(anomaly: dict) -> str:
     return hashlib.sha256(f"{atype}:{obj_id}".encode()).hexdigest()[:16]
 
 
-def _is_duplicate(anomaly: dict) -> bool:
-    """Check if this anomaly was already filed within the dedup window."""
+def _is_duplicate(anomaly: dict, conn: sqlite3.Connection | None = None) -> bool:
+    """Check if this anomaly was already filed within the dedup window.
+
+    Checks both the in-memory cache AND the persistent filed_issues table
+    so that duplicates aren't re-filed after process restarts.
+    """
     key = _dedup_key(anomaly)
     now = time.time()
 
-    # Prune expired entries
+    # Prune expired entries from in-memory cache
     expired = [k for k, ts in _filed_cache.items() if now - ts > _DEDUP_WINDOW]
     for k in expired:
         del _filed_cache[k]
 
-    return key in _filed_cache
+    if key in _filed_cache:
+        return True
+
+    # Check persistent DB — same anomaly_type + object_id already filed
+    if conn is not None:
+        try:
+            atype = anomaly.get("anomaly_type", "")
+            obj_id = anomaly.get("object_id", "")
+            row = conn.execute(
+                """SELECT 1 FROM filed_issues fi
+                   JOIN anomalies a ON fi.anomaly_id = a.anomaly_id
+                   WHERE a.anomaly_type = ? AND a.object_id = ?
+                   LIMIT 1""",
+                (atype, obj_id),
+            ).fetchone()
+            if row is not None:
+                return True
+        except sqlite3.OperationalError:
+            pass  # Table may not exist on older DBs
+
+    return False
 
 
 def _mark_filed(anomaly: dict) -> None:
@@ -131,7 +155,7 @@ async def file_github_issue(
     if severity != "CRITICAL":
         return False
 
-    if _is_duplicate(anomaly):
+    if _is_duplicate(anomaly, conn):
         logger.debug(
             "Skipping duplicate GitHub issue for %s/%s",
             anomaly.get("anomaly_type"),

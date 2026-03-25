@@ -43,7 +43,12 @@ class EngagementChecker(BaseChecker):
         return [dict(r) for r in rows]
 
     def _extract_address(self, raw_json_str: str, field: str) -> str:
-        """Extract an address field from raw_json."""
+        """Extract an address field from raw_json.
+
+        Handles both flat string values and nested dicts (e.g.
+        ``{"victim_id": {"item_id": "211...", "tenant": "utopia"}}``).
+        For nested dicts, extracts ``address``, ``id``, or ``item_id``.
+        """
         raw = {}
         with contextlib.suppress(json.JSONDecodeError, TypeError):
             raw = json.loads(raw_json_str or "{}")
@@ -51,15 +56,36 @@ class EngagementChecker(BaseChecker):
         # Try flat fields first
         value = raw.get(field, "")
         if value:
-            return str(value)
+            value = self._unwrap_address(value)
+            if value:
+                return value
 
         # Try nested parsedJson
         parsed = raw.get("parsedJson", {})
         if isinstance(parsed, dict):
             value = parsed.get(field, "")
             if value:
-                return str(value)
+                value = self._unwrap_address(value)
+                if value:
+                    return value
 
+        return ""
+
+    @staticmethod
+    def _unwrap_address(value: object) -> str:
+        """Unwrap an address value that may be a string or nested dict.
+
+        EVE Frontier killmails can embed victim/killer as dicts like
+        ``{"item_id": "2112000187", "tenant": "utopia"}``.
+        Extract the actual ID string.
+        """
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            # Prefer well-known ID keys
+            for key in ("address", "id", "item_id"):
+                if key in value and isinstance(value[key], str):
+                    return value[key]
         return ""
 
     def _check_es1_orphaned_killmail(self) -> list[Anomaly]:

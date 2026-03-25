@@ -117,6 +117,51 @@ def test_es2_victim_no_prior_events(db_conn):
     assert es2[0].evidence["victim_id"] == "0xghost_victim"
 
 
+def test_es2_nested_victim_id_extracted(db_conn):
+    """Victim ID in nested dict format is unwrapped correctly (no false positive)."""
+    now = int(time.time())
+    victim_item_id = "2112000187"
+    # Victim has prior activity under its actual item_id
+    _seed_chain_event(db_conn, "fuel-nested-1", victim_item_id, now - 3600)
+    # Killmail stores victim_id as nested dict (EVE Frontier format)
+    raw = json.dumps({
+        "killer_id": "0xkiller_nested",
+        "victim_id": {"item_id": victim_item_id, "tenant": "utopia"},
+    })
+    db_conn.execute(
+        _INSERT_EVENT,
+        ("km-nested-1", "pkg::killmail::KillmailCreatedEvent", "km-nested-1",
+         "killmail", "sys-1", "km-nested-1", now, raw),
+    )
+    db_conn.commit()
+
+    checker = EngagementChecker(db_conn)
+    anomalies = checker.check()
+    es2 = [a for a in anomalies if a.rule_id == "ES2"]
+    assert len(es2) == 0, "Nested victim_id with prior events should NOT trigger ES2"
+
+
+def test_es2_nested_victim_id_no_history(db_conn):
+    """Nested victim_id with genuinely zero history still triggers ES2."""
+    now = int(time.time())
+    raw = json.dumps({
+        "killer_id": "0xkiller_real",
+        "victim_id": {"item_id": "9999999", "tenant": "stillness"},
+    })
+    db_conn.execute(
+        _INSERT_EVENT,
+        ("km-nested-2", "pkg::killmail::KillmailCreatedEvent", "km-nested-2",
+         "killmail", "sys-1", "km-nested-2", now, raw),
+    )
+    db_conn.commit()
+
+    checker = EngagementChecker(db_conn)
+    anomalies = checker.check()
+    es2 = [a for a in anomalies if a.rule_id == "ES2"]
+    assert len(es2) == 1
+    assert es2[0].evidence["victim_id"] == "9999999"
+
+
 def test_es2_victim_with_prior_events(db_conn):
     """Victim with prior events produces no ES2."""
     now = int(time.time())

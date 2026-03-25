@@ -90,6 +90,37 @@ def test_dedup_expires():
     assert _is_duplicate(a) is False
 
 
+def test_is_duplicate_checks_database():
+    """DB-backed dedup catches duplicates even after cache clear."""
+    conn = init_db(":memory:")
+    a = _sample_anomaly()
+
+    # Store anomaly in DB (simulates prior detection cycle)
+    conn.execute(
+        "INSERT INTO anomalies "
+        "(anomaly_id, anomaly_type, severity, category, detector, "
+        "rule_id, object_id, system_id, detected_at, evidence_json, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', 'UNVERIFIED')",
+        (
+            a["anomaly_id"], a["anomaly_type"], a["severity"],
+            a["category"], a["detector"], a["rule_id"],
+            a["object_id"], a["system_id"], a["detected_at"],
+        ),
+    )
+    # Record that it was filed
+    conn.execute(
+        "INSERT INTO filed_issues (anomaly_id, issue_url, filed_at) VALUES (?, ?, ?)",
+        (a["anomaly_id"], "https://github.com/test/issues/1", int(time.time())),
+    )
+    conn.commit()
+
+    # In-memory cache is empty (simulates process restart)
+    assert len(_filed_cache) == 0
+    # But DB knows this was already filed
+    assert _is_duplicate(a, conn) is True
+    conn.close()
+
+
 def test_clear_cache():
     """clear_cache empties the dedup cache."""
     _mark_filed(_sample_anomaly())
