@@ -61,6 +61,11 @@ RULE_DISPLAY: dict[str, tuple[str, str]] = {
     "EV2": ("Market Silence", "Trade volume collapsed — region going cold"),
     # Ownership
     "OC1": ("Title Deed Transfer", "OwnerCap handed to a new address"),
+    # Orbital zone / Feral AI
+    "OZ1": ("Blind Spot", "Orbital zone unscanned — dark patch in coverage"),
+    "OZ2": ("Tier Escalation", "Feral AI threat level increased in zone"),
+    "FA1": ("Hive Surge", "Feral AI activity spike — swarm forming"),
+    "FA2": ("Silent Zone", "Active feral AI zone went dark — unknown status"),
 }
 
 ANOMALY_CATEGORIES: dict[str, str] = {
@@ -126,6 +131,12 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     "EV2": ("MEDIUM", "PERFORMANCE"),
     # Ownership checker
     "OC1": ("MEDIUM", "BEHAVIORAL"),
+    # Orbital zone checker
+    "OZ1": ("MEDIUM", "PERFORMANCE"),
+    "OZ2": ("HIGH", "BEHAVIORAL"),
+    # Feral AI checker
+    "FA1": ("HIGH", "BEHAVIORAL"),
+    "FA2": ("MEDIUM", "PERFORMANCE"),
 }
 
 

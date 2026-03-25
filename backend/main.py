@@ -24,6 +24,7 @@ from backend.api.anomalies import router as anomalies_router
 from backend.api.error_tracker import capture_error
 from backend.api.error_tracker import router as error_tracker_router
 from backend.api.objects import router as objects_router
+from backend.api.orbital_zones import router as orbital_zones_router
 from backend.api.public import limiter
 from backend.api.public import router as public_router
 from backend.api.reports import router as reports_router
@@ -522,6 +523,7 @@ app.include_router(systems_router)
 app.include_router(subscriptions_router)
 app.include_router(public_router)
 app.include_router(nexus_router, prefix="/api")
+app.include_router(orbital_zones_router)
 app.include_router(error_tracker_router, prefix="/api")
 
 

@@ -234,6 +234,31 @@ CREATE TABLE IF NOT EXISTS detection_cycles (
     events_processed INTEGER DEFAULT 0,
     error TEXT
 );
+
+-- Orbital zones with feral AI threat tracking
+CREATE TABLE IF NOT EXISTS orbital_zones (
+    zone_id TEXT PRIMARY KEY,
+    zone_name TEXT,
+    system_id TEXT,
+    feral_ai_tier INTEGER DEFAULT 0,
+    threat_level TEXT DEFAULT 'UNKNOWN',
+    zone_data TEXT,
+    discovered_at INTEGER,
+    last_polled INTEGER
+);
+
+-- Feral AI events from chain + webhooks
+CREATE TABLE IF NOT EXISTS feral_ai_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT UNIQUE,
+    ai_entity_id TEXT,
+    event_type TEXT,
+    zone_id TEXT,
+    system_id TEXT,
+    action_json TEXT,
+    detected_at INTEGER,
+    severity TEXT DEFAULT 'MEDIUM'
+);
 """
 
 INDEXES = """
@@ -264,6 +289,12 @@ CREATE INDEX IF NOT EXISTS idx_object_versions_object ON object_versions(object_
 CREATE INDEX IF NOT EXISTS idx_config_snapshots_type ON config_snapshots(config_type);
 CREATE INDEX IF NOT EXISTS idx_wallet_activity_wallet ON wallet_activity(wallet_address);
 CREATE INDEX IF NOT EXISTS idx_detection_cycles_started ON detection_cycles(started_at);
+CREATE INDEX IF NOT EXISTS idx_orbital_zones_system ON orbital_zones(system_id);
+CREATE INDEX IF NOT EXISTS idx_orbital_zones_threat ON orbital_zones(threat_level);
+CREATE INDEX IF NOT EXISTS idx_feral_ai_entity ON feral_ai_events(ai_entity_id);
+CREATE INDEX IF NOT EXISTS idx_feral_ai_type ON feral_ai_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_feral_ai_zone ON feral_ai_events(zone_id);
+CREATE INDEX IF NOT EXISTS idx_feral_ai_detected ON feral_ai_events(detected_at);
 """
 
 FTS = """
@@ -305,6 +336,9 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
     # Migrations: add columns to existing tables (safe to run repeatedly)
     _migrate_add_column(conn, "bug_reports", "input_tokens", "INTEGER")
     _migrate_add_column(conn, "bug_reports", "output_tokens", "INTEGER")
+    # Cycle 5: add cycle tracking to core tables
+    _migrate_add_column(conn, "chain_events", "cycle", "INTEGER DEFAULT 5")
+    _migrate_add_column(conn, "anomalies", "cycle", "INTEGER DEFAULT 5")
     conn.commit()
     logger.info("Database initialized: %s", db_path)
     return conn
@@ -337,6 +371,8 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "item_ledger",
         "tribe_cache",
         "detection_cycles",
+        "orbital_zones",
+        "feral_ai_events",
     ]
     counts = {}
     for table in tables:
