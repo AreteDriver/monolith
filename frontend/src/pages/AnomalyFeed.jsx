@@ -22,7 +22,7 @@ export default function AnomalyFeed() {
   if (anomalyType) params.set('anomaly_type', anomalyType)
 
   const { data, loading } = useApi(`/api/anomalies?${params}`, { poll: 30000 })
-  const anomalies = data?.data || []
+  const anomalies = useMemo(() => data?.data || [], [data])
   const systemIds = useMemo(() => anomalies.map((a) => a.system_id), [anomalies])
   const systemNames = useSystemNames(systemIds)
 

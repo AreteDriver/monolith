@@ -6,6 +6,8 @@ const cache = {}
 export function useSystemNames(systemIds) {
   const [names, setNames] = useState({})
 
+  const idsKey = systemIds.filter(Boolean).join(',')
+
   useEffect(() => {
     const ids = [...new Set(systemIds.filter(Boolean))]
     if (ids.length === 0) return
@@ -19,7 +21,6 @@ export function useSystemNames(systemIds) {
 
     async function resolve() {
       // Try batch resolve from our backend first
-      let resolved = false
       try {
         const res = await fetch(`/api/systems/resolve?ids=${uncached.join(',')}`)
         if (res.ok) {
@@ -31,7 +32,6 @@ export function useSystemNames(systemIds) {
               cache[id] = mapping[id]
             }
           }
-          resolved = true
         }
       } catch {
         // Batch endpoint unavailable, fall through
@@ -58,7 +58,8 @@ export function useSystemNames(systemIds) {
     }
 
     resolve()
-  }, [systemIds.join(',')])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey])
 
   return names
 }

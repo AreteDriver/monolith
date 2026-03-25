@@ -22,18 +22,19 @@ export default function AnomalyDetail() {
   const [generating, setGenerating] = useState(false)
   const [reportId, setReportId] = useState(null)
 
+  const systemId = data?.system_id
+  const systemIds = useMemo(() => systemId ? [systemId] : [], [systemId])
+  const systemNames = useSystemNames(systemIds)
+
+  // Prime cache with server-enriched system_name if available
+  if (data?.system_id && data?.system_name) {
+    primeSystemNameCache([data])
+  }
+
   if (loading) return <p className="text-[#a3a3a3]">Loading...</p>
   if (!data || data.error) return <p className="text-red-400">Anomaly not found.</p>
 
   const a = data
-
-  // Prime cache with server-enriched system_name if available
-  if (a.system_id && a.system_name) {
-    primeSystemNameCache([a])
-  }
-
-  const systemIds = useMemo(() => a?.system_id ? [a.system_id] : [], [a?.system_id])
-  const systemNames = useSystemNames(systemIds)
 
   async function generateReport() {
     setGenerating(true)

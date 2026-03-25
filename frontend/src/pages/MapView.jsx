@@ -77,6 +77,7 @@ function AnomalyMap() {
   const eventsRef = useRef([])
   const bgSystemsRef = useRef([])
   const animRef = useRef(null)
+  const drawRef = useRef(null)
   const [layers, setLayers] = useState({ background: true, heatmap: true, events: true, markers: true })
   const layersRef = useRef(layers)
 
@@ -383,11 +384,12 @@ function AnomalyMap() {
     }
 
     // Continue animation loop
-    animRef.current = requestAnimationFrame(draw)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    animRef.current = requestAnimationFrame(drawRef.current)
+  }, [])
 
   // Start/stop animation loop — runs once, draw reads from refs
   useEffect(() => {
+    drawRef.current = draw
     animRef.current = requestAnimationFrame(draw)
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current)
