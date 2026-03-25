@@ -464,7 +464,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Monolith",
     description="EVE Frontier Blockchain Anomaly Detector & Bug Report Engine",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 

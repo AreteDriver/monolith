@@ -2,7 +2,7 @@
 
 **Blockchain anomaly detector and bug report engine for EVE Frontier.**
 
-Monolith ingests 13 Sui on-chain event types in real time, runs 35 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
+Monolith ingests 13 Sui on-chain event types in real time, runs 39 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
 
 > **Live demo**: [monolith-evefrontier.fly.dev](https://monolith-evefrontier.fly.dev/)
 
@@ -24,7 +24,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 35 deterministic
 ## Features
 
 - **13 Sui event types** ingested via `suix_queryEvents` + GraphQL enrichment
-- **35 detection rules** across 17 checkers — zero ML, fully deterministic and auditable
+- **39 detection rules** across 19 checkers — zero ML, fully deterministic and auditable
 - **Canvas2D map** — 24,502 systems, scanline-sweep heatmap, animated markers, 60fps
 - **Item ledger** — tracks mints, transfers, destructions for economic integrity
 - **POD verification** — validates Provable Object Datatypes against chain state
@@ -32,7 +32,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 35 deterministic
 - **Discord alerting** — webhook embeds for CRITICAL/HIGH, rate-limited
 - **Webhook subscriptions** — push anomaly events to any HTTP endpoint
 - **Public API v1** — read anomalies, stats, health, object history (rate limited: 60 req/min)
-- **282 tests passing**, 80% coverage gate
+- **465 tests passing**, 80% coverage gate
 - **MIT Licensed**
 
 ### Detection Rules
@@ -56,6 +56,8 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 35 deterministic
 | **Dead Assembly** | DA1 | Abandoned infrastructure (7+ days silent) |
 | **Velocity** | EV1-EV2 | Flow rate spikes, sudden activity drops |
 | **Ownership** | OC1 | OwnerCap transfers and delegation detection |
+| **Orbital Zone** | OZ1-OZ2 | Blind spot coverage gaps, feral AI tier escalation |
+| **Feral AI** | FA1-FA2 | Hive surge detection, zone silence monitoring |
 
 Every rule is a pure function: `(events, states) -> anomaly | None`. No guesswork. Every detection ships with chain tx digests for independent verification.
 
@@ -84,8 +86,8 @@ Sui Testnet (suix_queryEvents)
 ┌─────────────┐  ┌──────────────┐
 │  Detection  │  │  Item Ledger │
 │  Engine     │  │  (economic)  │
-│  17 checkers │  └──────────────┘
-│  35 rules   │
+│  19 checkers │  └──────────────┘
+│  39 rules   │
 └──────┬──────┘
        │
        ▼
@@ -152,7 +154,7 @@ npm run dev
 ```bash
 source .venv/bin/activate
 python -m pytest tests/ -v
-# 282 tests passing
+# 465 tests passing
 ```
 
 ---
@@ -204,7 +206,7 @@ EVE Frontier runs a live game economy on Sui. Every smart assembly, gate jump, k
 
 Monolith watches the chain continuously and catches these bugs with cryptographic proof. It doesn't guess. It shows the exact transaction digests, the before/after states, and the rule that fired. CRITICAL anomalies auto-file GitHub issues so nothing gets lost.
 
-**10,774+ chain events ingested. 304+ anomalies detected. 35 rules. 17 checkers. Zero false positive tolerance.**
+**10,774+ chain events ingested. 304+ anomalies detected. 39 rules. 19 checkers. Zero false positive tolerance.**
 
 ---
 
@@ -215,7 +217,7 @@ Monolith is the detection layer of the **Aegis Stack** — a unified toolkit for
 | Layer | Project | What It Does |
 |-------|---------|-------------|
 | **Intelligence** | [WatchTower](https://github.com/AreteDriver/watchtower) | Behavioral fingerprints, reputation scoring, alt detection, kill networks, on-chain reputation oracle |
-| **Detection** | [Monolith](https://github.com/AreteDriver/monolith) (this repo) | 35 anomaly detection rules, 17 checkers, threat heatmap, auto-filed bug reports with chain evidence |
+| **Detection** | [Monolith](https://github.com/AreteDriver/monolith) (this repo) | 39 anomaly detection rules, 19 checkers, threat heatmap, auto-filed bug reports with chain evidence |
 | **Operations** | [Frontier Tribe OS](https://github.com/AreteDriver/frontier-tribe-os) | Tribe management — census, production, treasury, intel, alerts, threat analysis |
 
 **Combined**: 1,227+ tests | 3 live deployments | On-chain Sui Move contracts | 24,502 systems mapped | Dual payment rails (Sui + Stripe)
