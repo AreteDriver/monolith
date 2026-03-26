@@ -298,7 +298,7 @@ def _load_bg_systems(conn: sqlite3.Connection) -> list[dict]:
 
 @router.get("/map/systems")
 def get_background_systems(request: Request):
-    """Get all 24K background systems. Cached in memory — load once, serve forever."""
+    """Get all background systems (slim: nx/nz/name only to keep payload under 500KB)."""
     conn = _get_db(request)
     systems = _load_bg_systems(conn)
 
@@ -309,8 +309,15 @@ def get_background_systems(request: Request):
 
         return Response(status_code=304)
 
+    # Strip raw coords — frontend only needs normalized nx/nz + name
+    slim = [
+        {"system_id": s["system_id"], "name": s["name"], "nx": round(s["nx"], 6), "nz": round(s["nz"], 6)}
+        for s in systems
+        if "nx" in s
+    ]
+
     return JSONResponse(
-        content={"all_systems": systems},
+        content={"all_systems": slim},
         headers={
             "Cache-Control": "public, max-age=3600",
             "ETag": _bg_systems_etag or "",

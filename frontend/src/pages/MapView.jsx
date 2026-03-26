@@ -136,7 +136,7 @@ function AnomalyMap() {
     ctx.fillRect(0, 0, w, h)
 
     // Grid
-    ctx.strokeStyle = '#1a1a1a'
+    ctx.strokeStyle = '#222222'
     ctx.lineWidth = 0.5
     const gridSize = 60 * transform.scale
     const offsetX = transform.x % gridSize
@@ -181,7 +181,7 @@ function AnomalyMap() {
 
     // --- BACKGROUND SYSTEMS (dim dots for full universe) ---
     if (layers.background && bgSystems.length) {
-      ctx.fillStyle = '#1e293b'
+      ctx.fillStyle = '#334155'
       for (const sys of bgSystems) {
         const sx = pad + sys.nx * drawW
         const sy = pad + sys.nz * drawH
@@ -191,7 +191,7 @@ function AnomalyMap() {
         if (px < -5 || px > w + 5 || py < -5 || py > h + 5) continue
 
         ctx.beginPath()
-        ctx.arc(px, py, Math.max(1, 1.5 * transform.scale), 0, Math.PI * 2)
+        ctx.arc(px, py, Math.max(1.5, 2 * transform.scale), 0, Math.PI * 2)
         ctx.fill()
       }
 
