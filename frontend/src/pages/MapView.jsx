@@ -709,21 +709,13 @@ function AnomalyMap() {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs space-y-2">
-        <div className="text-[#a3a3a3] font-bold uppercase mb-1">Severity</div>
-        {Object.entries(SEVERITY_COLORS).map(([name, color]) => (
-          <div key={name} className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
-            <span className="text-[#a3a3a3] capitalize">{name}</span>
-          </div>
-        ))}
-        <div className="border-t border-[#2a2a2a] mt-2 pt-2">
-          <div className="text-[#a3a3a3] font-bold uppercase mb-1">Event Types</div>
-          {Object.entries(TYPE_COLORS).map(([name, color]) => (
-            <div key={name} className="flex items-center gap-2">
-              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-              <span className="text-[#6b7280]">{getTypeName(name)}</span>
+      {/* Legend — compact severity-only, bottom-left */}
+      <div className="absolute bottom-4 left-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs">
+        <div className="flex items-center gap-3">
+          {Object.entries(SEVERITY_COLORS).map(([name, color]) => (
+            <div key={name} className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
+              <span className="text-[#a3a3a3] capitalize">{name}</span>
             </div>
           ))}
         </div>

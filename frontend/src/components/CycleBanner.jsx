@@ -14,9 +14,9 @@ export default function CycleBanner() {
 
   if (!cycle) return null
 
-  const dayNum = cycle.day_number || cycle.dayNumber || '?'
-  const cycleName = cycle.cycle_name || cycle.cycleName || 'UNKNOWN'
-  const cycleNum = cycle.cycle_number || cycle.cycleNumber || '?'
+  const dayNum = cycle.days_elapsed || cycle.day_number || cycle.dayNumber || '?'
+  const cycleName = cycle.name || cycle.cycle_name || cycle.cycleName || 'UNKNOWN'
+  const cycleNum = cycle.cycle || cycle.cycle_number || cycle.cycleNumber || '?'
 
   return (
     <div className="border border-[#f59e0b]/30 bg-[#f59e0b]/5 px-4 py-2 mb-4 text-center">
