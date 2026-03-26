@@ -680,60 +680,46 @@ function AnomalyMap() {
           ) : null}
         </div>
       )}
-      {/* Stats HUD */}
-      {data?.systems?.length > 0 && (
-        <div className="absolute top-4 left-4 bg-[#0a0a0a]/80 border border-[#f59e0b]/30 px-3 py-2 text-xs font-mono flex flex-wrap gap-3 md:gap-6 items-center max-w-[calc(100vw-240px)]">
-          <div>
-            <span className="text-[#f59e0b] font-bold text-lg">{data.systems.reduce((s, sys) => s + sys.count, 0)}</span>
-            <span className="text-[#6b7280] ml-1.5">ANOMALIES</span>
-          </div>
-          <div className="w-px h-6 bg-[#2a2a2a]" />
-          <div>
-            <span className="text-[#f59e0b] font-bold text-lg">{data.systems.length}</span>
-            <span className="text-[#6b7280] ml-1.5">SYSTEMS</span>
-          </div>
-          <div className="w-px h-6 bg-[#2a2a2a]" />
-          <div className="flex gap-3">
+      {/* Unified bottom bar — stats + legend + controls */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[#0a0a0a]/90 border-t border-[#2a2a2a] px-4 py-1.5 text-xs font-mono flex items-center justify-between gap-4">
+        {data?.systems?.length > 0 ? (
+          <div className="flex items-center gap-3 md:gap-5 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+              <span className="text-[#22c55e]">LIVE</span>
+            </div>
+            <span className="text-[#f59e0b] font-bold">{data.systems.reduce((s, sys) => s + sys.count, 0)}</span>
+            <span className="text-[#6b7280]">anomalies in</span>
+            <span className="text-[#f59e0b] font-bold">{data.systems.length}</span>
+            <span className="text-[#6b7280]">systems</span>
             {data.systems.reduce((s, sys) => s + sys.critical, 0) > 0 && (
-              <span style={{ color: SEVERITY_COLORS.critical }}>{data.systems.reduce((s, sys) => s + sys.critical, 0)} CRIT</span>
+              <span className="hidden sm:inline" style={{ color: SEVERITY_COLORS.critical }}>{data.systems.reduce((s, sys) => s + sys.critical, 0)} CRIT</span>
             )}
             {data.systems.reduce((s, sys) => s + sys.high, 0) > 0 && (
-              <span style={{ color: SEVERITY_COLORS.high }}>{data.systems.reduce((s, sys) => s + sys.high, 0)} HIGH</span>
+              <span className="hidden sm:inline" style={{ color: SEVERITY_COLORS.high }}>{data.systems.reduce((s, sys) => s + sys.high, 0)} HIGH</span>
             )}
           </div>
-          <div className="w-px h-6 bg-[#2a2a2a]" />
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-            <span className="text-[#22c55e]">LIVE</span>
-          </div>
-        </div>
-      )}
-
-      {/* Legend — compact severity-only, bottom-left */}
-      <div className="absolute bottom-4 left-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs">
-        <div className="flex items-center gap-3">
+        ) : <div />}
+        <div className="flex items-center gap-3 shrink-0">
           {Object.entries(SEVERITY_COLORS).map(([name, color]) => (
-            <div key={name} className="flex items-center gap-1">
+            <div key={name} className="hidden sm:flex items-center gap-1">
               <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
-              <span className="text-[#a3a3a3] capitalize">{name}</span>
+              <span className="text-[#6b7280] capitalize">{name}</span>
             </div>
           ))}
+          <button
+            onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
+            className="text-[#6b7280] hover:text-white ml-2"
+          >
+            Reset
+          </button>
         </div>
       </div>
-      {/* Right panel — system info + layer controls */}
-      <div className="absolute top-4 right-4 bg-[#111111]/90 border border-[#2a2a2a] px-3 py-2 text-xs space-y-2 max-w-[200px]">
-        {/* Selected system info */}
-        {selectedSystem ? (
-          <div className="space-y-1.5 pb-2 border-b border-[#2a2a2a]">
-            <div className="flex items-center justify-between">
-              <span className="text-[#f59e0b] font-bold uppercase text-[10px]">Selected</span>
-              <button
-                onClick={() => setSelectedSystem(null)}
-                className="text-[#6b7280] hover:text-white text-[10px]"
-              >
-                &times;
-              </button>
-            </div>
+
+      {/* Selected system — appears only when a system is clicked */}
+      {selectedSystem && (
+        <div className="absolute top-3 left-3 bg-[#111111]/95 border border-[#f59e0b]/40 px-3 py-2 text-xs space-y-1 max-w-[220px]">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               <PinButton
                 type="system"
@@ -743,52 +729,46 @@ function AnomalyMap() {
               />
               <span className="text-white font-bold text-sm">{selectedSystem.name || selectedSystem.system_id}</span>
             </div>
-            <div className="text-[#a3a3a3]">{selectedSystem.count} anomalies</div>
-            <div className="flex gap-2 flex-wrap">
-              {selectedSystem.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>C:{selectedSystem.critical}</span>}
-              {selectedSystem.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>H:{selectedSystem.high}</span>}
-              {selectedSystem.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>M:{selectedSystem.medium}</span>}
-              {selectedSystem.low > 0 && <span style={{ color: SEVERITY_COLORS.low }}>L:{selectedSystem.low}</span>}
-            </div>
-            <a
-              href={`/anomalies?system=${selectedSystem.system_id}`}
-              className="block text-[#f59e0b] hover:underline mt-1"
+            <button
+              onClick={() => setSelectedSystem(null)}
+              className="text-[#6b7280] hover:text-white text-sm ml-2"
             >
-              View anomalies &rarr;
-            </a>
+              &times;
+            </button>
           </div>
-        ) : (
-          <div className="text-[#6b7280] pb-2 border-b border-[#2a2a2a] italic">
-            Tap a system to inspect
+          <div className="flex gap-2">
+            <span className="text-[#a3a3a3]">{selectedSystem.count} anomalies</span>
+            {selectedSystem.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>C:{selectedSystem.critical}</span>}
+            {selectedSystem.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>H:{selectedSystem.high}</span>}
+            {selectedSystem.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>M:{selectedSystem.medium}</span>}
           </div>
-        )}
-        {/* Layer toggles */}
-        <div className="text-[#a3a3a3] font-bold uppercase text-[10px]">Layers</div>
+          <a
+            href={`/anomalies?system=${selectedSystem.system_id}`}
+            className="block text-[#f59e0b] hover:underline"
+          >
+            View anomalies &rarr;
+          </a>
+        </div>
+      )}
+
+      {/* Layer toggles — compact, top-right */}
+      <div className="absolute top-3 right-3 bg-[#111111]/80 border border-[#2a2a2a] px-2 py-1.5 text-[10px] flex gap-3">
         {[
-          { key: 'background', label: 'All Systems' },
-          { key: 'heatmap', label: 'Heatmap' },
-          { key: 'events', label: 'Events (24h)' },
-          { key: 'markers', label: 'System Markers' },
+          { key: 'background', label: 'BG' },
+          { key: 'heatmap', label: 'Heat' },
+          { key: 'events', label: 'Events' },
+          { key: 'markers', label: 'Markers' },
         ].map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 cursor-pointer">
+          <label key={key} className="flex items-center gap-1 cursor-pointer">
             <input
               type="checkbox"
               checked={layers[key]}
               onChange={() => toggleLayer(key)}
-              className="accent-[#f59e0b]"
+              className="accent-[#f59e0b] w-3 h-3"
             />
             <span className={layers[key] ? 'text-[#e0e0e0]' : 'text-[#6b7280]'}>{label}</span>
           </label>
         ))}
-      </div>
-      {/* Controls */}
-      <div className="absolute bottom-4 right-4 flex gap-2">
-        <button
-          onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
-          className="bg-[#111111] border border-[#2a2a2a] text-[#a3a3a3] hover:text-white px-3 py-1 text-xs"
-        >
-          Reset
-        </button>
       </div>
     </div>
   )
