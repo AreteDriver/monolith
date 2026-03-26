@@ -62,6 +62,16 @@ DEMO_ANOMALIES = [
                 "events_in_window": 0,
             }
         ),
+        "provenance_json": json.dumps(
+            [
+                {
+                    "source_type": "snapshot_diff",
+                    "source_id": "snap:4f2a8c91:1711000000",
+                    "timestamp": int(time.time()) - 900,
+                    "derivation": "A4: state changed without corresponding chain event",
+                }
+            ]
+        ),
     },
     {
         "anomaly_id": "MNL-20260311-0002",
@@ -84,6 +94,16 @@ DEMO_ANOMALIES = [
                     "event_type": "StatusChangedEvent",
                 },
             }
+        ),
+        "provenance_json": json.dumps(
+            [
+                {
+                    "source_type": "chain_event",
+                    "source_id": "tx:9Fk3mRvLpQ7xYz2Tn8wBcJ5sAd6eHg4iKlNoPqRs",
+                    "timestamp": int(time.time()) - 300,
+                    "derivation": "C2: destroyed object reappeared in chain event",
+                }
+            ]
         ),
     },
     {
@@ -108,6 +128,16 @@ DEMO_ANOMALIES = [
                 "new_snapshot_time": int(time.time()),
             }
         ),
+        "provenance_json": json.dumps(
+            [
+                {
+                    "source_type": "snapshot_diff",
+                    "source_id": "snap:c5d7e9f1:1711000600",
+                    "timestamp": int(time.time()) - 600,
+                    "derivation": "A5: ownership changed without transfer event on chain",
+                }
+            ]
+        ),
     },
     {
         "anomaly_id": "MNL-20260311-0004",
@@ -129,6 +159,16 @@ DEMO_ANOMALIES = [
                 "delta": -150,
                 "events_in_window": 0,
             }
+        ),
+        "provenance_json": json.dumps(
+            [
+                {
+                    "source_type": "world_api",
+                    "source_id": "worldapi:fuel:4f2a8c91",
+                    "timestamp": int(time.time()) - 300,
+                    "derivation": "E1: fuel decreased without deposit/withdraw events",
+                }
+            ]
         ),
     },
     {
@@ -152,6 +192,16 @@ DEMO_ANOMALIES = [
                 "tx_digest": "1Ab3Cd5Ef7Gh9Ij2Kl4Mn6Op8Qr0St2Uv4Wx6Yz",
             }
         ),
+        "provenance_json": json.dumps(
+            [
+                {
+                    "source_type": "chain_event",
+                    "source_id": "tx:1Ab3Cd5Ef7Gh9Ij2Kl4Mn6Op8Qr0St2Uv4Wx6Yz",
+                    "timestamp": int(time.time()) - 200,
+                    "derivation": "C3: state transition skipped required intermediate state",
+                }
+            ]
+        ),
     },
     {
         "anomaly_id": "MNL-20260311-0006",
@@ -170,6 +220,16 @@ DEMO_ANOMALIES = [
                 "event_type": "AssemblyCreatedEvent",
                 "tx_digest": "0Ab1Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0Uv1Wx2Yz",
             }
+        ),
+        "provenance_json": json.dumps(
+            [
+                {
+                    "source_type": "chain_event",
+                    "source_id": "tx:0Ab1Cd2Ef3Gh4Ij5Kl6Mn7Op8Qr9St0Uv1Wx2Yz",
+                    "timestamp": int(time.time()) - 100,
+                    "derivation": "C1: event refs missing object — no creation record found",
+                }
+            ]
         ),
     },
 ]
@@ -202,8 +262,9 @@ def seed(db_path: str = "monolith.db") -> None:
         conn.execute(
             "INSERT OR IGNORE INTO anomalies "
             "(anomaly_id, anomaly_type, severity, category, detector, "
-            "rule_id, object_id, system_id, detected_at, evidence_json, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNVERIFIED')",
+            "rule_id, object_id, system_id, detected_at, evidence_json, "
+            "provenance_json, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNVERIFIED')",
             (
                 anom["anomaly_id"],
                 anom["anomaly_type"],
@@ -215,6 +276,7 @@ def seed(db_path: str = "monolith.db") -> None:
                 anom["system_id"],
                 now - 300,
                 anom["evidence_json"],
+                anom["provenance_json"],
             ),
         )
 
