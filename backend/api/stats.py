@@ -1,14 +1,17 @@
 """Stats API — anomaly rates and system health metrics."""
 
+import asyncio
 import json
 import logging
 import sqlite3
 import time
 
+import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.alerts.github_issues import get_filed_count
+from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,11 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 _bg_systems_cache: list[dict] | None = None
 _bg_systems_etag: str | None = None
 _bg_bounds: dict | None = None  # {min_x, max_x, min_z, max_z, range_x, range_z}
+
+# WatchTower overlay cache — refreshed every 60s, serves stale on failure.
+_wt_cache: dict | None = None
+_wt_cache_time: float = 0
+_WT_CACHE_TTL = 60  # seconds
 
 
 def _get_db(request: Request) -> sqlite3.Connection:
@@ -281,9 +289,12 @@ def _load_bg_systems(conn: sqlite3.Connection) -> list[dict]:
         range_x = max_x - min_x or 1
         range_z = max_z - min_z or 1
         _bg_bounds = {
-            "min_x": min_x, "max_x": max_x,
-            "min_z": min_z, "max_z": max_z,
-            "range_x": range_x, "range_z": range_z,
+            "min_x": min_x,
+            "max_x": max_x,
+            "min_z": min_z,
+            "max_z": max_z,
+            "range_x": range_x,
+            "range_z": range_z,
         }
         # Pre-compute normalized coords (0..1) server-side to avoid JS float64 precision loss
         for s in all_systems:
@@ -311,7 +322,12 @@ def get_background_systems(request: Request):
 
     # Strip raw coords — frontend only needs normalized nx/nz + name
     slim = [
-        {"system_id": s["system_id"], "name": s["name"], "nx": round(s["nx"], 6), "nz": round(s["nz"], 6)}
+        {
+            "system_id": s["system_id"],
+            "name": s["name"],
+            "nx": round(s["nx"], 6),
+            "nz": round(s["nz"], 6),
+        }
         for s in systems
         if "nx" in s
     ]
@@ -416,3 +432,133 @@ def get_ledger_stats(request: Request) -> dict:
         "top_assemblies": top_assemblies,
         "by_event_type": by_event_type,
     }
+
+
+def _build_coord_lookup(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Build system_id → {nx, nz, name} lookup from reference_data.
+
+    Reuses the cached background systems to avoid re-querying 24K rows.
+    """
+    _load_bg_systems(conn)
+    if not _bg_systems_cache:
+        return {}
+    return {
+        s["system_id"]: {"nx": s.get("nx", 0), "nz": s.get("nz", 0), "name": s.get("name", "")}
+        for s in _bg_systems_cache
+        if "nx" in s
+    }
+
+
+async def _fetch_watchtower(client: httpx.AsyncClient, path: str) -> dict | list | None:
+    """Fetch a single WatchTower endpoint, return None on any failure."""
+    settings = get_settings()
+    url = f"{settings.watchtower_api_url}{path}"
+    try:
+        resp = await client.get(url, timeout=settings.watchtower_api_timeout)
+        resp.raise_for_status()
+        return resp.json()
+    except (httpx.HTTPError, httpx.TimeoutException, ValueError) as exc:
+        logger.warning("WatchTower fetch failed: %s → %s", path, exc)
+        return None
+
+
+@router.get("/map/watchtower")
+async def get_watchtower_overlay(request: Request) -> dict:
+    """WatchTower intelligence overlay — hotzones, threat forecast, assemblies.
+
+    Fetches from WatchTower API, joins with local reference_data for normalized
+    coordinates, caches 60s, and serves stale data on upstream failure.
+    """
+    global _wt_cache, _wt_cache_time  # noqa: PLW0603
+
+    now = time.time()
+    if _wt_cache and (now - _wt_cache_time) < _WT_CACHE_TTL:
+        return _wt_cache
+
+    conn = _get_db(request)
+    coord_lookup = _build_coord_lookup(conn)
+
+    if not coord_lookup:
+        logger.warning("No reference_data for WatchTower coord resolution")
+        return _wt_cache or {"hotzones": [], "threat_systems": [], "assemblies": []}
+
+    # Fetch all 3 endpoints in parallel
+    async with httpx.AsyncClient() as client:
+        hz_raw, threat_raw, asm_raw = await asyncio.gather(
+            _fetch_watchtower(client, "/hotzones?window=7d&limit=50"),
+            _fetch_watchtower(client, "/predictions/map"),
+            _fetch_watchtower(client, "/assemblies"),
+        )
+
+    # If all three failed, serve stale cache
+    if hz_raw is None and threat_raw is None and asm_raw is None:
+        logger.warning("All WatchTower fetches failed, serving stale cache")
+        return _wt_cache or {"hotzones": [], "threat_systems": [], "assemblies": []}
+
+    # --- Hotzones: join with coords ---
+    hotzones = []
+    for hz in (hz_raw or {}).get("hotzones", []):
+        sid = hz.get("solar_system_id", "")
+        coord = coord_lookup.get(sid)
+        if not coord:
+            continue
+        hotzones.append(
+            {
+                "system_id": sid,
+                "name": hz.get("solar_system_name") or coord["name"],
+                "nx": coord["nx"],
+                "nz": coord["nz"],
+                "kills": hz.get("kills", 0),
+                "danger_level": hz.get("danger_level", "minimal"),
+                "unique_attackers": hz.get("unique_attackers", 0),
+            }
+        )
+
+    # --- Threat forecast: join with coords ---
+    threat_systems = []
+    for ts in (threat_raw or {}).get("systems", []):
+        sid = ts.get("solar_system_id", "")
+        coord = coord_lookup.get(sid)
+        if not coord:
+            continue
+        threat_systems.append(
+            {
+                "system_id": sid,
+                "name": ts.get("solar_system_name") or coord["name"],
+                "nx": coord["nx"],
+                "nz": coord["nz"],
+                "threat_score": ts.get("threat_score", 0),
+                "threat_level": ts.get("threat_level", "minimal"),
+                "kill_trend": ts.get("kill_trend", "none"),
+                "kills_7d": ts.get("kills_7d", 0),
+            }
+        )
+
+    # --- Assemblies: join with coords (use reference_data, not WT's sparse positions) ---
+    assemblies = []
+    for asm in (asm_raw or {}).get("assemblies", []):
+        sid = asm.get("solar_system_id", "")
+        coord = coord_lookup.get(sid)
+        if not coord:
+            continue
+        assemblies.append(
+            {
+                "assembly_id": asm.get("assembly_id", ""),
+                "type": asm.get("type", "Unknown"),
+                "system_id": sid,
+                "name": asm.get("solar_system_name") or coord["name"],
+                "nx": coord["nx"],
+                "nz": coord["nz"],
+                "state": asm.get("state", "unknown"),
+            }
+        )
+
+    result = {
+        "hotzones": hotzones,
+        "threat_systems": threat_systems,
+        "assemblies": assemblies,
+        "fetched_at": int(now),
+    }
+    _wt_cache = result
+    _wt_cache_time = now
+    return result

@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # NEXUS webhook (WatchTower enriched events)
     nexus_secret: str = ""
 
+    # WatchTower API (intelligence overlay for map)
+    watchtower_api_url: str = "https://watchtower-evefrontier.fly.dev/api"
+    watchtower_api_timeout: int = 10
+
     # Admin
     admin_key: str = ""  # Set MONOLITH_ADMIN_KEY for /api/admin/* endpoints
 

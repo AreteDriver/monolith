@@ -11,6 +11,40 @@ const SEVERITY_COLORS = {
   low: '#6b7280',
 }
 
+const DANGER_COLORS = {
+  extreme: '#ef4444',
+  high: '#f97316',
+  moderate: '#eab308',
+  low: '#6b7280',
+  minimal: '#334155',
+}
+
+const THREAT_COLORS = {
+  extreme: '#ef4444',
+  high: '#f97316',
+  moderate: '#eab308',
+  low: '#22c55e',
+  minimal: '#334155',
+}
+
+const TREND_ARROWS = {
+  surging: '\u25b2\u25b2',
+  rising: '\u25b2',
+  stable: '\u2500',
+  declining: '\u25bc',
+  collapsing: '\u25bc\u25bc',
+  new: '\u2726',
+  none: '',
+}
+
+const ASSEMBLY_COLORS = {
+  online: '#22c55e',
+  anchored: '#6b7280',
+  offline: '#ef4444',
+  unanchored: '#334155',
+  unknown: '#334155',
+}
+
 const TYPE_COLORS = {
   // Continuity
   ORPHAN_OBJECT: '#6b7280',
@@ -79,12 +113,20 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
   const bgSystemsRef = useRef([])
   const animRef = useRef(null)
   const drawRef = useRef(null)
-  const [layers, setLayers] = useState({ background: true, heatmap: true, events: true, markers: true })
+  const wtHotzonesRef = useRef([])
+  const wtThreatRef = useRef([])
+  const wtAssembliesRef = useRef([])
+  const [layers, setLayers] = useState({
+    background: true, heatmap: true, events: true, markers: true,
+    hotzones: true, threat: true, assemblies: false,
+  })
   const layersRef = useRef(layers)
 
   const { data, loading } = useApi('/api/stats/map', { poll: 60000 })
   // Background systems are static — fetch once, cache in browser
   const { data: bgData } = useApi('/api/stats/map/systems', { poll: 0 })
+  // WatchTower intelligence overlay — polls every 60s, serves stale on failure
+  const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
 
   // Compute normalized positions once when data arrives
   useEffect(() => {
@@ -105,6 +147,13 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     systemsRef.current = systems
     eventsRef.current = events
   }, [data, bgData])
+
+  // Sync WatchTower overlay data into refs
+  useEffect(() => {
+    wtHotzonesRef.current = wtData?.hotzones || []
+    wtThreatRef.current = wtData?.threat_systems || []
+    wtAssembliesRef.current = wtData?.assemblies || []
+  }, [wtData])
 
   // Keep refs synced with state
   useEffect(() => { transformRef.current = transform }, [transform])
@@ -334,6 +383,80 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       ctx.restore()
     }
 
+    // --- WATCHTOWER: HOTZONE RINGS (kill density zones) ---
+    if (layers.hotzones) {
+      const hotzones = wtHotzonesRef.current
+      if (hotzones.length) {
+        ctx.save()
+        ctx.globalCompositeOperation = 'lighter'
+        const maxKills = Math.max(...hotzones.map(h => h.kills), 1)
+        for (const hz of hotzones) {
+          const sx = pad + hz.nx * drawW
+          const sy = pad + hz.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -150 || px > w + 150 || py < -150 || py > h + 150) continue
+
+          const color = DANGER_COLORS[hz.danger_level] || DANGER_COLORS.minimal
+          const r = parseInt(color.slice(1, 3), 16)
+          const g = parseInt(color.slice(3, 5), 16)
+          const b = parseInt(color.slice(5, 7), 16)
+          const intensity = hz.kills / maxKills
+          const radius = (20 + intensity * 60) * transform.scale
+          const alpha = 0.06 + intensity * 0.12
+
+          // Concentric ring
+          ctx.beginPath()
+          ctx.arc(px, py, radius, 0, Math.PI * 2)
+          ctx.strokeStyle = `rgba(${r},${g},${b},${alpha + 0.15})`
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+
+          // Fill glow
+          const grad = ctx.createRadialGradient(px, py, 0, px, py, radius)
+          grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`)
+          grad.addColorStop(0.6, `rgba(${r},${g},${b},${alpha * 0.4})`)
+          grad.addColorStop(1, `rgba(${r},${g},${b},0)`)
+          ctx.fillStyle = grad
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+    }
+
+    // --- WATCHTOWER: THREAT FORECAST (score indicators — zoom-gated) ---
+    if (layers.threat && transform.scale >= 1.5) {
+      const threats = wtThreatRef.current
+      if (threats.length) {
+        for (const ts of threats) {
+          if (ts.threat_score < 10) continue // skip minimal-noise systems
+          const sx = pad + ts.nx * drawW
+          const sy = pad + ts.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -20 || px > w + 20 || py < -20 || py > h + 20) continue
+
+          const color = THREAT_COLORS[ts.threat_level] || THREAT_COLORS.minimal
+          const arrow = TREND_ARROWS[ts.kill_trend] || ''
+          const size = Math.min(12, Math.max(8, 9 * transform.scale))
+
+          // Score badge
+          ctx.fillStyle = color
+          ctx.font = `bold ${size}px -apple-system, sans-serif`
+          ctx.textAlign = 'left'
+          ctx.fillText(`${ts.threat_score}`, px + 8, py - 4)
+
+          // Trend arrow
+          if (arrow) {
+            ctx.fillStyle = ts.kill_trend === 'surging' || ts.kill_trend === 'rising'
+              ? '#ef4444' : ts.kill_trend === 'declining' || ts.kill_trend === 'collapsing'
+                ? '#22c55e' : '#6b7280'
+            ctx.fillText(arrow, px + 8 + size * 1.8, py - 4)
+          }
+        }
+      }
+    }
+
     // --- SYSTEM MARKERS (using repulsed positions) ---
     if (layers.markers) {
       for (const mp of markerPos) {
@@ -452,6 +575,44 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       }
     }
 
+    // --- WATCHTOWER: ASSEMBLY MARKERS (diamond shapes) ---
+    if (layers.assemblies) {
+      const asms = wtAssembliesRef.current
+      if (asms.length) {
+        const asmSize = Math.max(3, 4 * transform.scale)
+        for (const asm of asms) {
+          const sx = pad + asm.nx * drawW
+          const sy = pad + asm.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -10 || px > w + 10 || py < -10 || py > h + 10) continue
+
+          const color = ASSEMBLY_COLORS[asm.state] || ASSEMBLY_COLORS.unknown
+
+          // Diamond shape
+          ctx.beginPath()
+          ctx.moveTo(px, py - asmSize)
+          ctx.lineTo(px + asmSize, py)
+          ctx.lineTo(px, py + asmSize)
+          ctx.lineTo(px - asmSize, py)
+          ctx.closePath()
+          ctx.fillStyle = color
+          ctx.fill()
+          ctx.strokeStyle = color + '80'
+          ctx.lineWidth = 0.5
+          ctx.stroke()
+
+          // Type label at higher zoom
+          if (transform.scale > 2.5 && asm.type) {
+            ctx.fillStyle = '#94a3b8'
+            ctx.font = `${Math.min(10, Math.max(7, 8 * transform.scale))}px -apple-system, sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillText(asm.type, px, py + asmSize + 10)
+          }
+        }
+      }
+    }
+
     // Continue animation loop
     animRef.current = requestAnimationFrame(drawRef.current)
   }, [])
@@ -536,12 +697,32 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       }
     }
 
+    // Hit test WatchTower assemblies
+    let hitAssembly = null
+    if (!hit && !hitEvent && layersRef.current.assemblies) {
+      const asms = wtAssembliesRef.current
+      const asmSize = Math.max(3, 4 * t.scale)
+      for (const asm of asms) {
+        const sx = pad + asm.nx * drawW
+        const sy = pad + asm.nz * drawH
+        const px = sx * t.scale + t.x
+        const py = sy * t.scale + t.y
+        if (Math.abs(mx - px) <= asmSize + 4 && Math.abs(my - py) <= asmSize + 4) {
+          hitAssembly = asm
+          break
+        }
+      }
+    }
+
     if (hit) {
       canvas.style.cursor = 'pointer'
       setTooltip({ x: mx, y: my, sys: hit })
     } else if (hitEvent) {
       canvas.style.cursor = 'pointer'
       setTooltip({ x: mx, y: my, event: hitEvent })
+    } else if (hitAssembly) {
+      canvas.style.cursor = 'pointer'
+      setTooltip({ x: mx, y: my, assembly: hitAssembly })
     } else {
       canvas.style.cursor = 'grab'
       setTooltip(null)
@@ -703,6 +884,9 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       if (onSystemSelect) onSystemSelect(tooltip.sys)
     } else if (tooltip?.event) {
       window.location.href = `/anomalies/${tooltip.event.anomaly_id}`
+    } else {
+      // Clicking empty space clears selection
+      setSelectedSystem(null)
     }
   }, [tooltip, onSystemSelect])
 
@@ -760,6 +944,14 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
                 {formatAge(tooltip.event.detected_at)}
               </div>
               <div className="text-[#6b7280] text-xs mt-1">Click to view</div>
+            </>
+          ) : tooltip.assembly ? (
+            <>
+              <div className="text-white font-bold">{tooltip.assembly.name || tooltip.assembly.system_id}</div>
+              <div className="text-xs mt-1 text-[#a3a3a3]">{tooltip.assembly.type}</div>
+              <div className="text-xs mt-1" style={{ color: ASSEMBLY_COLORS[tooltip.assembly.state] || '#6b7280' }}>
+                {tooltip.assembly.state.toUpperCase()}
+              </div>
             </>
           ) : null}
         </div>
@@ -842,6 +1034,9 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
           { key: 'heatmap', label: 'Heat' },
           { key: 'events', label: 'Events' },
           { key: 'markers', label: 'Markers' },
+          { key: 'hotzones', label: 'Kills' },
+          { key: 'threat', label: 'Threat' },
+          { key: 'assemblies', label: 'Asm' },
         ].map(({ key, label }) => (
           <label key={key} className="flex items-center gap-1 cursor-pointer">
             <input

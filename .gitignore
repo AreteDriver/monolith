@@ -31,3 +31,4 @@ htmlcov/
 *.swo
 
 docs/chain-samples/*.json
+.vercel
