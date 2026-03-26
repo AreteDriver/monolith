@@ -439,20 +439,28 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
           const color = THREAT_COLORS[ts.threat_level] || THREAT_COLORS.minimal
           const arrow = TREND_ARROWS[ts.kill_trend] || ''
           const size = Math.min(12, Math.max(8, 9 * transform.scale))
+          const score = Math.round(ts.threat_score)
+          const label = arrow ? `${score} ${arrow}` : `${score}`
 
-          // Score badge
-          ctx.fillStyle = color
+          // Measure text for background pill
           ctx.font = `bold ${size}px -apple-system, sans-serif`
           ctx.textAlign = 'left'
-          ctx.fillText(`${ts.threat_score}`, px + 8, py - 4)
+          const textW = ctx.measureText(label).width
+          const pillX = px + 8
+          const pillY = py - 4 - size + 1
+          const pillH = size + 4
+          const pillW = textW + 8
+          const pillR = 3
 
-          // Trend arrow
-          if (arrow) {
-            ctx.fillStyle = ts.kill_trend === 'surging' || ts.kill_trend === 'rising'
-              ? '#ef4444' : ts.kill_trend === 'declining' || ts.kill_trend === 'collapsing'
-                ? '#22c55e' : '#6b7280'
-            ctx.fillText(arrow, px + 8 + size * 1.8, py - 4)
-          }
+          // Dark background pill
+          ctx.fillStyle = 'rgba(10,10,10,0.85)'
+          ctx.beginPath()
+          ctx.roundRect(pillX - 4, pillY, pillW, pillH, pillR)
+          ctx.fill()
+
+          // Score + trend as single label
+          ctx.fillStyle = color
+          ctx.fillText(label, pillX, py - 4)
         }
       }
     }
