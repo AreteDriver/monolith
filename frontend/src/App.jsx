@@ -15,6 +15,7 @@ const ZonesPage = lazy(() => import('./pages/ZonesPage'))
 
 const StatsPanel = lazy(() => import('./pages/StatsPanel'))
 const MapView = lazy(() => import('./pages/MapView'))
+const CommandCenter = lazy(() => import('./pages/CommandCenter'))
 
 function Nav() {
   return (
@@ -51,22 +52,28 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 pt-4">
           <CycleBanner />
         </div>
-        <main className="max-w-7xl mx-auto px-6 py-6">
-          <Breadcrumbs />
-          <Suspense fallback={SuspenseFallback}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/anomalies" element={<AnomalyFeed />} />
-              <Route path="/anomalies/:id" element={<AnomalyDetail />} />
-              <Route path="/reports/:id" element={<ReportView />} />
-              <Route path="/objects/:id" element={<ObjectTracker />} />
-              <Route path="/stats" element={<StatsPanel />} />
-              <Route path="/map" element={<MapView />} />
-              <Route path="/zones" element={<ZonesPage />} />
-              <Route path="/submit" element={<SubmitPage />} />
-            </Routes>
-          </Suspense>
-        </main>
+        <Suspense fallback={SuspenseFallback}>
+          <Routes>
+            <Route path="/map" element={<CommandCenter />} />
+            <Route path="*" element={
+              <main className="max-w-7xl mx-auto px-6 py-6">
+                <Breadcrumbs />
+                <Suspense fallback={SuspenseFallback}>
+                  <Routes>
+                    <Route path="/" element={<Landing />} />
+                    <Route path="/anomalies" element={<AnomalyFeed />} />
+                    <Route path="/anomalies/:id" element={<AnomalyDetail />} />
+                    <Route path="/reports/:id" element={<ReportView />} />
+                    <Route path="/objects/:id" element={<ObjectTracker />} />
+                    <Route path="/stats" element={<StatsPanel />} />
+                    <Route path="/zones" element={<ZonesPage />} />
+                    <Route path="/submit" element={<SubmitPage />} />
+                  </Routes>
+                </Suspense>
+              </main>
+            } />
+          </Routes>
+        </Suspense>
         <div className="max-w-7xl mx-auto px-6 pb-8">
           <AegisEcosystem />
         </div>

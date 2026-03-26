@@ -65,7 +65,7 @@ function getMaxSeverity(sys) {
   return 'low'
 }
 
-function AnomalyMap() {
+export function AnomalyMap({ onSystemSelect, height } = {}) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const [tooltip, setTooltip] = useState(null)
@@ -630,10 +630,11 @@ function AnomalyMap() {
   const handleClick = useCallback(() => {
     if (tooltip?.sys) {
       setSelectedSystem(tooltip.sys)
+      if (onSystemSelect) onSystemSelect(tooltip.sys)
     } else if (tooltip?.event) {
       window.location.href = `/anomalies/${tooltip.event.anomaly_id}`
     }
-  }, [tooltip])
+  }, [tooltip, onSystemSelect])
 
   const toggleLayer = (layer) => {
     setLayers(prev => ({ ...prev, [layer]: !prev[layer] }))
@@ -642,7 +643,7 @@ function AnomalyMap() {
   if (loading) return <p className="text-[#a3a3a3]">Loading map data...</p>
 
   return (
-    <div ref={containerRef} className="relative" style={{ height: 'calc(100vh - 200px)' }}>
+    <div ref={containerRef} className="relative" style={{ height: height || 'calc(100vh - 200px)' }}>
       <canvas
         ref={canvasRef}
         onMouseMove={handleMouseMove}
