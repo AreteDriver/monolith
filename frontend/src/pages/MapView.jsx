@@ -616,7 +616,7 @@ function AnomalyMap() {
       canvas.removeEventListener('touchmove', onTouchMove)
       canvas.removeEventListener('touchend', onTouchEnd)
     }
-  }, [])
+  }, [loading])
 
   const handleClick = useCallback(() => {
     if (tooltip?.sys) {
