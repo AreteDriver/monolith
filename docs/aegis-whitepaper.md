@@ -8,7 +8,7 @@
 
 ## Abstract
 
-Civilization doesn't just need coordination — it needs accountability. EVE Frontier gives players sovereign control over on-chain assets through Smart Assemblies, but sovereignty without security is a liability. When a gate network is exploited, an inventory is drained without a trace, or a reputation system exists only in Discord hearsay, players have no recourse and no record. The Aegis Stack closes this gap with two integrated systems: **Monolith**, a real-time anomaly detection engine with 39 deterministic rules, and **WatchTower**, a behavioral intelligence platform that publishes 6-dimensional reputation scores directly on-chain. Together they form a closed feedback loop — detect threats, verify them against the chain, score the actors, and enforce consequences through Smart Assemblies — all without admin keys, human moderators, or centralized trust.
+The hackathon theme is "A toolkit for civilization." Before civilization can coordinate, it needs accountability. EVE Frontier gives players sovereign control over on-chain assets through Smart Assemblies, but sovereignty without security is a liability. When a gate network is exploited, an inventory is drained without a trace, or a reputation system exists only in Discord hearsay, players have no recourse and no record. The Aegis Stack closes this gap with two integrated systems: **Monolith**, a real-time anomaly detection engine with 39 deterministic rules, and **WatchTower**, a behavioral intelligence platform that publishes 6-dimensional reputation scores directly on-chain. Together they form a closed feedback loop — detect threats, verify them against the chain, score the actors, and enforce consequences through Smart Assemblies — all without admin keys, human moderators, or centralized trust.
 
 Both systems are live in production, processing real chain data from Stillness.
 
@@ -233,7 +233,7 @@ Every entity receives a 0–100 trust score composed of six weighted dimensions:
 
 **Rating tiers:** Trusted (80+), Reputable (60–79), Neutral (40–59), Suspicious (20–39), Dangerous (<20)
 
-This isn't a social credit score. It's a deterministic function of on-chain behavior. Same data in = same score out. No appeals process needed because there's no subjective judgment to appeal.
+Scores are deterministic and auditable by design. Same data in = same score out. No appeals process needed because there's no subjective judgment to appeal.
 
 ### 4.3 Oracle Loop: Reputation On-Chain
 
@@ -461,7 +461,7 @@ Every number above is from production systems processing real Stillness chain da
 
 ## 12. Conclusion
 
-The hackathon theme is "A toolkit for civilization." The Aegis Stack is the security layer that civilization requires before any other layer can function. Treasuries need threat detection. Governance needs reputation scoring. Trade needs behavioral accountability. Infrastructure needs anomaly alerting.
+The Aegis Stack is the security layer that civilization requires before any other layer can function. Treasuries need threat detection. Governance needs reputation scoring. Trade needs behavioral accountability. Infrastructure needs anomaly alerting.
 
 Monolith tells you what went wrong. WatchTower tells you who did it and whether to trust them. The Oracle Loop makes that intelligence enforceable at the Smart Assembly level. NEXUS opens it all to third-party builders.
 
@@ -486,4 +486,4 @@ Civilization needs an immune system. We built it.
 
 ## Team
 
-**ARETE** — 17 years enterprise operations (IBM, manufacturing, logistics). AI architect. Shipping production systems on EVE Frontier since before the hackathon was announced.
+**ARETE** — Solo builder. Both Monolith and WatchTower were live in production, processing real Stillness chain data, before the hackathon was announced. 17 years enterprise operations (IBM, manufacturing, logistics). Now building AI-powered infrastructure for on-chain worlds.
