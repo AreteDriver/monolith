@@ -339,6 +339,8 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
     # Cycle 5: add cycle tracking to core tables
     _migrate_add_column(conn, "chain_events", "cycle", "INTEGER DEFAULT 5")
     _migrate_add_column(conn, "anomalies", "cycle", "INTEGER DEFAULT 5")
+    # Provenance chains: auditable derivation trail per anomaly
+    _migrate_add_column(conn, "anomalies", "provenance_json", "TEXT")
     conn.commit()
     logger.info("Database initialized: %s", db_path)
     return conn

@@ -5,8 +5,10 @@ verifies them against on-chain data, and stores results. Operates
 within configurable bounds (max cycles, read-only chain access).
 """
 
+import json
 import logging
 import sqlite3
+import time
 
 import httpx
 
@@ -66,12 +68,19 @@ class Warden:
         for anomaly in unverified:
             try:
                 verified = await self._verify_anomaly(anomaly, client)
-                if verified:
-                    self._update_status(anomaly["anomaly_id"], "VERIFIED")
-                    results["verified"] += 1
-                else:
-                    self._update_status(anomaly["anomaly_id"], "DISMISSED")
-                    results["dismissed"] += 1
+                status = "VERIFIED" if verified else "DISMISSED"
+                self._update_status(anomaly["anomaly_id"], status)
+                self._append_provenance(
+                    anomaly["anomaly_id"],
+                    source_type="sui_rpc",
+                    source_id=f"checkpoint:{checkpoint}",
+                    derivation=(
+                        f"Warden {status.lower()}:"
+                        f" {anomaly['rule_id']}"
+                        f" on {anomaly['object_id'][:16]}"
+                    ),
+                )
+                results["verified" if verified else "dismissed"] += 1
             except Exception:
                 logger.exception("Warden: error verifying %s", anomaly["anomaly_id"])
                 results["errors"] += 1
@@ -145,6 +154,46 @@ class Warden:
             self.conn.commit()
         except sqlite3.OperationalError:
             logger.warning("Failed to update anomaly %s status", anomaly_id)
+
+    def _append_provenance(
+        self,
+        anomaly_id: str,
+        source_type: str,
+        source_id: str,
+        derivation: str,
+    ) -> None:
+        """Append a provenance entry to an existing anomaly's chain."""
+        try:
+            row = self.conn.execute(
+                "SELECT provenance_json FROM anomalies WHERE anomaly_id = ?",
+                (anomaly_id,),
+            ).fetchone()
+            if not row:
+                return
+
+            existing = []
+            if row["provenance_json"]:
+                try:
+                    existing = json.loads(row["provenance_json"])
+                except json.JSONDecodeError:
+                    existing = []
+
+            existing.append(
+                {
+                    "source_type": source_type,
+                    "source_id": source_id,
+                    "timestamp": int(time.time()),
+                    "derivation": derivation,
+                }
+            )
+
+            self.conn.execute(
+                "UPDATE anomalies SET provenance_json = ? WHERE anomaly_id = ?",
+                (json.dumps(existing), anomaly_id),
+            )
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            logger.warning("Failed to append provenance to %s", anomaly_id)
 
     def reset_cycles(self) -> None:
         """Reset cycle counter (call after human review)."""

@@ -11,7 +11,7 @@ import json
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +86,17 @@ class ContinuityChecker(BaseChecker):
                             "with no birth record in our ledgers"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=row["transaction_hash"],
+                            timestamp=row["timestamp"],
+                            derivation=(
+                                f"C1: {row['event_type']} refs"
+                                f" {obj_id[:16]} not in objects"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -135,6 +146,24 @@ class ContinuityChecker(BaseChecker):
                             f"new activity at {row['event_time']}"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=f"destroyed:{obj_id}",
+                            timestamp=row["destroyed_at"],
+                            derivation=f"C2: object destroyed at {row['destroyed_at']}",
+                        ),
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=row["transaction_hash"],
+                            timestamp=row["event_time"],
+                            derivation=(
+                                f"C2: post-destruction"
+                                f" {row['event_type']}"
+                                f" at {row['event_time']}"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies
@@ -197,6 +226,23 @@ class ContinuityChecker(BaseChecker):
                                 f"{sorted(valid_targets)})"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="world_state",
+                                source_id=f"snapshot:{obj_id}:{snapshots[1]['snapshot_time']}",
+                                timestamp=snapshots[1]["snapshot_time"],
+                                derivation=f"C3: old snapshot shows state '{old_state}'",
+                            ),
+                            ProvenanceEntry(
+                                source_type="world_state",
+                                source_id=f"snapshot:{obj_id}:{snapshots[0]['snapshot_time']}",
+                                timestamp=snapshots[0]["snapshot_time"],
+                                derivation=(
+                                    f"C3: new state '{new_state}'"
+                                    ", invalid transition"
+                                ),
+                            ),
+                        ],
                     )
                 )
         return anomalies
@@ -255,6 +301,18 @@ class ContinuityChecker(BaseChecker):
                             f"for {now - row['last_seen']}s, no signs of life"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"object:{row['object_id']}",
+                            timestamp=row["last_seen"],
+                            derivation=(
+                                f"C4: stuck in '{state}'"
+                                f" since {row['last_seen']},"
+                                f" no events {now - row['last_seen']}s"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies

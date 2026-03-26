@@ -14,7 +14,7 @@ import json
 import logging
 import sqlite3
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,20 @@ class KillmailChecker(BaseChecker):
                                     f"Chain stuttered or someone shot a corpse"
                                 ),
                             },
+                            provenance=[
+                                ProvenanceEntry(
+                                    source_type="chain_event",
+                                    source_id=kills_sorted[i - 1].get("event_id", ""),
+                                    timestamp=t1,
+                                    derivation=f"K1: first kill on {victim_id[:16]}...",
+                                ),
+                                ProvenanceEntry(
+                                    source_type="chain_event",
+                                    source_id=event_id,
+                                    timestamp=t2,
+                                    derivation=f"K1: duplicate kill {t2 - t1}s later",
+                                ),
+                            ],
                         )
                     )
         return anomalies
@@ -154,6 +168,18 @@ class KillmailChecker(BaseChecker):
                                 f"({killer_id[:16]}...). Someone's watching"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="chain_event",
+                                source_id=event_id,
+                                timestamp=ck.get("timestamp", 0),
+                                derivation=(
+                                    f"K2: killer={killer_id[:16]}"
+                                    f" reporter={reporter_id[:16]}"
+                                    " mismatch"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies

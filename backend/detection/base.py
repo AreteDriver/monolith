@@ -13,6 +13,19 @@ _anomaly_counter = itertools.count(1)
 
 
 @dataclass
+class ProvenanceEntry:
+    """Single link in an anomaly's provenance chain.
+
+    Traces exactly which data source led to this detection and how.
+    """
+
+    source_type: str  # chain_event | world_state | state_transition | sui_rpc | detection_rule
+    source_id: str  # event_id, snapshot_id, tx_hash, or rule reference
+    timestamp: int  # when the source data was produced
+    derivation: str  # human-readable explanation of how this source contributed
+
+
+@dataclass
 class Anomaly:
     """Structured anomaly detected by a checker rule."""
 
@@ -22,6 +35,7 @@ class Anomaly:
     object_id: str
     system_id: str = ""
     evidence: dict = field(default_factory=dict)
+    provenance: list[ProvenanceEntry] = field(default_factory=list)
     severity: str = ""
     category: str = ""
     anomaly_id: str = ""
@@ -50,6 +64,15 @@ class Anomaly:
             "system_id": self.system_id,
             "detected_at": self.detected_at,
             "evidence": self.evidence,
+            "provenance": [
+                {
+                    "source_type": p.source_type,
+                    "source_id": p.source_id,
+                    "timestamp": p.timestamp,
+                    "derivation": p.derivation,
+                }
+                for p in self.provenance
+            ],
         }
 
 

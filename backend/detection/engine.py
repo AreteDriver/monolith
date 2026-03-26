@@ -28,6 +28,23 @@ from backend.detection.wallet_concentration_checker import WalletConcentrationCh
 logger = logging.getLogger(__name__)
 
 
+def _serialize_provenance(anomaly: Anomaly) -> str | None:
+    """Serialize provenance chain to JSON for storage. Returns None if empty."""
+    if not anomaly.provenance:
+        return None
+    return json.dumps(
+        [
+            {
+                "source_type": p.source_type,
+                "source_id": p.source_id,
+                "timestamp": p.timestamp,
+                "derivation": p.derivation,
+            }
+            for p in anomaly.provenance
+        ]
+    )
+
+
 class DetectionEngine:
     """Orchestrates all detection checkers and stores results.
 
@@ -134,8 +151,9 @@ class DetectionEngine:
             self.conn.execute(
                 """INSERT INTO anomalies
                    (anomaly_id, anomaly_type, severity, category, detector,
-                    rule_id, object_id, system_id, detected_at, evidence_json, status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNVERIFIED')""",
+                    rule_id, object_id, system_id, detected_at, evidence_json,
+                    provenance_json, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNVERIFIED')""",
                 (
                     anomaly.anomaly_id,
                     anomaly.anomaly_type,
@@ -147,6 +165,7 @@ class DetectionEngine:
                     anomaly.system_id,
                     anomaly.detected_at,
                     json.dumps(anomaly.evidence),
+                    _serialize_provenance(anomaly),
                 ),
             )
             return True
@@ -159,8 +178,9 @@ class DetectionEngine:
                 self.conn.execute(
                     """INSERT INTO anomalies
                        (anomaly_id, anomaly_type, severity, category, detector,
-                        rule_id, object_id, system_id, detected_at, evidence_json, status)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNVERIFIED')""",
+                        rule_id, object_id, system_id, detected_at, evidence_json,
+                        provenance_json, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UNVERIFIED')""",
                     (
                         anomaly.anomaly_id,
                         anomaly.anomaly_type,
@@ -172,6 +192,7 @@ class DetectionEngine:
                         anomaly.system_id,
                         anomaly.detected_at,
                         json.dumps(anomaly.evidence),
+                        _serialize_provenance(anomaly),
                     ),
                 )
                 return True

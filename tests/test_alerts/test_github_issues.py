@@ -102,9 +102,15 @@ def test_is_duplicate_checks_database():
         "rule_id, object_id, system_id, detected_at, evidence_json, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', 'UNVERIFIED')",
         (
-            a["anomaly_id"], a["anomaly_type"], a["severity"],
-            a["category"], a["detector"], a["rule_id"],
-            a["object_id"], a["system_id"], a["detected_at"],
+            a["anomaly_id"],
+            a["anomaly_type"],
+            a["severity"],
+            a["category"],
+            a["detector"],
+            a["rule_id"],
+            a["object_id"],
+            a["system_id"],
+            a["detected_at"],
         ),
     )
     # Record that it was filed

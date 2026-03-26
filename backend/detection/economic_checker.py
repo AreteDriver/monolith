@@ -12,7 +12,7 @@ import json
 import logging
 import sqlite3
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +100,23 @@ class EconomicChecker(BaseChecker):
                             f"between sweeps with no chain trail"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{row['object_id']}:{row['old_time']}",
+                            timestamp=row["old_time"],
+                            derivation=f"E1: old snapshot fuel={old_fuel}",
+                        ),
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{row['object_id']}:{row['new_time']}",
+                            timestamp=row["new_time"],
+                            derivation=(
+                                f"E1: fuel={new_fuel},"
+                                f" delta={delta}, no chain events"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies
@@ -159,6 +176,17 @@ class EconomicChecker(BaseChecker):
                                 f"cargo hold shows {actual}"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="detection_rule",
+                                source_id=f"ledger:{row['assembly_id']}:{row['item_type_id']}",
+                                timestamp=0,
+                                derivation=(
+                                    f"E1: ledger={expected_balance}"
+                                    f", cargo={actual}"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies
@@ -230,6 +258,17 @@ class EconomicChecker(BaseChecker):
                             f"no destruction event. Just gone"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"object:{obj_id}",
+                            timestamp=row["last_seen"],
+                            derivation=(
+                                f"E2: last seen {row['last_seen']}"
+                                ", no destruction event"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -295,6 +334,18 @@ class EconomicChecker(BaseChecker):
                             f"({row['transaction_hash'][:18]}...)"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=row["transaction_hash"],
+                            timestamp=0,
+                            derivation=(
+                                f"E3: {row['cnt']}x"
+                                f" {row['event_type']}"
+                                f" for {row['object_id'][:16]}"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -355,6 +406,17 @@ class EconomicChecker(BaseChecker):
                                 f"Conservation laws don't bend out here"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="world_state",
+                                source_id=f"object:{row['object_id']}",
+                                timestamp=0,
+                                derivation=(
+                                    f"E4: fuel={fuel_amount}"
+                                    ", negative balance"
+                                ),
+                            )
+                        ],
                     )
                 )
 
@@ -379,6 +441,17 @@ class EconomicChecker(BaseChecker):
                                         f"Impossible arithmetic"
                                     ),
                                 },
+                                provenance=[
+                                    ProvenanceEntry(
+                                        source_type="world_state",
+                                        source_id=f"object:{row['object_id']}",
+                                        timestamp=0,
+                                        derivation=(
+                                            f"E4: item {item_type[:16]}"
+                                            f" balance={balance}, negative"
+                                        ),
+                                    )
+                                ],
                             )
                         )
         return anomalies

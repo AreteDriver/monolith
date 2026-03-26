@@ -189,6 +189,12 @@ All settings via env vars with `MONOLITH_` prefix (pydantic-settings):
 | GET | `/api/orbital-zones/feral-ai/events` | Feral AI event feed |
 | GET | `/api/orbital-zones/cycle` | Current universe cycle metadata |
 
+## Frontend Dev Tools
+
+- **Agentation** (`npm install agentation`): Dev-only React component for visual feedback to Claude Code. Click/annotate UI elements → structured markdown with CSS selectors + bounding boxes → paste to agent. Use during frontend polish passes on the anomaly feed, map, and report views.
+- **Liveline**: Single-canvas React chart (60fps, zero deps). Candidate replacement for anomaly feed timeline and real-time stats. `requestAnimationFrame` + lerp interpolation, supports multi-series.
+- **cmdk** (`npm install cmdk`): ⌘K command menu. Add to SPA for quick anomaly search, object lookup, and keyboard-driven navigation.
+
 ## Dependencies
 
 ### Core

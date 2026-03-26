@@ -11,7 +11,7 @@ Rules:
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,18 @@ class VelocityChecker(BaseChecker):
                             "spike_multiplier": round(last_hour_count / avg_hourly, 2),
                             "seven_day_total": seven_day_count,
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="detection_rule",
+                                source_id=f"velocity:{assembly_id}",
+                                timestamp=0,
+                                derivation=(
+                                    f"EV1: {last_hour_count} events/hr"
+                                    f" vs {avg_hourly:.2f}/hr 7d avg"
+                                    f" ({last_hour_count / avg_hourly:.1f}x)"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies
@@ -148,6 +160,17 @@ class VelocityChecker(BaseChecker):
                             "seven_day_total": total_7d,
                             "last_24h_count": 0,
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="detection_rule",
+                                source_id=f"velocity:{assembly_id}",
+                                timestamp=0,
+                                derivation=(
+                                    f"EV2: 0 events in 24h,"
+                                    f" avg was {avg_daily:.1f}/day"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies

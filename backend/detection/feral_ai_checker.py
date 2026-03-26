@@ -8,7 +8,7 @@ Rules:
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,17 @@ class FeralAIChecker(BaseChecker):
                             f"{row['event_count']} events in {SURGE_WINDOW // 60}min"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"feral_ai:{zone_id}",
+                            timestamp=0,
+                            derivation=(
+                                f"FA1: {row['event_count']} events"
+                                f" in {SURGE_WINDOW // 60}min"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -114,6 +125,17 @@ class FeralAIChecker(BaseChecker):
                             f"{row['total_events']} historical events"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"feral_ai:{zone_id}",
+                            timestamp=row["last_event"],
+                            derivation=(
+                                f"FA2: {silent_minutes}min silence"
+                                f" ({row['total_events']} historical)"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies

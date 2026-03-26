@@ -16,7 +16,7 @@ import logging
 import time
 from collections import defaultdict
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,18 @@ class CoordinatedBuyingChecker(BaseChecker):
                     "window_seconds": WINDOW_SECONDS,
                     "confidence": 0.92,
                 },
+                provenance=[
+                    ProvenanceEntry(
+                        source_type="chain_event",
+                        source_id=f"cluster:{system_id}",
+                        timestamp=events[0].get("timestamp", 0) if events else 0,
+                        derivation=(
+                            f"CB2: {buyer_count} wallets,"
+                            f" {fleet_intel_count} fleet intel"
+                            f" in {WINDOW_SECONDS}s"
+                        ),
+                    )
+                ],
             )
 
         # CB1: Coordinated acquisition detected
@@ -156,6 +168,17 @@ class CoordinatedBuyingChecker(BaseChecker):
                     "window_seconds": WINDOW_SECONDS,
                     "confidence": 0.65,
                 },
+                provenance=[
+                    ProvenanceEntry(
+                        source_type="chain_event",
+                        source_id=f"cluster:{system_id}",
+                        timestamp=events[0].get("timestamp", 0) if events else 0,
+                        derivation=(
+                            f"CB1: {buyer_count} wallets"
+                            f" in {WINDOW_SECONDS // 60}min"
+                        ),
+                    )
+                ],
             )
 
         return None

@@ -13,7 +13,7 @@ import contextlib
 import json
 import logging
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,17 @@ class EngagementChecker(BaseChecker):
                             "killmail_timestamp": km_ts,
                             "window_seconds": KILLER_WINDOW_SECONDS,
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="chain_event",
+                                source_id=km.get("event_id", ""),
+                                timestamp=km_ts,
+                                derivation=(
+                                    f"ES1: killer {killer_id[:16]}"
+                                    f" no events in {KILLER_WINDOW_SECONDS}s"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies
@@ -179,6 +190,17 @@ class EngagementChecker(BaseChecker):
                             "killmail_event_id": km.get("event_id", ""),
                             "killmail_timestamp": km_ts,
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="chain_event",
+                                source_id=km.get("event_id", ""),
+                                timestamp=km_ts,
+                                derivation=(
+                                    f"ES2: victim {victim_id[:16]}"
+                                    " zero prior chain history"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies

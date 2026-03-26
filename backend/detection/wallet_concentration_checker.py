@@ -10,7 +10,7 @@ import logging
 import time
 from collections import defaultdict
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +79,17 @@ class WalletConcentrationChecker(BaseChecker):
                                     f"in system {sys_id}. One wallet, too much power"
                                 ),
                             },
+                            provenance=[
+                                ProvenanceEntry(
+                                    source_type="chain_event",
+                                    source_id=f"concentration:{wallet}:{sys_id}",
+                                    timestamp=0,
+                                    derivation=(
+                                        f"WC1: {count}/{total}"
+                                        f" ({ratio:.0%}) in {sys_id}"
+                                    ),
+                                )
+                            ],
                         )
                     )
         return anomalies

@@ -10,7 +10,7 @@ import json
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,17 @@ class TribeHoppingChecker(BaseChecker):
                                 f"Loyalty to none. Possible spy or asset runner"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="world_state",
+                                source_id=f"versions:{obj_id}",
+                                timestamp=0,
+                                derivation=(
+                                    f"TH1: {len(tribes)} tribe_ids"
+                                    f" in 30d: {sorted(tribes)[:5]}"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies

@@ -8,7 +8,7 @@ Rules:
 
 import logging
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,17 @@ class BotPatternChecker(BaseChecker):
                                 f"No human is this regular"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="detection_rule",
+                                source_id=f"wallet:{row['wallet_address']}",
+                                timestamp=0,
+                                derivation=(
+                                    f"BP1: {row['tx_count']} txns,"
+                                    f" CV={cv:.4f} < {MAX_CV}"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies

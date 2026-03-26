@@ -124,14 +124,24 @@ def test_es2_nested_victim_id_extracted(db_conn):
     # Victim has prior activity under its actual item_id
     _seed_chain_event(db_conn, "fuel-nested-1", victim_item_id, now - 3600)
     # Killmail stores victim_id as nested dict (EVE Frontier format)
-    raw = json.dumps({
-        "killer_id": "0xkiller_nested",
-        "victim_id": {"item_id": victim_item_id, "tenant": "utopia"},
-    })
+    raw = json.dumps(
+        {
+            "killer_id": "0xkiller_nested",
+            "victim_id": {"item_id": victim_item_id, "tenant": "utopia"},
+        }
+    )
     db_conn.execute(
         _INSERT_EVENT,
-        ("km-nested-1", "pkg::killmail::KillmailCreatedEvent", "km-nested-1",
-         "killmail", "sys-1", "km-nested-1", now, raw),
+        (
+            "km-nested-1",
+            "pkg::killmail::KillmailCreatedEvent",
+            "km-nested-1",
+            "killmail",
+            "sys-1",
+            "km-nested-1",
+            now,
+            raw,
+        ),
     )
     db_conn.commit()
 
@@ -144,14 +154,24 @@ def test_es2_nested_victim_id_extracted(db_conn):
 def test_es2_nested_victim_id_no_history(db_conn):
     """Nested victim_id with genuinely zero history still triggers ES2."""
     now = int(time.time())
-    raw = json.dumps({
-        "killer_id": "0xkiller_real",
-        "victim_id": {"item_id": "9999999", "tenant": "stillness"},
-    })
+    raw = json.dumps(
+        {
+            "killer_id": "0xkiller_real",
+            "victim_id": {"item_id": "9999999", "tenant": "stillness"},
+        }
+    )
     db_conn.execute(
         _INSERT_EVENT,
-        ("km-nested-2", "pkg::killmail::KillmailCreatedEvent", "km-nested-2",
-         "killmail", "sys-1", "km-nested-2", now, raw),
+        (
+            "km-nested-2",
+            "pkg::killmail::KillmailCreatedEvent",
+            "km-nested-2",
+            "killmail",
+            "sys-1",
+            "km-nested-2",
+            now,
+            raw,
+        ),
     )
     db_conn.commit()
 

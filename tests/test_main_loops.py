@@ -22,7 +22,6 @@ from backend.main import (
     warden_loop,
 )
 
-
 # ── chain_poll_loop ──────────────────────────────────────────────────────────
 
 
@@ -445,10 +444,10 @@ async def test_static_data_loop_handles_exception():
 @pytest.mark.asyncio
 async def test_check_sui_rpc_ok():
     """_check_sui_rpc returns 'ok' on successful response."""
-    from backend.main import _check_sui_rpc
-
     import httpx as _httpx
     import respx
+
+    from backend.main import _check_sui_rpc
 
     with respx.mock:
         respx.post("https://test-rpc.io").mock(
@@ -462,9 +461,9 @@ async def test_check_sui_rpc_ok():
 @pytest.mark.asyncio
 async def test_check_sui_rpc_error():
     """_check_sui_rpc returns 'unreachable' on connection error."""
-    from backend.main import _check_sui_rpc
-
     import respx
+
+    from backend.main import _check_sui_rpc
 
     with respx.mock:
         respx.post("https://test-rpc.io").mock(
@@ -478,10 +477,10 @@ async def test_check_sui_rpc_error():
 @pytest.mark.asyncio
 async def test_check_sui_rpc_non_200():
     """_check_sui_rpc returns http_STATUS on non-200."""
-    from backend.main import _check_sui_rpc
-
     import httpx as _httpx
     import respx
+
+    from backend.main import _check_sui_rpc
 
     with respx.mock:
         respx.post("https://test-rpc.io").mock(

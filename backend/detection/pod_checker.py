@@ -16,7 +16,7 @@ import time
 
 import httpx
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +123,23 @@ class PodChecker(BaseChecker):
                                 f"truth: {', '.join(mismatches.keys())}"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="world_state",
+                                source_id=f"snapshot:{obj_id}:{row['snapshot_time']}",
+                                timestamp=row["snapshot_time"],
+                                derivation=f"P1: local snapshot for {obj_id[:16]}...",
+                            ),
+                            ProvenanceEntry(
+                                source_type="sui_rpc",
+                                source_id=f"graphql:{obj_id}",
+                                timestamp=int(time.time()),
+                                derivation=(
+                                    "P1: chain diverges on"
+                                    f" {', '.join(mismatches.keys())}"
+                                ),
+                            ),
+                        ],
                     )
                 )
 

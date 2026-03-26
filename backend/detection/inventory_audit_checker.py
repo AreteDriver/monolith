@@ -8,7 +8,7 @@ Rules:
 
 import logging
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,18 @@ class InventoryAuditChecker(BaseChecker):
                                 f"More left than ever arrived. Conservation broken"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="detection_rule",
+                                source_id=f"ledger:{assembly_id}:{item_type_id}",
+                                timestamp=0,
+                                derivation=(
+                                    f"IA1: net {net} for"
+                                    f" {item_type_id[:16]}"
+                                    " — more out than in"
+                                ),
+                            )
+                        ],
                     )
                 )
         return anomalies

@@ -8,7 +8,7 @@ Rules:
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,17 @@ class OrbitalZoneChecker(BaseChecker):
                             f"{dark_minutes}min — blind spot in coverage"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"zone:{zone_id}",
+                            timestamp=last_polled,
+                            derivation=(
+                                f"OZ1: dark {dark_minutes}min"
+                                f" (threshold {BLIND_SPOT_THRESHOLD // 60}min)"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -108,6 +119,17 @@ class OrbitalZoneChecker(BaseChecker):
                             f"{row['recent_events']} events in last hour"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"zone:{row['zone_id']}",
+                            timestamp=0,
+                            derivation=(
+                                f"OZ2: tier {row['feral_ai_tier']}"
+                                f" {row['recent_events']} events/hr"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies

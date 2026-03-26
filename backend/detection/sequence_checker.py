@@ -9,7 +9,7 @@ Rules:
 
 import logging
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,17 @@ class SequenceChecker(BaseChecker):
                             f"Possible replay or ingestion anomaly"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=row["transaction_hash"],
+                            timestamp=0,
+                            derivation=(
+                                f"S2: {row['cnt']} non-fuel events"
+                                f" types: {row['event_types'][:50]}"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -118,6 +129,17 @@ class SequenceChecker(BaseChecker):
                                 f"Anything could have happened"
                             ),
                         },
+                        provenance=[
+                            ProvenanceEntry(
+                                source_type="chain_event",
+                                source_id=f"blocks:{blocks[i - 1]}-{blocks[i]}",
+                                timestamp=0,
+                                derivation=(
+                                    f"S4: {gap}-block gap"
+                                    f" {blocks[i - 1]}-{blocks[i]}"
+                                ),
+                            )
+                        ],
                     )
                 )
 

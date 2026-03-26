@@ -12,7 +12,7 @@ import json
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,23 @@ class AssemblyChecker(BaseChecker):
                             f"API says '{api_state}'. Someone's lying"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="state_transition",
+                            source_id=f"transition:{row['object_id']}:{row['transition_time']}",
+                            timestamp=row["transition_time"],
+                            derivation=f"A1: last transition records state '{transition_state}'",
+                        ),
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{row['object_id']}:{row['snapshot_time']}",
+                            timestamp=row["snapshot_time"],
+                            derivation=(
+                                f"A1: API snapshot state '{api_state}'"
+                                f", diverged from transition"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies
@@ -151,6 +168,17 @@ class AssemblyChecker(BaseChecker):
                             f"in tx {tx_hash[:18]}... without burning fuel"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=jump["event_id"],
+                            timestamp=jump["timestamp"],
+                            derivation=(
+                                f"A2: JumpEvent tx {tx_hash[:18]}"
+                                f" no FuelEvent for {gate_id[:16]}"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -224,6 +252,17 @@ class AssemblyChecker(BaseChecker):
                             f"but traveler never arrived"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=fuel["event_id"],
+                            timestamp=fuel["timestamp"],
+                            derivation=(
+                                f"A3: FuelEvent tx {tx_hash[:18]}"
+                                " no matching JumpEvent"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies
@@ -283,6 +322,24 @@ class AssemblyChecker(BaseChecker):
                             f"{list(changes.keys())} changed with no chain events"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{obj_id}:{snapshots[1]['snapshot_time']}",
+                            timestamp=snapshots[1]["snapshot_time"],
+                            derivation="A4: old snapshot baseline",
+                        ),
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{obj_id}:{snapshots[0]['snapshot_time']}",
+                            timestamp=snapshots[0]["snapshot_time"],
+                            derivation=(
+                                "A4: new snapshot changes in"
+                                f" {list(changes.keys())}"
+                                " with zero chain events"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies
@@ -351,6 +408,23 @@ class AssemblyChecker(BaseChecker):
                             f"with no transfer on record"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{obj_id}:{snapshots[1]['snapshot_time']}",
+                            timestamp=snapshots[1]["snapshot_time"],
+                            derivation=f"A5: old snapshot shows owner {old_owner[:16]}...",
+                        ),
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"snapshot:{obj_id}:{snapshots[0]['snapshot_time']}",
+                            timestamp=snapshots[0]["snapshot_time"],
+                            derivation=(
+                                f"A5: new owner {new_owner[:16]}"
+                                ", no transfer event"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies

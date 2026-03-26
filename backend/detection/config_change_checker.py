@@ -7,7 +7,7 @@ Rules:
 
 import logging
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,26 @@ class ConfigChangeChecker(BaseChecker):
                 f"v{min_ver} to v{max_ver}. The rules of the frontier just changed"
             )
 
+            prov = []
+            if old_snap:
+                prov.append(
+                    ProvenanceEntry(
+                        source_type="world_state",
+                        source_id=f"config:{config_type}:v{min_ver}",
+                        timestamp=old_snap["fetched_at"],
+                        derivation=f"CC1: old config v{min_ver}",
+                    )
+                )
+            if new_snap:
+                prov.append(
+                    ProvenanceEntry(
+                        source_type="world_state",
+                        source_id=f"config:{config_type}:v{max_ver}",
+                        timestamp=new_snap["fetched_at"],
+                        derivation=f"CC1: new config v{max_ver}, parameters changed",
+                    )
+                )
+
             anomalies.append(
                 Anomaly(
                     anomaly_type="CONFIG_VERSION_CHANGE",
@@ -83,6 +103,7 @@ class ConfigChangeChecker(BaseChecker):
                     detector=self.name,
                     object_id=address or config_type,
                     evidence=evidence,
+                    provenance=prov,
                 )
             )
         return anomalies

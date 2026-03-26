@@ -9,7 +9,7 @@ Rules:
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,23 @@ class DeadAssemblyChecker(BaseChecker):
                         "last_fuel_timestamp": last_fuel_ts,
                         "days_silent": round(days_silent, 1),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"object:{object_id}",
+                            timestamp=last_seen,
+                            derivation=f"DA1: last seen {days_silent:.1f} days ago",
+                        ),
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=f"fuel:{object_id}",
+                            timestamp=last_fuel_ts,
+                            derivation=(
+                                "DA1: last fuel"
+                                f" {(now - last_fuel_ts) / 86400:.1f}d ago"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies

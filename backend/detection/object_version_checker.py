@@ -8,7 +8,7 @@ Rules:
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,27 @@ class ObjectVersionChecker(BaseChecker):
                             f"{row['newer_version']}. History was rewritten"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"version:{obj_id}:{row['older_version']}",
+                            timestamp=row["older_fetched"],
+                            derivation=(
+                                f"OV1: v{row['older_version']}"
+                                f" at {row['older_fetched']}"
+                            ),
+                        ),
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"version:{obj_id}:{row['newer_version']}",
+                            timestamp=row["newer_fetched"],
+                            derivation=(
+                                f"OV1: regressed to"
+                                f" v{row['newer_version']}"
+                                f" at {row['newer_fetched']}"
+                            ),
+                        ),
+                    ],
                 )
             )
         return anomalies
@@ -121,6 +142,18 @@ class ObjectVersionChecker(BaseChecker):
                             f"with no chain event to explain it"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="world_state",
+                            source_id=f"versions:{obj_id}:{row['min_ver']}-{row['max_ver']}",
+                            timestamp=row["last_fetch"],
+                            derivation=(
+                                f"OV2: v{row['min_ver']}"
+                                f"→v{row['max_ver']}"
+                                " no chain events"
+                            ),
+                        )
+                    ],
                 )
             )
         return anomalies

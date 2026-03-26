@@ -12,7 +12,7 @@ import json
 import logging
 import time
 
-from backend.detection.base import Anomaly, BaseChecker
+from backend.detection.base import Anomaly, BaseChecker, ProvenanceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +101,17 @@ class OwnershipChecker(BaseChecker):
                             f". Delegation or hostile takeover"
                         ),
                     },
+                    provenance=[
+                        ProvenanceEntry(
+                            source_type="chain_event",
+                            source_id=event.get("transaction_hash", ""),
+                            timestamp=event.get("timestamp", 0),
+                            derivation=(
+                                f"OC1: {event.get('event_type', '')}"
+                                f" on OwnerCap {object_id[:16]}"
+                            ),
+                        )
+                    ],
                 )
             )
 
@@ -172,6 +183,24 @@ class OwnershipChecker(BaseChecker):
                                     f"Deliberate, but worth tracking"
                                 ),
                             },
+                            provenance=[
+                                ProvenanceEntry(
+                                    source_type="world_state",
+                                    source_id=f"snapshot:{row['object_id']}:{row['old_time']}",
+                                    timestamp=row["old_time"],
+                                    derivation=f"OC1: old snapshot owner {old_owner[:16]}...",
+                                ),
+                                ProvenanceEntry(
+                                    source_type="world_state",
+                                    source_id=f"snapshot:{row['object_id']}:{row['new_time']}",
+                                    timestamp=row["new_time"],
+                                    derivation=(
+                                        f"OC1: new owner"
+                                        f" {new_owner[:16]}"
+                                        ", transfer confirmed"
+                                    ),
+                                ),
+                            ],
                         )
                     )
 
