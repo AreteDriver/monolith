@@ -45,6 +45,7 @@ from backend.ingestion.nexus_consumer import router as nexus_router
 from backend.ingestion.pod_verifier import PodVerifier
 from backend.ingestion.state_snapshotter import StateSnapshotter
 from backend.ingestion.world_poller import WorldPoller
+from backend.warden.warden import Warden
 
 logging.basicConfig(
     level=logging.INFO,
@@ -254,6 +255,33 @@ async def graphql_enrichment_loop(
         await asyncio.sleep(interval)
 
 
+async def warden_loop(
+    warden: Warden,
+    interval: int,
+    client: httpx.AsyncClient | None = None,
+) -> None:
+    """Background task: run Warden autonomous verification on interval."""
+    # Delay to let detection engine populate anomalies first
+    await asyncio.sleep(120)
+    while True:
+        try:
+            results = await warden.run_cycle(client)
+            if results.get("status") == "completed":
+                logger.info(
+                    "Warden: %d verified, %d dismissed",
+                    results["verified"],
+                    results["dismissed"],
+                )
+            elif results.get("status") == "paused":
+                logger.info("Warden paused — max cycles reached, awaiting reset")
+                # Wait longer before checking again
+                await asyncio.sleep(interval * 10)
+                continue
+        except Exception:
+            logger.exception("Warden error")
+        await asyncio.sleep(interval)
+
+
 async def table_prune_loop(conn: sqlite3.Connection, interval: int = 21600) -> None:
     """Background task: prune stale rows from world_states and state_transitions.
 
@@ -335,6 +363,14 @@ async def static_data_loop(
             logger.info("Tribe cache refreshed: %d tribes", tribe_count)
     except Exception:
         logger.exception("Initial tribe cache fetch failed")
+    # Orbital zones — initial fetch
+    await asyncio.sleep(5)
+    try:
+        oz_count = await poller.poll_orbital_zones(client)
+        if oz_count > 0:
+            logger.info("Orbital zones refreshed: %d zones", oz_count)
+    except Exception:
+        logger.exception("Initial orbital zone fetch failed")
 
     while True:
         await asyncio.sleep(interval)
@@ -349,6 +385,13 @@ async def static_data_loop(
                 logger.info("Tribe cache refreshed: %d tribes", tribe_count)
         except Exception:
             logger.exception("Tribe cache refresh failed")
+        await asyncio.sleep(5)
+        try:
+            oz_count = await poller.poll_orbital_zones(client)
+            if oz_count > 0:
+                logger.info("Orbital zones refreshed: %d zones", oz_count)
+        except Exception:
+            logger.exception("Orbital zone refresh failed")
 
 
 @asynccontextmanager
@@ -392,10 +435,13 @@ async def lifespan(app: FastAPI):
     pod_verifier = PodVerifier(base_url=settings.world_api_url, timeout=settings.world_api_timeout)
     app.state.pod_verifier = pod_verifier
 
+    warden = Warden(conn, sui_rpc_url)
+
     gql_client = SuiGraphQLClient(conn, package_id)
     name_resolver = NameResolver(conn, package_id)
     app.state.gql_client = gql_client
     app.state.name_resolver = name_resolver
+    app.state.warden = warden
     app.state.world_poller = world_poller
     app.state.chain_reader = chain_reader
     app.state.event_processor = event_processor
@@ -439,6 +485,9 @@ async def lifespan(app: FastAPI):
             )
         ),
         asyncio.create_task(table_prune_loop(conn)),
+        asyncio.create_task(
+            warden_loop(warden, settings.detection_interval, client=http_client)
+        ),
     ]
 
     logger.info(

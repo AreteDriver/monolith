@@ -8,6 +8,9 @@ import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
 import SubmitPage from './pages/SubmitPage'
 import AegisEcosystem from './components/AegisEcosystem'
+import CycleBanner from './components/CycleBanner'
+
+const ZonesPage = lazy(() => import('./pages/ZonesPage'))
 
 const StatsPanel = lazy(() => import('./pages/StatsPanel'))
 const MapView = lazy(() => import('./pages/MapView'))
@@ -27,6 +30,9 @@ function Nav() {
       <Link to="/map" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Map
       </Link>
+      <Link to="/zones" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
+        Zones
+      </Link>
       <Link to="/submit" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Submit Bug
       </Link>
@@ -41,6 +47,9 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-[#0a0a0a]">
         <Nav />
+        <div className="max-w-7xl mx-auto px-6 pt-4">
+          <CycleBanner />
+        </div>
         <main className="max-w-7xl mx-auto px-6 py-6">
           <Suspense fallback={SuspenseFallback}>
             <Routes>
@@ -51,6 +60,7 @@ export default function App() {
               <Route path="/objects/:id" element={<ObjectTracker />} />
               <Route path="/stats" element={<StatsPanel />} />
               <Route path="/map" element={<MapView />} />
+              <Route path="/zones" element={<ZonesPage />} />
               <Route path="/submit" element={<SubmitPage />} />
             </Routes>
           </Suspense>

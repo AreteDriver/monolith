@@ -152,3 +152,107 @@ def test_ownercap_transferred_event_type(db_conn):
 
     assert len(anomalies) == 1
     assert anomalies[0].evidence["to_address"] == "0xdelegate"
+
+
+def test_involves_ownercap_via_event_type(db_conn):
+    """_involves_ownercap: returns True for known event types."""
+    assert OwnershipChecker._involves_ownercap(
+        {"event_type": "TransferObject", "raw_json": ""},
+        {},
+    ) is True
+
+
+def test_involves_ownercap_via_raw_json(db_conn):
+    """_involves_ownercap: returns True for OwnerCap in raw_json."""
+    assert OwnershipChecker._involves_ownercap(
+        {"event_type": "SomeEvent", "raw_json": '{"type":"OwnerCap"}'},
+        {},
+    ) is True
+
+
+def test_involves_ownercap_via_type_repr(db_conn):
+    """_involves_ownercap: returns True when type.repr contains OwnerCap."""
+    assert OwnershipChecker._involves_ownercap(
+        {"event_type": "Other", "raw_json": "{}"},
+        {"type": {"repr": "0xpkg::auth::OwnerCap"}},
+    ) is True
+
+
+def test_involves_ownercap_false(db_conn):
+    """_involves_ownercap: returns False for unrelated events."""
+    assert OwnershipChecker._involves_ownercap(
+        {"event_type": "FuelEvent", "raw_json": '{"amount": 100}'},
+        {"type": {"repr": "0xpkg::fuel::FuelEvent"}},
+    ) is False
+
+
+def test_extract_address_string(db_conn):
+    """_extract_address: returns string value for matching key."""
+    assert OwnershipChecker._extract_address(
+        {"sender": "0xabc", "recipient": "0xdef"},
+        "sender",
+    ) == "0xabc"
+
+
+def test_extract_address_nested_dict(db_conn):
+    """_extract_address: extracts address from nested dict."""
+    assert OwnershipChecker._extract_address(
+        {"sender": {"address": "0x123"}},
+        "sender",
+    ) == "0x123"
+
+
+def test_extract_address_missing(db_conn):
+    """_extract_address: returns empty for missing keys."""
+    assert OwnershipChecker._extract_address({"foo": "bar"}, "sender", "from") == ""
+
+
+def test_extract_owner_valid_json(db_conn):
+    """_extract_owner: parses JSON and returns owner address."""
+    state = json.dumps({"owner": {"address": "0xowner1"}})
+    assert OwnershipChecker._extract_owner(state) == "0xowner1"
+
+
+def test_extract_owner_string_owner(db_conn):
+    """_extract_owner: handles string owner field."""
+    state = json.dumps({"owner": "0xdirect"})
+    assert OwnershipChecker._extract_owner(state) == "0xdirect"
+
+
+def test_extract_owner_empty(db_conn):
+    """_extract_owner: returns empty for None/empty input."""
+    assert OwnershipChecker._extract_owner("") == ""
+    assert OwnershipChecker._extract_owner(None) == ""
+
+
+def test_extract_owner_invalid_json(db_conn):
+    """_extract_owner: returns empty for invalid JSON."""
+    assert OwnershipChecker._extract_owner("not json") == ""
+
+
+def test_ownership_divergence_with_transfer(db_conn):
+    """Ownership divergence with transfer event detected as OWNERCAP_DELEGATION."""
+    now = int(time.time())
+    # Insert two snapshots with different owners
+    db_conn.execute(
+        "INSERT INTO world_states (object_id, object_type, state_data, snapshot_time, source) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("obj-div", "SmartAssembly", json.dumps({"owner": {"address": "0xold"}}), now - 60, "test"),
+    )
+    db_conn.execute(
+        "INSERT INTO world_states (object_id, object_type, state_data, snapshot_time, source) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ("obj-div", "SmartAssembly", json.dumps({"owner": {"address": "0xnew"}}), now, "test"),
+    )
+    # Insert a transfer event
+    _insert_event(
+        db_conn, "evt-transfer", "TransferObject", "obj-div", now - 30,
+        {"parsedJson": {"objectId": "obj-div"}, "type": {"repr": "OwnerCap"}},
+    )
+    db_conn.commit()
+
+    checker = OwnershipChecker(db_conn)
+    anomalies = checker.check()
+
+    delegations = [a for a in anomalies if a.anomaly_type == "OWNERCAP_DELEGATION"]
+    assert len(delegations) >= 1

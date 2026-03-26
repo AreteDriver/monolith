@@ -183,7 +183,7 @@ class AssemblyChecker(BaseChecker):
 
             # Skip passive fuel burn ticks — only flag transport-related spends
             try:
-                raw = json.loads(fuel["raw_json"] or "{}") if fuel.get("raw_json") else {}
+                raw = json.loads(fuel["raw_json"] or "{}") if fuel["raw_json"] else {}
                 action = raw.get("parsedJson", {}).get("action", {})
                 variant = action.get("variant", "") if isinstance(action, dict) else str(action)
                 if variant in self._PASSIVE_FUEL_ACTIONS:

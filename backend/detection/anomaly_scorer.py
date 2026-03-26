@@ -132,7 +132,7 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     # Ownership checker
     "OC1": ("MEDIUM", "BEHAVIORAL"),
     # Orbital zone checker
-    "OZ1": ("MEDIUM", "PERFORMANCE"),
+    "OZ1": ("HIGH", "STATE_INCONSISTENCY"),
     "OZ2": ("HIGH", "BEHAVIORAL"),
     # Feral AI checker
     "FA1": ("HIGH", "BEHAVIORAL"),

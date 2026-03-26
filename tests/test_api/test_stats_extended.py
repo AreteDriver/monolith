@@ -263,6 +263,106 @@ def test_stats_map_skips_no_coords(client):
     assert body["systems"] == []
 
 
+def test_background_systems_empty(client):
+    """Background systems returns empty list when no reference data."""
+    # Clear cache
+    import backend.api.stats as stats_mod
+    stats_mod._bg_systems_cache = None
+    stats_mod._bg_systems_etag = None
+
+    resp = client.get("/api/stats/map/systems")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["all_systems"] == []
+
+
+def test_background_systems_with_data(client):
+    """Background systems returns cached reference data."""
+    import backend.api.stats as stats_mod
+    stats_mod._bg_systems_cache = None
+    stats_mod._bg_systems_etag = None
+
+    conn = app.state.db
+    _insert_reference(conn, "30000001", "Alpha", 100, 200)
+    _insert_reference(conn, "30000002", "Beta", 300, 400)
+
+    resp = client.get("/api/stats/map/systems")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["all_systems"]) == 2
+    assert body["all_systems"][0]["name"] in ("Alpha", "Beta")
+    assert "ETag" in resp.headers
+
+
+def test_background_systems_etag_304(client):
+    """Background systems returns 304 when ETag matches."""
+    import backend.api.stats as stats_mod
+    stats_mod._bg_systems_cache = None
+    stats_mod._bg_systems_etag = None
+
+    conn = app.state.db
+    _insert_reference(conn, "30000003", "Gamma", 500, 600)
+
+    # First request to populate cache
+    resp1 = client.get("/api/stats/map/systems")
+    etag = resp1.headers.get("ETag")
+    assert etag
+
+    # Second request with matching ETag
+    resp2 = client.get("/api/stats/map/systems", headers={"if-none-match": etag})
+    assert resp2.status_code == 304
+
+
+def test_background_systems_skips_zero_coords(client):
+    """Background systems excludes systems at origin (0,0)."""
+    import backend.api.stats as stats_mod
+    stats_mod._bg_systems_cache = None
+    stats_mod._bg_systems_etag = None
+
+    conn = app.state.db
+    _insert_reference(conn, "30000004", "Origin", 0, 0)
+    _insert_reference(conn, "30000005", "Valid", 100, 200)
+
+    resp = client.get("/api/stats/map/systems")
+    body = resp.json()
+    assert len(body["all_systems"]) == 1
+    assert body["all_systems"][0]["name"] == "Valid"
+
+
+def test_enrich_system_ids(client):
+    """Enrich endpoint backfills system_id from nexus killmails."""
+    conn = app.state.db
+    import json as json_mod
+    # Insert an object without system_id
+    now = int(time.time())
+    conn.execute(
+        "INSERT INTO objects (object_id, object_type, current_state, current_owner, "
+        "system_id, last_seen, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("obj-enrich", "SmartAssembly", "{}", "", "", now, now),
+    )
+    # Insert a nexus killmail that references this object
+    conn.execute(
+        "INSERT INTO nexus_events (event_id, event_type, payload, solar_system_id, received_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (
+            "nex-1", "killmail",
+            json_mod.dumps({"victim": {"id": "obj-enrich"}, "killer": {"id": "obj-other"}}),
+            "30012602", now,
+        ),
+    )
+    conn.commit()
+
+    resp = client.post("/api/stats/map/enrich")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["killmails_processed"] == 1
+    assert body["enriched_objects"] >= 1
+
+    # Verify object got updated
+    row = conn.execute("SELECT system_id FROM objects WHERE object_id = 'obj-enrich'").fetchone()
+    assert row["system_id"] == "30012602"
+
+
 def test_pod_anomalies_count(client):
     conn = app.state.db
     _insert_anomaly(conn, "POD-1", detector="pod_checker", anomaly_type="POD_MISMATCH")

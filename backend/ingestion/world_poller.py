@@ -308,6 +308,87 @@ class WorldPoller:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    # -- Orbital zone polling --
+
+    async def poll_orbital_zones(self, client: httpx.AsyncClient) -> int:
+        """Fetch orbital zones and upsert into orbital_zones table. Returns count."""
+        if not self.base_url:
+            return 0
+
+        count = 0
+        offset = 0
+        now = int(time.time())
+
+        while True:
+            url = f"{self.base_url}/v2/orbitalzones"
+            params = {"limit": PAGE_LIMIT, "offset": offset}
+            try:
+                resp = await client.get(url, params=params, timeout=self.timeout)
+                resp.raise_for_status()
+            except httpx.HTTPError as e:
+                logger.warning("Failed to fetch orbital zones: %s", e)
+                break
+
+            body = resp.json()
+            items = body.get("data", body) if isinstance(body, dict) else body
+            if not isinstance(items, list):
+                items = [body]
+
+            for item in items:
+                zone_id = str(item.get("id", item.get("zoneId", "")))
+                if not zone_id:
+                    continue
+                zone_name = item.get("name", item.get("zoneName", ""))
+                system_id = str(item.get("solarSystemId", item.get("systemId", "")))
+                feral_ai_tier = item.get("feralAiTier", item.get("feral_ai_tier", 0))
+                threat_level = item.get("threatLevel", item.get("threat_level", ""))
+
+                self.conn.execute(
+                    """INSERT INTO orbital_zones
+                       (zone_id, zone_name, system_id, feral_ai_tier,
+                        threat_level, zone_data, discovered_at, last_polled)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(zone_id) DO UPDATE SET
+                           zone_name = excluded.zone_name,
+                           system_id = excluded.system_id,
+                           feral_ai_tier = excluded.feral_ai_tier,
+                           threat_level = excluded.threat_level,
+                           zone_data = excluded.zone_data,
+                           last_polled = excluded.last_polled""",
+                    (
+                        zone_id, zone_name, system_id, feral_ai_tier,
+                        threat_level, json.dumps(item), now, now,
+                    ),
+                )
+                count += 1
+
+            self.conn.commit()
+
+            metadata = body.get("metadata", {}) if isinstance(body, dict) else {}
+            total = metadata.get("total", 0)
+            if not total or offset + PAGE_LIMIT >= total:
+                break
+            offset += PAGE_LIMIT
+
+        if count > 0:
+            logger.info("Orbital zones polled: %d zones", count)
+        return count
+
+    def flush_polled_data(self) -> dict[str, int]:
+        """Clear polled data tables for universe reset. Returns row counts deleted."""
+        tables = ["orbital_zones", "feral_ai_events", "reference_data", "tribe_cache"]
+        counts: dict[str, int] = {}
+        for table in tables:
+            try:
+                result = self.conn.execute(f"DELETE FROM {table}")  # noqa: S608
+                counts[table] = result.rowcount
+            except Exception:
+                logger.warning("Failed to flush table %s", table)
+                counts[table] = 0
+        self.conn.commit()
+        logger.info("Flushed polled data: %s", counts)
+        return counts
+
     # -- Health check --
 
     async def check_health(self, client: httpx.AsyncClient) -> dict:
