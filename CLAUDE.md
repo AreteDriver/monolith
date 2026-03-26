@@ -9,7 +9,7 @@ generates LLM-narrated bug reports, and alerts via Discord/GitHub/webhooks.
 ## Current State
 
 - **Version**: 0.5.0
-- **Tests**: 465 | **Coverage**: 80% (CI gate: 80%)
+- **Tests**: 567 | **Coverage**: 90% (CI gate: 80%)
 - **Status**: LIVE on Fly.io + Vercel
 - **Chain**: EVE Frontier "Stillness" (Sui testnet)
 
@@ -128,6 +128,7 @@ Three scripts in `eval/` measure system quality:
 | `graphql_enrichment_loop` | 1h | Location, versions, configs, wallet profiles |
 | `static_data_loop` | 1h | Systems, types, tribes from World API |
 | `table_prune_loop` | 6h | Garbage collect old world_states + state_transitions |
+| `warden_loop` | 5min | Autonomous threat verification (UNVERIFIED → VERIFIED/DISMISSED) |
 
 ## Configuration
 
