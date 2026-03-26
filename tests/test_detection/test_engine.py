@@ -15,9 +15,9 @@ def _insert_chain_event(conn, event_id, object_id="unknown-obj"):
 
 
 def test_engine_registers_all_checkers(db_conn):
-    """Engine registers all 18 checker types."""
+    """Engine registers all 19 checker types."""
     engine = DetectionEngine(db_conn)
-    assert len(engine._checkers) == 18
+    assert len(engine._checkers) == 19
 
 
 def test_engine_runs_and_stores_anomalies(db_conn):

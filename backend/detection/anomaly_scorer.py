@@ -66,6 +66,10 @@ RULE_DISPLAY: dict[str, tuple[str, str]] = {
     "OZ2": ("Tier Escalation", "Feral AI threat level increased in zone"),
     "FA1": ("Hive Surge", "Feral AI activity spike — swarm forming"),
     "FA2": ("Silent Zone", "Active feral AI zone went dark — unknown status"),
+    # Market manipulation
+    "MM1": ("Wash Cycle", "Circular item flow between related wallets — no net economic purpose"),
+    "MM2": ("Price Cartel", "Multiple assemblies set identical prices in coordinated window"),
+    "MM3": ("Supply Corner", "Single wallet hoarding majority of an item type"),
 }
 
 ANOMALY_CATEGORIES: dict[str, str] = {
@@ -137,6 +141,10 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     # Feral AI checker
     "FA1": ("HIGH", "BEHAVIORAL"),
     "FA2": ("MEDIUM", "PERFORMANCE"),
+    # Market manipulation checker
+    "MM1": ("HIGH", "BEHAVIORAL"),
+    "MM2": ("HIGH", "BEHAVIORAL"),
+    "MM3": ("MEDIUM", "BEHAVIORAL"),
 }
 
 

@@ -17,6 +17,7 @@ from backend.detection.engagement_checker import EngagementChecker
 from backend.detection.feral_ai_checker import FeralAIChecker
 from backend.detection.inventory_audit_checker import InventoryAuditChecker
 from backend.detection.killmail_checker import KillmailChecker
+from backend.detection.market_manipulation_checker import MarketManipulationChecker
 from backend.detection.object_version_checker import ObjectVersionChecker
 from backend.detection.orbital_zone_checker import OrbitalZoneChecker
 from backend.detection.ownership_checker import OwnershipChecker
@@ -80,6 +81,7 @@ class DetectionEngine:
             DeadAssemblyChecker(self.conn),
             VelocityChecker(self.conn),
             KillmailChecker(self.conn),
+            MarketManipulationChecker(self.conn),
             OwnershipChecker(self.conn),
             OrbitalZoneChecker(self.conn),
             FeralAIChecker(self.conn),
