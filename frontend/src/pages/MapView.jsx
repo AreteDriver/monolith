@@ -100,12 +100,13 @@ function AnomalyMap() {
       return
     }
 
-    const xs = allPoints.map(s => s.x)
-    const zs = allPoints.map(s => s.z)
-    const minX = Math.min(...xs)
-    const maxX = Math.max(...xs)
-    const minZ = Math.min(...zs)
-    const maxZ = Math.max(...zs)
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+    for (const s of allPoints) {
+      if (s.x < minX) minX = s.x
+      if (s.x > maxX) maxX = s.x
+      if (s.z < minZ) minZ = s.z
+      if (s.z > maxZ) maxZ = s.z
+    }
     const rangeX = maxX - minX || 1
     const rangeZ = maxZ - minZ || 1
 
