@@ -56,6 +56,15 @@ const RULE_DISPLAY = {
   EV2: ['Market Silence', 'Trade volume collapsed — region going cold'],
   // Ownership
   OC1: ['Title Deed Transfer', 'OwnerCap handed to a new address'],
+  // Orbital zone / Feral AI
+  OZ1: ['Blind Spot', 'Orbital zone unscanned — dark patch in coverage'],
+  OZ2: ['Tier Escalation', 'Feral AI threat level increased in zone'],
+  FA1: ['Hive Surge', 'Feral AI activity spike — swarm forming'],
+  FA2: ['Silent Zone', 'Active feral AI zone went dark — unknown status'],
+  // Market manipulation
+  MM1: ['Wash Cycle', 'Circular item flow between related wallets — no net economic purpose'],
+  MM2: ['Price Cartel', 'Multiple assemblies set identical prices in coordinated window'],
+  MM3: ['Supply Corner', 'Single wallet hoarding majority of an item type'],
 }
 
 // Anomaly type → frontier display name (fallback for when rule_id isn't available)
@@ -93,6 +102,15 @@ const TYPE_DISPLAY = {
   VELOCITY_DROP: 'Market Silence',
   OWNERCAP_TRANSFER: 'Title Deed Transfer',
   OWNERCAP_DELEGATION: 'Title Deed Transfer',
+  // Market manipulation
+  WASH_TRADING: 'Wash Cycle',
+  PRICE_FIXING: 'Price Cartel',
+  ARTIFICIAL_SCARCITY: 'Supply Corner',
+  // Orbital zone / Feral AI
+  UNSCANNED_ZONE: 'Blind Spot',
+  FERAL_AI_ESCALATION: 'Tier Escalation',
+  FERAL_AI_SURGE: 'Hive Surge',
+  FERAL_AI_BLACKOUT: 'Silent Zone',
   // Legacy/grouped map types
   POD_MISMATCH: 'Chain Divergence',
   CONTINUITY_BREAK: 'Ghost Signal',
