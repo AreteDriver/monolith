@@ -113,7 +113,11 @@ function AnomalyMap() {
   const draw = useCallback((timestamp) => {
     const canvas = canvasRef.current
     const container = containerRef.current
-    if (!canvas || !container) return
+    if (!canvas || !container) {
+      // Canvas not mounted yet — keep polling until it is
+      animRef.current = requestAnimationFrame(drawRef.current)
+      return
+    }
 
     // Read from refs to avoid re-creating draw on every state change
     const transform = transformRef.current
