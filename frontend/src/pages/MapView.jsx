@@ -802,67 +802,23 @@ function formatAge(timestamp) {
   return `${Math.floor(seconds / 86400)}d ago`
 }
 
-function EfMapEmbed({ query }) {
-  const embedUrl = query
-    ? `https://ef-map.com/embed?q=${encodeURIComponent(query)}`
-    : 'https://ef-map.com/embed'
-
-  return (
-    <div className="border border-[#2a2a2a] overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
-      <iframe
-        src={embedUrl}
-        title="EVE Frontier Map"
-        width="100%"
-        height="100%"
-        style={{ border: 'none' }}
-        allowFullScreen
-      />
-    </div>
-  )
-}
-
 export default function MapView() {
   const [searchParams] = useSearchParams()
   const query = searchParams.get('q') || ''
-  const [tab, setTab] = useState('anomalies')
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-[#f59e0b] tracking-wider">
-            FRONTIER MAP
-          </h1>
-          {query && (
-            <span className="text-xs text-[#a3a3a3] bg-[#1a1a1a] border border-[#2a2a2a] px-2 py-1 mono">
-              {query}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setTab('anomalies')}
-            className={`text-xs px-3 py-1 border ${
-              tab === 'anomalies'
-                ? 'border-[#f59e0b] text-[#f59e0b] bg-[#1a1a1a]'
-                : 'border-[#2a2a2a] text-[#6b7280] hover:text-[#a3a3a3]'
-            }`}
-          >
-            Anomaly Map
-          </button>
-          <button
-            onClick={() => setTab('efmap')}
-            className={`text-xs px-3 py-1 border ${
-              tab === 'efmap'
-                ? 'border-[#f59e0b] text-[#f59e0b] bg-[#1a1a1a]'
-                : 'border-[#2a2a2a] text-[#6b7280] hover:text-[#a3a3a3]'
-            }`}
-          >
-            EF-Map
-          </button>
-        </div>
+      <div className="flex items-center gap-3 mb-4">
+        <h1 className="text-xl font-bold text-[#f59e0b] tracking-wider">
+          FRONTIER MAP
+        </h1>
+        {query && (
+          <span className="text-xs text-[#a3a3a3] bg-[#1a1a1a] border border-[#2a2a2a] px-2 py-1 mono">
+            {query}
+          </span>
+        )}
       </div>
-      {tab === 'anomalies' ? <AnomalyMap /> : <EfMapEmbed query={query} />}
+      <AnomalyMap />
     </div>
   )
 }
