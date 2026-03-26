@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import PinButton from '../components/PinButton'
 import { useApi } from '../hooks/useApi'
 import { getTypeName } from '../displayNames'
 
@@ -741,7 +742,15 @@ function AnomalyMap() {
                 &times;
               </button>
             </div>
-            <div className="text-white font-bold text-sm">{selectedSystem.name || selectedSystem.system_id}</div>
+            <div className="flex items-center gap-1">
+              <PinButton
+                type="system"
+                id={selectedSystem.system_id}
+                label={selectedSystem.name || selectedSystem.system_id}
+                meta={{ count: selectedSystem.count, critical: selectedSystem.critical }}
+              />
+              <span className="text-white font-bold text-sm">{selectedSystem.name || selectedSystem.system_id}</span>
+            </div>
             <div className="text-[#a3a3a3]">{selectedSystem.count} anomalies</div>
             <div className="flex gap-2 flex-wrap">
               {selectedSystem.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>C:{selectedSystem.critical}</span>}

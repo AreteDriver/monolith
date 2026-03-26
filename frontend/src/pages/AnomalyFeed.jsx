@@ -15,16 +15,26 @@ function truncate(s, n) {
   return s.length > n ? s.slice(0, n - 3) + '...' : s
 }
 
+const PAGE_SIZE = 25
+
 export default function AnomalyFeed() {
   const [severity, setSeverity] = useState('')
   const [anomalyType, setAnomalyType] = useState('')
+  const [page, setPage] = useState(0)
+  const [selected, setSelected] = useState(new Set())
+  const [bulkStatus, setBulkStatus] = useState('')
 
-  const params = new URLSearchParams({ limit: '100' })
+  const params = new URLSearchParams({ limit: '200' })
   if (severity) params.set('severity', severity)
   if (anomalyType) params.set('anomaly_type', anomalyType)
 
-  const { data, loading } = useApi(`/api/anomalies?${params}`, { poll: 30000 })
-  const anomalies = useMemo(() => data?.data || [], [data])
+  const { data, loading, refetch } = useApi(`/api/anomalies?${params}`, { poll: 30000 })
+  const allAnomalies = useMemo(() => data?.data || [], [data])
+  const totalPages = Math.ceil(allAnomalies.length / PAGE_SIZE)
+  const anomalies = useMemo(
+    () => allAnomalies.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [allAnomalies, page]
+  )
   const systemIds = useMemo(() => anomalies.map((a) => a.system_id), [anomalies])
   const systemNames = useSystemNames(systemIds)
 
@@ -68,6 +78,21 @@ export default function AnomalyFeed() {
             }`}
           >
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              <input
+                type="checkbox"
+                checked={selected.has(a.anomaly_id)}
+                onChange={(e) => {
+                  e.stopPropagation()
+                  setSelected(prev => {
+                    const next = new Set(prev)
+                    if (next.has(a.anomaly_id)) next.delete(a.anomaly_id)
+                    else next.add(a.anomaly_id)
+                    return next
+                  })
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="accent-[#f59e0b] cursor-pointer"
+              />
               <SeverityBadge severity={a.severity} />
               <span className="mono text-sm text-[#f59e0b]">{getDisplayName(a)}</span>
               <span className="mono text-xs text-[#a3a3a3] hidden sm:inline">
@@ -118,6 +143,70 @@ export default function AnomalyFeed() {
         <p className="text-[#6b7280] text-center py-12">
           No signals intercepted. The chain is quiet.
         </p>
+      )}
+
+      {/* Bulk Actions */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 mt-4 p-3 border border-[#f59e0b]/30 bg-[#f59e0b]/5">
+          <span className="text-sm text-[#f59e0b] font-bold">{selected.size} selected</span>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value)}
+            className="bg-[#1a1a1a] border border-[#2a2a2a] text-[#e5e5e5] px-2 py-1 text-xs"
+          >
+            <option value="">Set status...</option>
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="FALSE_POSITIVE">FALSE_POSITIVE</option>
+            <option value="INVESTIGATING">INVESTIGATING</option>
+            <option value="RESOLVED">RESOLVED</option>
+          </select>
+          <button
+            onClick={async () => {
+              if (!bulkStatus) return
+              await fetch('/api/anomalies/bulk/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ anomaly_ids: [...selected], status: bulkStatus }),
+              })
+              setSelected(new Set())
+              setBulkStatus('')
+              refetch()
+            }}
+            disabled={!bulkStatus}
+            className="bg-[#f59e0b] text-black px-3 py-1 text-xs font-bold cursor-pointer border-none disabled:opacity-50"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-[#6b7280] hover:text-white text-xs bg-transparent border-none cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-4 text-sm">
+          <button
+            onClick={() => setPage(Math.max(0, page - 1))}
+            disabled={page === 0}
+            className="bg-[#111111] border border-[#2a2a2a] text-[#a3a3a3] hover:text-white px-3 py-1 text-xs disabled:opacity-30 cursor-pointer disabled:cursor-default"
+          >
+            Prev
+          </button>
+          <span className="text-[#6b7280] text-xs">
+            Page {page + 1} of {totalPages} ({allAnomalies.length} total)
+          </span>
+          <button
+            onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+            disabled={page >= totalPages - 1}
+            className="bg-[#111111] border border-[#2a2a2a] text-[#a3a3a3] hover:text-white px-3 py-1 text-xs disabled:opacity-30 cursor-pointer disabled:cursor-default"
+          >
+            Next
+          </button>
+        </div>
       )}
     </div>
   )

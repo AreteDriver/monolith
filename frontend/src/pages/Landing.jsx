@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import PinnedIntel from '../components/PinnedIntel'
 import { SkeletonStats } from '../components/Skeleton'
+import ThreatFeed from '../components/ThreatFeed'
 
 export default function Landing() {
   const { data: health, loading: healthLoading } = useApi('/api/health')
@@ -24,7 +25,8 @@ export default function Landing() {
         </p>
       </div>
 
-      {/* Pinned Intel */}
+      {/* Live Threats + Pinned Intel */}
+      <ThreatFeed />
       <PinnedIntel />
 
       {/* Live Stats */}
