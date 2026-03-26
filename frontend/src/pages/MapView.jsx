@@ -183,9 +183,12 @@ function AnomalyMap() {
     const drawW = w - pad * 2
     const drawH = h - pad * 2
 
-    // --- BACKGROUND SYSTEMS (dim dots for full universe) ---
+    // --- BACKGROUND SYSTEMS (dim dots — fade out when zoomed in) ---
     if (layers.background && bgSystems.length) {
-      ctx.fillStyle = '#334155'
+      // Fade background as zoom increases: full opacity at 1x, nearly invisible at 4x+
+      const bgAlpha = Math.max(0.08, 1 - (transform.scale - 1) * 0.3)
+      const bgRadius = Math.min(2, Math.max(1, 1.5 * transform.scale))  // cap at 2px
+      ctx.fillStyle = `rgba(51,65,85,${bgAlpha})`
       for (const sys of bgSystems) {
         const sx = pad + sys.nx * drawW
         const sy = pad + sys.nz * drawH
@@ -195,14 +198,14 @@ function AnomalyMap() {
         if (px < -5 || px > w + 5 || py < -5 || py > h + 5) continue
 
         ctx.beginPath()
-        ctx.arc(px, py, Math.max(1.5, 2 * transform.scale), 0, Math.PI * 2)
+        ctx.arc(px, py, bgRadius, 0, Math.PI * 2)
         ctx.fill()
       }
 
-      // Labels at higher zoom
-      if (transform.scale > 2.5) {
-        ctx.fillStyle = '#334155'
-        ctx.font = `${Math.max(8, 9 * transform.scale)}px -apple-system, sans-serif`
+      // Labels at higher zoom (also faded)
+      if (transform.scale > 2.5 && bgAlpha > 0.15) {
+        ctx.fillStyle = `rgba(51,65,85,${bgAlpha * 0.8})`
+        ctx.font = `${Math.min(12, Math.max(8, 9 * transform.scale))}px -apple-system, sans-serif`
         ctx.textAlign = 'center'
         for (const sys of bgSystems) {
           const sx = pad + sys.nx * drawW
@@ -210,7 +213,7 @@ function AnomalyMap() {
           const px = sx * transform.scale + transform.x
           const py = sy * transform.scale + transform.y
           if (px < -5 || px > w + 5 || py < -5 || py > h + 5) continue
-          if (sys.name) ctx.fillText(sys.name, px, py - 5 * transform.scale)
+          if (sys.name) ctx.fillText(sys.name, px, py - 5)
         }
       }
     }
@@ -270,22 +273,28 @@ function AnomalyMap() {
 
         const severity = getMaxSeverity(sys)
         const color = SEVERITY_COLORS[severity]
-        const baseRadius = 4 + (sys.count / maxCount) * 16
-        const radius = baseRadius * transform.scale
+        const baseRadius = Math.max(6, 4 + (sys.count / maxCount) * 16)
+        const radius = baseRadius * Math.max(1, transform.scale * 0.8)
 
-        // Glow
+        // Glow — strong and visible
         ctx.beginPath()
-        ctx.arc(px, py, radius * 2.5, 0, Math.PI * 2)
-        const glow = ctx.createRadialGradient(px, py, 0, px, py, radius * 2.5)
-        glow.addColorStop(0, color + '40')
+        ctx.arc(px, py, radius * 3, 0, Math.PI * 2)
+        const glow = ctx.createRadialGradient(px, py, 0, px, py, radius * 3)
+        glow.addColorStop(0, color + '60')
+        glow.addColorStop(0.3, color + '30')
         glow.addColorStop(1, color + '00')
         ctx.fillStyle = glow
         ctx.fill()
 
-        // Dot
+        // Dot — bright core
         ctx.beginPath()
         ctx.arc(px, py, radius, 0, Math.PI * 2)
         ctx.fillStyle = color
+        ctx.fill()
+        // White center pip for visibility
+        ctx.beginPath()
+        ctx.arc(px, py, Math.max(2, radius * 0.3), 0, Math.PI * 2)
+        ctx.fillStyle = '#ffffff'
         ctx.fill()
 
         // Crosshair reticle for critical systems
@@ -324,10 +333,10 @@ function AnomalyMap() {
           ctx.stroke()
         }
 
-        // Label for large dots
-        if (radius > 6 * transform.scale && sys.name) {
-          ctx.fillStyle = '#e0e0e0'
-          ctx.font = `${Math.max(9, 11 * transform.scale)}px -apple-system, sans-serif`
+        // Label — always show for anomaly systems
+        if (sys.name) {
+          ctx.fillStyle = '#ffffff'
+          ctx.font = `bold ${Math.min(14, Math.max(10, 11 * transform.scale))}px -apple-system, sans-serif`
           ctx.textAlign = 'center'
           ctx.fillText(sys.name, px, py - radius - 4)
         }
