@@ -252,6 +252,50 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       }
     }
 
+    // --- PROXIMITY LINKS (MST connecting anomaly systems) ---
+    if (layers.markers && markerPos.length > 1) {
+      // Prim's MST: connect all anomaly systems with minimum total distance
+      const connected = new Set([0])
+      const edges = []
+      while (connected.size < markerPos.length) {
+        let bestDist = Infinity
+        let bestFrom = -1
+        let bestTo = -1
+        for (const i of connected) {
+          for (let j = 0; j < markerPos.length; j++) {
+            if (connected.has(j)) continue
+            const dx = markerPos[i].px - markerPos[j].px
+            const dy = markerPos[i].py - markerPos[j].py
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            if (dist < bestDist) {
+              bestDist = dist
+              bestFrom = i
+              bestTo = j
+            }
+          }
+        }
+        if (bestTo === -1) break
+        connected.add(bestTo)
+        edges.push([bestFrom, bestTo])
+      }
+
+      // Draw edges as dashed lines
+      ctx.save()
+      ctx.setLineDash([4, 6])
+      ctx.lineWidth = 1
+      for (const [i, j] of edges) {
+        const a = markerPos[i]
+        const b = markerPos[j]
+        const severity = getMaxSeverity(a.sys)
+        ctx.strokeStyle = SEVERITY_COLORS[severity] + '40'
+        ctx.beginPath()
+        ctx.moveTo(a.px, a.py)
+        ctx.lineTo(b.px, b.py)
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
     // --- HEATMAP LAYER ---
     if (layers.heatmap) {
       // Use globalCompositeOperation for additive blending
