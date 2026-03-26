@@ -91,34 +91,18 @@ function AnomalyMap() {
     const systems = data?.systems || []
     const events = data?.recent_events || []
 
-    // Use all_systems for coordinate bounds (full universe extent)
-    const allPoints = bgSystems.length ? bgSystems : [...systems, ...events]
-    if (!allPoints.length) {
+    if (!bgSystems.length && !systems.length) {
       systemsRef.current = []
       eventsRef.current = []
       bgSystemsRef.current = []
       return
     }
 
-    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
-    for (const s of allPoints) {
-      if (s.x < minX) minX = s.x
-      if (s.x > maxX) maxX = s.x
-      if (s.z < minZ) minZ = s.z
-      if (s.z > maxZ) maxZ = s.z
-    }
-    const rangeX = maxX - minX || 1
-    const rangeZ = maxZ - minZ || 1
-
-    const normalize = (s) => ({
-      ...s,
-      nx: (s.x - minX) / rangeX,
-      nz: (s.z - minZ) / rangeZ,
-    })
-
-    bgSystemsRef.current = bgSystems.map(normalize)
-    systemsRef.current = systems.map(normalize)
-    eventsRef.current = events.map(normalize)
+    // Server sends pre-normalized nx/nz (0..1) to avoid JS float64 precision
+    // loss on 10^19-range coordinates that exceed Number.MAX_SAFE_INTEGER.
+    bgSystemsRef.current = bgSystems
+    systemsRef.current = systems
+    eventsRef.current = events
   }, [data, bgData])
 
   // Keep refs synced with state

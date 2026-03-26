@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 # Reference data changes only on server restart, so cache indefinitely.
 _bg_systems_cache: list[dict] | None = None
 _bg_systems_etag: str | None = None
+_bg_bounds: dict | None = None  # {min_x, max_x, min_z, max_z, range_x, range_z}
 
 
 def _get_db(request: Request) -> sqlite3.Connection:
@@ -173,24 +174,30 @@ def get_map_data(request: Request) -> dict:
             except (json.JSONDecodeError, TypeError):
                 pass
 
+    # Ensure bg systems are loaded so we have bounds for normalization
+    _load_bg_systems(conn)
+    bounds = _bg_bounds
+
     for row in rows:
         sid = row["eff_system_id"]
         c = coords.get(sid)
         if not c:
             continue
-        systems.append(
-            {
-                "system_id": sid,
-                "name": c["name"],
-                "x": c["x"],
-                "z": c["z"],
-                "count": row["count"],
-                "critical": row["critical"],
-                "high": row["high"],
-                "medium": row["medium"],
-                "low": row["low"],
-            }
-        )
+        entry = {
+            "system_id": sid,
+            "name": c["name"],
+            "x": c["x"],
+            "z": c["z"],
+            "count": row["count"],
+            "critical": row["critical"],
+            "high": row["high"],
+            "medium": row["medium"],
+            "low": row["low"],
+        }
+        if bounds:
+            entry["nx"] = (c["x"] - bounds["min_x"]) / bounds["range_x"]
+            entry["nz"] = (c["z"] - bounds["min_z"]) / bounds["range_z"]
+        systems.append(entry)
 
     # Recent events for animated markers (last 24h, newest first)
     # Same COALESCE fallback to objects.system_id
@@ -214,18 +221,20 @@ def get_map_data(request: Request) -> dict:
         c = coords.get(sid)
         if not c:
             continue
-        recent_events.append(
-            {
-                "anomaly_id": ev["anomaly_id"],
-                "anomaly_type": ev["anomaly_type"],
-                "severity": ev["severity"],
-                "system_id": sid,
-                "system_name": c["name"],
-                "x": c["x"],
-                "z": c["z"],
-                "detected_at": ev["detected_at"],
-            }
-        )
+        entry = {
+            "anomaly_id": ev["anomaly_id"],
+            "anomaly_type": ev["anomaly_type"],
+            "severity": ev["severity"],
+            "system_id": sid,
+            "system_name": c["name"],
+            "x": c["x"],
+            "z": c["z"],
+            "detected_at": ev["detected_at"],
+        }
+        if bounds:
+            entry["nx"] = (c["x"] - bounds["min_x"]) / bounds["range_x"]
+            entry["nz"] = (c["z"] - bounds["min_z"]) / bounds["range_z"]
+        recent_events.append(entry)
 
     return {
         "systems": systems,
@@ -261,6 +270,25 @@ def _load_bg_systems(conn: sqlite3.Connection) -> list[dict]:
             )
         except (json.JSONDecodeError, TypeError):
             pass
+
+    # Compute coordinate bounds for normalization (Python handles big ints)
+    global _bg_bounds  # noqa: PLW0603
+    if all_systems:
+        min_x = min(s["x"] for s in all_systems)
+        max_x = max(s["x"] for s in all_systems)
+        min_z = min(s["z"] for s in all_systems)
+        max_z = max(s["z"] for s in all_systems)
+        range_x = max_x - min_x or 1
+        range_z = max_z - min_z or 1
+        _bg_bounds = {
+            "min_x": min_x, "max_x": max_x,
+            "min_z": min_z, "max_z": max_z,
+            "range_x": range_x, "range_z": range_z,
+        }
+        # Pre-compute normalized coords (0..1) server-side to avoid JS float64 precision loss
+        for s in all_systems:
+            s["nx"] = (s["x"] - min_x) / range_x
+            s["nz"] = (s["z"] - min_z) / range_z
 
     _bg_systems_cache = all_systems
     _bg_systems_etag = str(len(all_systems))
