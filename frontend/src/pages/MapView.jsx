@@ -220,17 +220,46 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     const maxCount = systems.length ? Math.max(...systems.map(s => s.count)) : 1
     const now = Date.now() / 1000
 
+    // --- REPULSION: spread overlapping anomaly markers ---
+    // Compute screen positions once, then push apart if too close
+    const markerPos = systems.map(sys => {
+      const sx = pad + sys.nx * drawW
+      const sy = pad + sys.nz * drawH
+      return {
+        sys,
+        px: sx * transform.scale + transform.x,
+        py: sy * transform.scale + transform.y,
+      }
+    })
+    const minDist = Math.max(40, 30 * transform.scale)
+    // Run a few iterations of simple repulsion
+    for (let iter = 0; iter < 8; iter++) {
+      for (let i = 0; i < markerPos.length; i++) {
+        for (let j = i + 1; j < markerPos.length; j++) {
+          const dx = markerPos[j].px - markerPos[i].px
+          const dy = markerPos[j].py - markerPos[i].py
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1
+          if (dist < minDist) {
+            const push = (minDist - dist) / 2
+            const nx = dx / dist
+            const ny = dy / dist
+            markerPos[i].px -= nx * push
+            markerPos[i].py -= ny * push
+            markerPos[j].px += nx * push
+            markerPos[j].py += ny * push
+          }
+        }
+      }
+    }
+
     // --- HEATMAP LAYER ---
     if (layers.heatmap) {
       // Use globalCompositeOperation for additive blending
       ctx.save()
       ctx.globalCompositeOperation = 'lighter'
 
-      for (const sys of systems) {
-        const sx = pad + sys.nx * drawW
-        const sy = pad + sys.nz * drawH
-        const px = sx * transform.scale + transform.x
-        const py = sy * transform.scale + transform.y
+      for (const mp of markerPos) {
+        const { sys, px, py } = mp
 
         if (px < -120 || px > w + 120 || py < -120 || py > h + 120) continue
 
@@ -261,13 +290,10 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       ctx.restore()
     }
 
-    // --- SYSTEM MARKERS ---
+    // --- SYSTEM MARKERS (using repulsed positions) ---
     if (layers.markers) {
-      for (const sys of systems) {
-        const sx = pad + sys.nx * drawW
-        const sy = pad + sys.nz * drawH
-        const px = sx * transform.scale + transform.x
-        const py = sy * transform.scale + transform.y
+      for (const mp of markerPos) {
+        const { sys, px, py } = mp
 
         if (px < -20 || px > w + 20 || py < -20 || py > h + 20) continue
 
