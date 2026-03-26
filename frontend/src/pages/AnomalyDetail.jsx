@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { Link, useParams, createSearchParams } from 'react-router-dom'
+import PinButton from '../components/PinButton'
 import SeverityBadge from '../components/SeverityBadge'
+import { SkeletonCard } from '../components/Skeleton'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
 import { useSystemNames, primeSystemNameCache } from '../hooks/useWatchTower'
@@ -31,7 +33,15 @@ export default function AnomalyDetail() {
     primeSystemNameCache([data])
   }
 
-  if (loading) return <p className="text-[#a3a3a3]">Loading...</p>
+  if (loading) return (
+    <div className="space-y-4">
+      <SkeletonCard />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
+      </div>
+      <SkeletonCard />
+    </div>
+  )
   if (!data || data.error) return <p className="text-red-400">Anomaly not found.</p>
 
   const a = data
@@ -51,6 +61,12 @@ export default function AnomalyDetail() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
+        <PinButton
+          type="anomaly"
+          id={a.anomaly_id}
+          label={getDisplayName(a)}
+          meta={{ severity: a.severity, rule_id: a.rule_id, detected_at: a.detected_at }}
+        />
         <SeverityBadge severity={a.severity} />
         <h1 className="text-xl font-bold">{getDisplayName(a)}</h1>
         <span className="mono text-sm text-[#a3a3a3]">{a.anomaly_id}</span>

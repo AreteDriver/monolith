@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
+import PinnedIntel from '../components/PinnedIntel'
+import { SkeletonStats } from '../components/Skeleton'
 
 export default function Landing() {
-  const { data: health } = useApi('/api/health')
-  const { data: stats } = useApi('/api/stats')
+  const { data: health, loading: healthLoading } = useApi('/api/health')
+  const { data: stats, loading: statsLoading } = useApi('/api/stats')
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -22,7 +24,11 @@ export default function Landing() {
         </p>
       </div>
 
+      {/* Pinned Intel */}
+      <PinnedIntel />
+
       {/* Live Stats */}
+      {(healthLoading || statsLoading) && !health && <SkeletonStats />}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
         <LiveStat
           label="Anomalies (24h)"

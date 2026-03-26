@@ -8,6 +8,7 @@ import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
 import SubmitPage from './pages/SubmitPage'
 import AegisEcosystem from './components/AegisEcosystem'
+import Breadcrumbs from './components/Breadcrumbs'
 import CycleBanner from './components/CycleBanner'
 
 const ZonesPage = lazy(() => import('./pages/ZonesPage'))
@@ -51,6 +52,7 @@ export default function App() {
           <CycleBanner />
         </div>
         <main className="max-w-7xl mx-auto px-6 py-6">
+          <Breadcrumbs />
           <Suspense fallback={SuspenseFallback}>
             <Routes>
               <Route path="/" element={<Landing />} />

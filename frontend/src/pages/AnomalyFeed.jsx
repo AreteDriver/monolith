@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Link, createSearchParams } from 'react-router-dom'
+import PinButton from '../components/PinButton'
 import SeverityBadge from '../components/SeverityBadge'
+import { SkeletonFeed } from '../components/Skeleton'
 import TimeAgo from '../components/TimeAgo'
 import { useApi } from '../hooks/useApi'
 import { useSystemNames } from '../hooks/useWatchTower'
@@ -52,7 +54,7 @@ export default function AnomalyFeed() {
       </div>
 
       {/* Feed */}
-      {loading && <p className="text-[#a3a3a3]">Loading...</p>}
+      {loading && anomalies.length === 0 && <SkeletonFeed rows={8} />}
 
       <div className="space-y-1">
         {anomalies.map((a) => (
@@ -93,7 +95,13 @@ export default function AnomalyFeed() {
                   </Link>
                 </span>
               )}
-              <span className="ml-auto text-nowrap">
+              <span className="ml-auto flex items-center gap-1 text-nowrap">
+                <PinButton
+                  type="anomaly"
+                  id={a.anomaly_id}
+                  label={getDisplayName(a)}
+                  meta={{ severity: a.severity, rule_id: a.rule_id, detected_at: a.detected_at }}
+                />
                 <TimeAgo timestamp={a.detected_at} />
               </span>
             </div>
