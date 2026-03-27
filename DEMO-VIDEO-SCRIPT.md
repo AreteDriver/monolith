@@ -295,22 +295,22 @@ ls -lh ~/Videos/aegis-demo-upload.mp4
 11. Hold on "///" — deliver closing numbers — end
 ```
 
-## NUMBERS TO CITE (verified 2026-03-27 from live /api/health)
+## NUMBERS TO CITE (verified 2026-03-27 post-repopulation from live /api/health)
 
 | Metric | Value | Say As | Source |
 |--------|-------|--------|--------|
-| Tests | 1,560+ | "fifteen hundred sixty" | pytest (774+591+195) |
+| Tests | 1,560+ | "fifteen hundred sixty" | pytest (774+567+195) |
 | Detection rules | 39 | "thirty-nine" | monolith CLAUDE.md |
-| Checkers | 18 | "eighteen" | monolith CLAUDE.md |
+| Checkers | 19 | "nineteen" | monolith CLAUDE.md |
 | API endpoints | 167 | "a hundred sixty-seven" | route counts |
-| Chain events | 47,102 | "forty-seven thousand" | monolith /api/health |
-| Anomalies detected | 660 | "six hundred sixty" | monolith /api/health |
-| State transitions | 295,296 | "nearly three hundred thousand" | monolith /api/health |
-| Objects tracked | 826 | "over eight hundred" | monolith /api/health |
+| Chain events | 49,594 | "nearly fifty thousand" | monolith /api/health |
+| Anomalies detected | 684 | "six hundred eighty-four" | monolith /api/health |
+| State transitions | 295,307 | "nearly three hundred thousand" | monolith /api/health |
+| Objects tracked | 849 | "over eight hundred" | monolith /api/health |
 | Systems mapped | 24,502 | "twenty-four thousand five hundred" | static data |
-| Entities indexed | 12,600 | "over twelve thousand" | watchtower /api/health |
-| Killmails analyzed | 486 | "nearly five hundred" | watchtower /api/health |
-| Story feed items | 1,307 | "over thirteen hundred" | watchtower /api/health |
+| Entities indexed | 12,583 | "over twelve thousand" | watchtower /api/health |
+| Killmails analyzed | 426 | "over four hundred" | watchtower /api/health |
+| Story feed items | 591 | "nearly six hundred" | watchtower /api/health (rebuilding) |
 | Bug reports auto-filed | 43 | "forty-three" | monolith /api/health |
 | Sui Move modules | 4 | "four" | deployed contracts |
 | Discord commands | 15 | "fifteen" | bot registration |
