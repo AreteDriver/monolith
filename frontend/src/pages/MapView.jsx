@@ -117,7 +117,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
   const wtThreatRef = useRef([])
   const wtAssembliesRef = useRef([])
   const [layers, setLayers] = useState({
-    background: true, heatmap: true, events: true, markers: true,
+    background: true, anomalies: true,
     hotzones: true, threat: true, assemblies: false,
   })
   const layersRef = useRef(layers)
@@ -302,7 +302,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     }
 
     // --- PROXIMITY LINKS (MST connecting anomaly systems) ---
-    if (layers.markers && markerPos.length > 1) {
+    if (layers.anomalies && markerPos.length > 1) {
       // Prim's MST: connect all anomaly systems with minimum total distance
       const connected = new Set([0])
       const edges = []
@@ -346,7 +346,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     }
 
     // --- HEATMAP LAYER ---
-    if (layers.heatmap) {
+    if (layers.anomalies) {
       // Use globalCompositeOperation for additive blending
       ctx.save()
       ctx.globalCompositeOperation = 'lighter'
@@ -466,7 +466,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     }
 
     // --- SYSTEM MARKERS (using repulsed positions) ---
-    if (layers.markers) {
+    if (layers.anomalies) {
       for (const mp of markerPos) {
         const { sys, px, py } = mp
 
@@ -545,7 +545,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     }
 
     // --- EVENT MARKERS (animated pulsing) ---
-    if (layers.events && events.length) {
+    if (layers.anomalies && events.length) {
       const pulse = (Math.sin((timestamp || 0) * 0.003) + 1) / 2 // 0-1 oscillation
 
       for (const ev of events) {
@@ -1039,9 +1039,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       <div className="absolute top-3 right-3 bg-[#111111]/80 border border-[#2a2a2a] px-2 py-1.5 text-[10px] flex gap-3">
         {[
           { key: 'background', label: 'BG' },
-          { key: 'heatmap', label: 'Heat' },
-          { key: 'events', label: 'Events' },
-          { key: 'markers', label: 'Markers' },
+          { key: 'anomalies', label: 'Anomalies' },
           { key: 'hotzones', label: 'Kills' },
           { key: 'threat', label: 'Threat' },
           { key: 'assemblies', label: 'Asm' },

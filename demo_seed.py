@@ -280,6 +280,80 @@ def seed(db_path: str = "monolith.db") -> None:
             ),
         )
 
+    # Insert demo orbital zones
+    zone_cols = (
+        "zone_id, zone_name, system_id, feral_ai_tier, threat_level, discovered_at, last_polled"
+    )
+    demo_zones = [
+        ("zone-alpha-001", "Alpha Breach", "30012602", 3, "HIGH", now - 600, now - 120),
+        ("zone-beta-002", "Beta Perimeter", "30012612", 1, "LOW", now - 7200, now - 300),
+        ("zone-gamma-003", "Gamma Rift", "30012588", 4, "CRITICAL", now - 3600, now - 60),
+        ("zone-delta-004", "Delta Frontier", "30012590", 2, "MEDIUM", now - 1800, now - 180),
+        ("zone-epsilon-005", "Epsilon Void", "30012595", 0, "LOW", now - 86400, now - 3600),
+    ]
+    for z in demo_zones:
+        conn.execute(
+            f"INSERT OR IGNORE INTO orbital_zones ({zone_cols}) "  # noqa: S608
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            z,
+        )
+
+    # Insert demo feral AI events
+    feral_cols = "event_id, ai_entity_id, event_type, zone_id, system_id, detected_at, severity"
+    demo_feral = [
+        (
+            "feral-evt-001",
+            "feral-entity-alpha",
+            "SPAWN",
+            "zone-gamma-003",
+            "30012588",
+            now - 300,
+            "CRITICAL",
+        ),
+        (
+            "feral-evt-002",
+            "feral-entity-beta",
+            "PATROL",
+            "zone-alpha-001",
+            "30012602",
+            now - 600,
+            "HIGH",
+        ),
+        (
+            "feral-evt-003",
+            "feral-entity-gamma",
+            "ESCALATION",
+            "zone-gamma-003",
+            "30012588",
+            now - 120,
+            "CRITICAL",
+        ),
+        (
+            "feral-evt-004",
+            "feral-entity-delta",
+            "SCAN",
+            "zone-delta-004",
+            "30012590",
+            now - 900,
+            "MEDIUM",
+        ),
+        (
+            "feral-evt-005",
+            "feral-entity-epsilon",
+            "RETREAT",
+            "zone-beta-002",
+            "30012612",
+            now - 1800,
+            "LOW",
+        ),
+    ]
+    for f in demo_feral:
+        conn.execute(
+            f"INSERT OR IGNORE INTO feral_ai_events ({feral_cols}) "  # noqa: S608
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            f,
+        )
+
     conn.commit()
 
     # Generate reports for first 3 anomalies
@@ -308,7 +382,11 @@ def seed(db_path: str = "monolith.db") -> None:
 
     conn.close()
 
-    print(f"\nSeeded {len(DEMO_OBJECTS)} objects, {len(DEMO_ANOMALIES)} anomalies, 3 reports")
+    print(
+        f"\nSeeded {len(DEMO_OBJECTS)} objects, "
+        f"{len(DEMO_ANOMALIES)} anomalies, 3 reports, "
+        "5 zones, 5 feral AI events"
+    )
     print(f"Database: {db_path}")
     print("\nStart Monolith:")
     print("  python -m uvicorn backend.main:app --reload")

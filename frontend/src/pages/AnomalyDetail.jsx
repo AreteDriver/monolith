@@ -129,17 +129,17 @@ export default function AnomalyDetail() {
         {reportId ? (
           <Link
             to={`/reports/${reportId}`}
-            className="bg-[#f59e0b] text-black px-4 py-2.5 text-sm font-bold no-underline hover:bg-[#d97706] text-center"
+            className="bg-[#22c55e] text-black px-4 py-2.5 text-sm font-bold no-underline hover:bg-[#16a34a] text-center"
           >
-            View Report
+            Reported — View Report
           </Link>
         ) : (
           <button
             onClick={generateReport}
             disabled={generating}
-            className="bg-[#f59e0b] text-black px-4 py-2 text-sm font-bold cursor-pointer hover:bg-[#d97706] disabled:opacity-50 border-none"
+            className="bg-[#f59e0b] text-black px-4 py-2 text-sm font-bold cursor-pointer hover:bg-[#d97706] disabled:opacity-50 disabled:cursor-not-allowed border-none"
           >
-            {generating ? 'Generating...' : 'Generate Bug Report'}
+            {generating ? 'Reporting...' : 'Generate Bug Report'}
           </button>
         )}
         {a.report_id && !reportId && (

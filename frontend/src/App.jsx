@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Component, lazy, Suspense } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
 import AnomalyDetail from './pages/AnomalyDetail'
@@ -44,6 +44,33 @@ function Nav() {
 
 const SuspenseFallback = <div className="text-[#a3a3a3] p-6">Loading...</div>
 
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="border border-red-800 bg-red-950/30 p-4 m-4 text-sm">
+          <div className="text-red-400 font-bold mb-2">Something went wrong</div>
+          <pre className="text-red-300 text-xs overflow-auto">{this.state.error.message}</pre>
+          <button
+            onClick={() => this.setState({ error: null })}
+            className="mt-3 text-xs text-[#f59e0b] bg-transparent border border-[#f59e0b] px-3 py-1 cursor-pointer hover:bg-[#f59e0b] hover:text-black"
+          >
+            Retry
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -58,18 +85,20 @@ export default function App() {
             <Route path="*" element={
               <main className="max-w-7xl mx-auto px-6 py-6">
                 <Breadcrumbs />
-                <Suspense fallback={SuspenseFallback}>
-                  <Routes>
-                    <Route path="/" element={<Landing />} />
-                    <Route path="/anomalies" element={<AnomalyFeed />} />
-                    <Route path="/anomalies/:id" element={<AnomalyDetail />} />
-                    <Route path="/reports/:id" element={<ReportView />} />
-                    <Route path="/objects/:id" element={<ObjectTracker />} />
-                    <Route path="/stats" element={<StatsPanel />} />
-                    <Route path="/zones" element={<ZonesPage />} />
-                    <Route path="/submit" element={<SubmitPage />} />
-                  </Routes>
-                </Suspense>
+                <ErrorBoundary>
+                  <Suspense fallback={SuspenseFallback}>
+                    <Routes>
+                      <Route path="/" element={<Landing />} />
+                      <Route path="/anomalies" element={<AnomalyFeed />} />
+                      <Route path="/anomalies/:id" element={<AnomalyDetail />} />
+                      <Route path="/reports/:id" element={<ReportView />} />
+                      <Route path="/objects/:id" element={<ObjectTracker />} />
+                      <Route path="/stats" element={<StatsPanel />} />
+                      <Route path="/zones" element={<ZonesPage />} />
+                      <Route path="/submit" element={<SubmitPage />} />
+                    </Routes>
+                  </Suspense>
+                </ErrorBoundary>
               </main>
             } />
           </Routes>

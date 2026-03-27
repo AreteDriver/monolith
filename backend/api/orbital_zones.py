@@ -86,8 +86,10 @@ def list_feral_ai_events(
 
     try:
         rows = conn.execute(
-            f"SELECT * FROM feral_ai_events {where} "  # noqa: S608
-            f"ORDER BY detected_at DESC LIMIT ?",
+            f"SELECT e.*, oz.zone_name FROM feral_ai_events e "  # noqa: S608
+            f"LEFT JOIN orbital_zones oz ON e.zone_id = oz.zone_id "
+            f"{where.replace('zone_id', 'e.zone_id').replace('event_type', 'e.event_type')} "
+            f"ORDER BY e.detected_at DESC LIMIT ?",
             params,
         ).fetchall()
         data = []
