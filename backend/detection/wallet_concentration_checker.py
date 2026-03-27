@@ -84,10 +84,7 @@ class WalletConcentrationChecker(BaseChecker):
                                     source_type="chain_event",
                                     source_id=f"concentration:{wallet}:{sys_id}",
                                     timestamp=0,
-                                    derivation=(
-                                        f"WC1: {count}/{total}"
-                                        f" ({ratio:.0%}) in {sys_id}"
-                                    ),
+                                    derivation=(f"WC1: {count}/{total} ({ratio:.0%}) in {sys_id}"),
                                 )
                             ],
                         )

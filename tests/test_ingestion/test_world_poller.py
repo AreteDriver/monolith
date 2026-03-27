@@ -191,7 +191,9 @@ def test_resolve_constellation_name(db_conn):
 def test_store_tribe_new(db_conn):
     """store_tribe inserts a new tribe into tribe_cache."""
     poller = WorldPoller(db_conn, base_url="http://test")
-    poller.store_tribe({"id": "tribe-1", "name": "Raiders", "nameShort": "RDR", "memberCount": 42, "taxRate": 0.1})
+    poller.store_tribe(
+        {"id": "tribe-1", "name": "Raiders", "nameShort": "RDR", "memberCount": 42, "taxRate": 0.1}
+    )
     db_conn.commit()
     row = db_conn.execute("SELECT * FROM tribe_cache WHERE tribe_id = 'tribe-1'").fetchone()
     assert row is not None
@@ -202,9 +204,13 @@ def test_store_tribe_new(db_conn):
 def test_store_tribe_update(db_conn):
     """store_tribe updates existing tribe and tracks changes."""
     poller = WorldPoller(db_conn, base_url="http://test")
-    poller.store_tribe({"id": "tribe-2", "name": "Old", "nameShort": "OLD", "memberCount": 10, "taxRate": 0.0})
+    poller.store_tribe(
+        {"id": "tribe-2", "name": "Old", "nameShort": "OLD", "memberCount": 10, "taxRate": 0.0}
+    )
     db_conn.commit()
-    poller.store_tribe({"id": "tribe-2", "name": "New", "nameShort": "NEW", "memberCount": 20, "taxRate": 0.5})
+    poller.store_tribe(
+        {"id": "tribe-2", "name": "New", "nameShort": "NEW", "memberCount": 20, "taxRate": 0.5}
+    )
     db_conn.commit()
     row = db_conn.execute("SELECT * FROM tribe_cache WHERE tribe_id = 'tribe-2'").fetchone()
     assert row["name"] == "New"
@@ -214,7 +220,9 @@ def test_store_tribe_update(db_conn):
 def test_resolve_tribe(db_conn):
     """resolve_tribe returns tribe info with staleness."""
     poller = WorldPoller(db_conn, base_url="http://test")
-    poller.store_tribe({"id": "tribe-3", "name": "Test", "nameShort": "TST", "memberCount": 5, "taxRate": 0.0})
+    poller.store_tribe(
+        {"id": "tribe-3", "name": "Test", "nameShort": "TST", "memberCount": 5, "taxRate": 0.0}
+    )
     db_conn.commit()
     result = poller.resolve_tribe("tribe-3")
     assert result is not None
@@ -226,7 +234,9 @@ def test_resolve_tribe(db_conn):
 def test_get_stale_tribes(db_conn):
     """get_stale_tribes returns tribes marked as stale."""
     poller = WorldPoller(db_conn, base_url="http://test")
-    poller.store_tribe({"id": "tribe-4", "name": "Stale", "nameShort": "STL", "memberCount": 1, "taxRate": 0.0})
+    poller.store_tribe(
+        {"id": "tribe-4", "name": "Stale", "nameShort": "STL", "memberCount": 1, "taxRate": 0.0}
+    )
     db_conn.execute("UPDATE tribe_cache SET is_stale = 1 WHERE tribe_id = 'tribe-4'")
     db_conn.commit()
     stale = poller.get_stale_tribes()
@@ -237,38 +247,34 @@ def test_get_stale_tribes(db_conn):
 def test_check_health_no_base_url(db_conn):
     """check_health returns unavailable when no base_url."""
     import asyncio
+
     poller = WorldPoller(db_conn, base_url="")
-    result = asyncio.get_event_loop().run_until_complete(
-        poller.check_health(None)
-    )
+    result = asyncio.get_event_loop().run_until_complete(poller.check_health(None))
     assert result["available"] is False
 
 
 def test_no_base_url_poll_static(db_conn):
     """poll_static_data returns empty when no base_url."""
     import asyncio
+
     poller = WorldPoller(db_conn, base_url="")
-    result = asyncio.get_event_loop().run_until_complete(
-        poller.poll_static_data(None)
-    )
+    result = asyncio.get_event_loop().run_until_complete(poller.poll_static_data(None))
     assert result == {}
 
 
 def test_no_base_url_poll_tribes(db_conn):
     """poll_tribes returns 0 when no base_url."""
     import asyncio
+
     poller = WorldPoller(db_conn, base_url="")
-    result = asyncio.get_event_loop().run_until_complete(
-        poller.poll_tribes(None)
-    )
+    result = asyncio.get_event_loop().run_until_complete(poller.poll_tribes(None))
     assert result == 0
 
 
 def test_no_base_url_poll_orbital_zones(db_conn):
     """poll_orbital_zones returns 0 when no base_url."""
     import asyncio
+
     poller = WorldPoller(db_conn, base_url="")
-    result = asyncio.get_event_loop().run_until_complete(
-        poller.poll_orbital_zones(None)
-    )
+    result = asyncio.get_event_loop().run_until_complete(poller.poll_orbital_zones(None))
     assert result == 0

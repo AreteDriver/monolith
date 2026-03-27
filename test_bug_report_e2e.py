@@ -41,7 +41,10 @@ async def main():
     settings = get_settings()
 
     print(f"GitHub repo:  {settings.github_repo or '(not set)'}")
-    print(f"GitHub token: {'***' + settings.github_token[-4:] if settings.github_token else '(not set)'}")
+    print(
+        "GitHub token: "
+        f"{'***' + settings.github_token[-4:] if settings.github_token else '(not set)'}"
+    )
     print(f"Mode:         {'LIVE — will file real issue' if live else 'DRY RUN'}")
     print()
 
@@ -58,10 +61,10 @@ async def main():
 
         if not settings.github_repo:
             print("\nWARNING: MONOLITH_GITHUB_REPO not set. Set it in .env:")
-            print('  MONOLITH_GITHUB_REPO=AreteDriver/monolith')
+            print("  MONOLITH_GITHUB_REPO=AreteDriver/monolith")
         if not settings.github_token:
             print("\nWARNING: MONOLITH_GITHUB_TOKEN not set. Set it in .env:")
-            print('  MONOLITH_GITHUB_TOKEN=ghp_...')
+            print("  MONOLITH_GITHUB_TOKEN=ghp_...")
         return
 
     if not settings.github_repo or not settings.github_token:
@@ -78,7 +81,9 @@ async def main():
 
     # Test dedup — same anomaly should be skipped
     result2 = await file_github_issue(settings.github_repo, settings.github_token, anomaly)
-    print(f"Dedup test:   {'PASS (skipped duplicate)' if not result2 else 'FAIL (filed duplicate)'}")
+    print(
+        f"Dedup test:   {'PASS (skipped duplicate)' if not result2 else 'FAIL (filed duplicate)'}"
+    )
 
     # Test non-critical — should be skipped
     low_anomaly = _make_test_anomaly()

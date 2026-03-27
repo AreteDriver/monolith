@@ -80,8 +80,7 @@ class SequenceChecker(BaseChecker):
                             source_id=row["transaction_hash"],
                             timestamp=0,
                             derivation=(
-                                f"S2: {row['cnt']} non-fuel events"
-                                f" types: {row['event_types'][:50]}"
+                                f"S2: {row['cnt']} non-fuel events types: {row['event_types'][:50]}"
                             ),
                         )
                     ],
@@ -134,10 +133,7 @@ class SequenceChecker(BaseChecker):
                                 source_type="chain_event",
                                 source_id=f"blocks:{blocks[i - 1]}-{blocks[i]}",
                                 timestamp=0,
-                                derivation=(
-                                    f"S4: {gap}-block gap"
-                                    f" {blocks[i - 1]}-{blocks[i]}"
-                                ),
+                                derivation=(f"S4: {gap}-block gap {blocks[i - 1]}-{blocks[i]}"),
                             )
                         ],
                     )

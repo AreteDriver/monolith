@@ -237,7 +237,9 @@ async def test_graphql_enrichment_loop_handles_exception():
 async def test_warden_loop_completed():
     """warden_loop processes completed results."""
     warden = MagicMock()
-    warden.run_cycle = AsyncMock(return_value={"status": "completed", "verified": 2, "dismissed": 1})
+    warden.run_cycle = AsyncMock(
+        return_value={"status": "completed", "verified": 2, "dismissed": 1}
+    )
 
     with patch("backend.main.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
         mock_sleep.side_effect = [None, asyncio.CancelledError()]
@@ -260,9 +262,11 @@ async def test_warden_loop_paused():
         if len(sleep_calls) >= 2:
             raise asyncio.CancelledError()
 
-    with patch("backend.main.asyncio.sleep", side_effect=track_sleep):
-        with pytest.raises(asyncio.CancelledError):
-            await warden_loop(warden, interval=300)
+    with (
+        patch("backend.main.asyncio.sleep", side_effect=track_sleep),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await warden_loop(warden, interval=300)
 
     # First sleep is startup delay (120), second should be interval*10 (3000)
     assert sleep_calls[0] == 120  # startup delay
@@ -292,11 +296,13 @@ async def test_table_prune_loop_prunes_old_data(db_conn):
     # Seed objects to satisfy foreign key constraints
     for i in range(6):
         db_conn.execute(
-            "INSERT OR IGNORE INTO objects (object_id, object_type, last_seen) VALUES (?, 'gate', ?)",
+            "INSERT OR IGNORE INTO objects (object_id, object_type, last_seen) "
+            "VALUES (?, 'gate', ?)",
             (f"obj-{i}", now),
         )
     db_conn.execute(
-        "INSERT OR IGNORE INTO objects (object_id, object_type, last_seen) VALUES ('obj-recent', 'gate', ?)",
+        "INSERT OR IGNORE INTO objects (object_id, object_type, last_seen) "
+        "VALUES ('obj-recent', 'gate', ?)",
         (now,),
     )
     db_conn.commit()
@@ -406,9 +412,9 @@ async def test_static_data_loop_calls_all_pollers():
         # Sleeps: 15s startup, 2s per endpoint inside poll_static_data (mocked),
         # 5s pause, tribes, 5s pause, orbital zones, then interval sleep -> cancel
         mock_sleep.side_effect = [
-            None,   # 15s startup
-            None,   # 5s pause before tribes
-            None,   # 5s pause before orbital zones
+            None,  # 15s startup
+            None,  # 5s pause before tribes
+            None,  # 5s pause before orbital zones
             asyncio.CancelledError(),  # interval sleep
         ]
         with pytest.raises(asyncio.CancelledError):
@@ -466,9 +472,7 @@ async def test_check_sui_rpc_error():
     from backend.main import _check_sui_rpc
 
     with respx.mock:
-        respx.post("https://test-rpc.io").mock(
-            side_effect=httpx.ConnectError("timeout")
-        )
+        respx.post("https://test-rpc.io").mock(side_effect=httpx.ConnectError("timeout"))
         result = await _check_sui_rpc("https://test-rpc.io")
 
     assert result == "unreachable"
@@ -483,9 +487,7 @@ async def test_check_sui_rpc_non_200():
     from backend.main import _check_sui_rpc
 
     with respx.mock:
-        respx.post("https://test-rpc.io").mock(
-            return_value=_httpx.Response(503)
-        )
+        respx.post("https://test-rpc.io").mock(return_value=_httpx.Response(503))
         result = await _check_sui_rpc("https://test-rpc.io")
 
     assert result == "http_503"

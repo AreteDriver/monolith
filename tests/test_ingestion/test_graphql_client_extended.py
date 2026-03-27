@@ -35,8 +35,7 @@ def _seed_objects(conn, objects: list[tuple[str, str, int]]):
     """Insert objects with object_id, type, last_seen."""
     for obj_id, obj_type, last_seen in objects:
         conn.execute(
-            "INSERT OR REPLACE INTO objects (object_id, object_type, last_seen) "
-            "VALUES (?, ?, ?)",
+            "INSERT OR REPLACE INTO objects (object_id, object_type, last_seen) VALUES (?, ?, ?)",
             (obj_id, obj_type, last_seen),
         )
     conn.commit()
@@ -46,8 +45,8 @@ def _seed_chain_events(conn, events: list[dict]):
     """Insert chain events with sender in raw_json."""
     for i, evt in enumerate(events):
         conn.execute(
-            "INSERT INTO chain_events (event_id, event_type, object_id, raw_json, timestamp, processed) "
-            "VALUES (?, 'test', 'obj', ?, ?, 1)",
+            "INSERT INTO chain_events (event_id, event_type, object_id,"
+            " raw_json, timestamp, processed) VALUES (?, 'test', 'obj', ?, ?, 1)",
             (f"evt-{i}", json.dumps(evt), evt.get("_ts", int(time.time()))),
         )
     conn.commit()
@@ -64,22 +63,38 @@ async def test_audit_object_versions_stores_versions(gql_client, db_conn):
 
     mock_client = AsyncMock()
     # obj1 has 2 versions
-    resp1 = _mock_graphql_response({
-        "objectVersions": {
-            "nodes": [
-                {"version": 1, "digest": "d1", "asMoveObject": {"contents": {"json": {"fuel": 100}}}},
-                {"version": 2, "digest": "d2", "asMoveObject": {"contents": {"json": {"fuel": 50}}}},
-            ]
+    resp1 = _mock_graphql_response(
+        {
+            "objectVersions": {
+                "nodes": [
+                    {
+                        "version": 1,
+                        "digest": "d1",
+                        "asMoveObject": {"contents": {"json": {"fuel": 100}}},
+                    },
+                    {
+                        "version": 2,
+                        "digest": "d2",
+                        "asMoveObject": {"contents": {"json": {"fuel": 50}}},
+                    },
+                ]
+            }
         }
-    })
+    )
     # obj2 has 1 version
-    resp2 = _mock_graphql_response({
-        "objectVersions": {
-            "nodes": [
-                {"version": 1, "digest": "d3", "asMoveObject": {"contents": {"json": {"state": "open"}}}},
-            ]
+    resp2 = _mock_graphql_response(
+        {
+            "objectVersions": {
+                "nodes": [
+                    {
+                        "version": 1,
+                        "digest": "d3",
+                        "asMoveObject": {"contents": {"json": {"state": "open"}}},
+                    },
+                ]
+            }
         }
-    })
+    )
     mock_client.post.side_effect = [resp1, resp2]
 
     stored = await gql_client.audit_object_versions(mock_client)
@@ -115,11 +130,15 @@ async def test_audit_object_versions_handles_error(gql_client, db_conn):
     # First object errors, second succeeds
     mock_client.post.side_effect = [
         httpx.ConnectError("timeout"),
-        _mock_graphql_response({
-            "objectVersions": {
-                "nodes": [{"version": 1, "digest": "d1", "asMoveObject": {"contents": {"json": {}}}}]
+        _mock_graphql_response(
+            {
+                "objectVersions": {
+                    "nodes": [
+                        {"version": 1, "digest": "d1", "asMoveObject": {"contents": {"json": {}}}}
+                    ]
+                }
             }
-        }),
+        ),
     ]
 
     stored = await gql_client.audit_object_versions(mock_client)
@@ -146,11 +165,19 @@ async def test_audit_object_versions_ignores_duplicates(gql_client, db_conn):
     _seed_objects(db_conn, [("0xobj1", "assembly", now)])
 
     mock_client = AsyncMock()
-    resp = _mock_graphql_response({
-        "objectVersions": {
-            "nodes": [{"version": 1, "digest": "d1", "asMoveObject": {"contents": {"json": {"fuel": 100}}}}]
+    resp = _mock_graphql_response(
+        {
+            "objectVersions": {
+                "nodes": [
+                    {
+                        "version": 1,
+                        "digest": "d1",
+                        "asMoveObject": {"contents": {"json": {"fuel": 100}}},
+                    }
+                ]
+            }
         }
-    })
+    )
     mock_client.post.return_value = resp
 
     # First call stores
@@ -160,7 +187,9 @@ async def test_audit_object_versions_ignores_duplicates(gql_client, db_conn):
     # Still counted but INSERT OR IGNORE doesn't fail
     assert stored >= 0
 
-    rows = db_conn.execute("SELECT COUNT(*) FROM object_versions WHERE object_id = '0xobj1'").fetchone()
+    rows = db_conn.execute(
+        "SELECT COUNT(*) FROM object_versions WHERE object_id = '0xobj1'"
+    ).fetchone()
     assert rows[0] == 1
 
 
@@ -177,15 +206,15 @@ async def test_poll_config_singletons_stores_snapshots(gql_client, db_conn):
         mock_client.post.side_effect = None
 
     responses = [
-        _mock_graphql_response({
-            "object": {"version": 5, "asMoveObject": {"contents": {"json": {"rate": 0.001}}}}
-        }),
-        _mock_graphql_response({
-            "object": {"version": 3, "asMoveObject": {"contents": {"json": {"burn_rate": 10}}}}
-        }),
-        _mock_graphql_response({
-            "object": {"version": 7, "asMoveObject": {"contents": {"json": {"toll": 100}}}}
-        }),
+        _mock_graphql_response(
+            {"object": {"version": 5, "asMoveObject": {"contents": {"json": {"rate": 0.001}}}}}
+        ),
+        _mock_graphql_response(
+            {"object": {"version": 3, "asMoveObject": {"contents": {"json": {"burn_rate": 10}}}}}
+        ),
+        _mock_graphql_response(
+            {"object": {"version": 7, "asMoveObject": {"contents": {"json": {"toll": 100}}}}}
+        ),
     ]
     mock_client.post.side_effect = responses
 
@@ -204,9 +233,9 @@ async def test_poll_config_singletons_skips_not_found(gql_client, db_conn):
     mock_client = AsyncMock()
     mock_client.post.side_effect = [
         _mock_graphql_response({"object": None}),  # energy not found
-        _mock_graphql_response({
-            "object": {"version": 1, "asMoveObject": {"contents": {"json": {}}}}
-        }),
+        _mock_graphql_response(
+            {"object": {"version": 1, "asMoveObject": {"contents": {"json": {}}}}}
+        ),
         _mock_graphql_response({"object": None}),  # gate not found
     ]
 
@@ -220,12 +249,12 @@ async def test_poll_config_singletons_handles_error(gql_client, db_conn):
     mock_client = AsyncMock()
     mock_client.post.side_effect = [
         httpx.ConnectError("timeout"),  # energy fails
-        _mock_graphql_response({
-            "object": {"version": 2, "asMoveObject": {"contents": {"json": {"x": 1}}}}
-        }),
-        _mock_graphql_response({
-            "object": {"version": 3, "asMoveObject": {"contents": {"json": {"y": 2}}}}
-        }),
+        _mock_graphql_response(
+            {"object": {"version": 2, "asMoveObject": {"contents": {"json": {"x": 1}}}}}
+        ),
+        _mock_graphql_response(
+            {"object": {"version": 3, "asMoveObject": {"contents": {"json": {"y": 2}}}}}
+        ),
     ]
 
     stored = await gql_client.poll_config_singletons(mock_client)
@@ -239,21 +268,26 @@ async def test_poll_config_singletons_handles_error(gql_client, db_conn):
 async def test_profile_wallet_activity_computes_stats(gql_client, db_conn):
     """Profiles wallet with transaction intervals for bot detection."""
     now = int(time.time())
-    _seed_chain_events(db_conn, [
-        {"sender": "0xwallet1", "_ts": now},
-    ])
+    _seed_chain_events(
+        db_conn,
+        [
+            {"sender": "0xwallet1", "_ts": now},
+        ],
+    )
 
     mock_client = AsyncMock()
-    mock_client.post.return_value = _mock_graphql_response({
-        "transactions": {
-            "nodes": [
-                {"effects": {"timestamp": str(now * 1000 - 30000)}},
-                {"effects": {"timestamp": str(now * 1000 - 20000)}},
-                {"effects": {"timestamp": str(now * 1000 - 10000)}},
-                {"effects": {"timestamp": str(now * 1000)}},
-            ]
+    mock_client.post.return_value = _mock_graphql_response(
+        {
+            "transactions": {
+                "nodes": [
+                    {"effects": {"timestamp": str(now * 1000 - 30000)}},
+                    {"effects": {"timestamp": str(now * 1000 - 20000)}},
+                    {"effects": {"timestamp": str(now * 1000 - 10000)}},
+                    {"effects": {"timestamp": str(now * 1000)}},
+                ]
+            }
         }
-    })
+    )
 
     updated = await gql_client.profile_wallet_activity(mock_client)
     assert updated == 1
@@ -273,14 +307,16 @@ async def test_profile_wallet_activity_skips_few_txs(gql_client, db_conn):
     _seed_chain_events(db_conn, [{"sender": "0xwallet1", "_ts": now}])
 
     mock_client = AsyncMock()
-    mock_client.post.return_value = _mock_graphql_response({
-        "transactions": {
-            "nodes": [
-                {"effects": {"timestamp": str(now * 1000)}},
-                {"effects": {"timestamp": str(now * 1000 - 10000)}},
-            ]
+    mock_client.post.return_value = _mock_graphql_response(
+        {
+            "transactions": {
+                "nodes": [
+                    {"effects": {"timestamp": str(now * 1000)}},
+                    {"effects": {"timestamp": str(now * 1000 - 10000)}},
+                ]
+            }
         }
-    })
+    )
 
     updated = await gql_client.profile_wallet_activity(mock_client)
     assert updated == 0
@@ -328,15 +364,17 @@ async def test_profile_wallet_activity_timestamps_epoch_seconds(gql_client, db_c
     _seed_chain_events(db_conn, [{"sender": "0xwallet1", "_ts": now}])
 
     mock_client = AsyncMock()
-    mock_client.post.return_value = _mock_graphql_response({
-        "transactions": {
-            "nodes": [
-                {"effects": {"timestamp": str(now - 30)}},
-                {"effects": {"timestamp": str(now - 20)}},
-                {"effects": {"timestamp": str(now - 10)}},
-            ]
+    mock_client.post.return_value = _mock_graphql_response(
+        {
+            "transactions": {
+                "nodes": [
+                    {"effects": {"timestamp": str(now - 30)}},
+                    {"effects": {"timestamp": str(now - 20)}},
+                    {"effects": {"timestamp": str(now - 10)}},
+                ]
+            }
         }
-    })
+    )
 
     updated = await gql_client.profile_wallet_activity(mock_client)
     assert updated == 1
@@ -354,19 +392,20 @@ async def test_profile_wallet_activity_timestamps_epoch_seconds(gql_client, db_c
 async def test_scan_owned_objects_returns_counts(gql_client, db_conn):
     """Scans owned objects and returns wallet→count map."""
     now = int(time.time())
-    _seed_chain_events(db_conn, [
-        {"sender": "0xwallet1", "_ts": now},
-        {"sender": "0xwallet2", "_ts": now},
-    ])
+    _seed_chain_events(
+        db_conn,
+        [
+            {"sender": "0xwallet1", "_ts": now},
+            {"sender": "0xwallet2", "_ts": now},
+        ],
+    )
 
     mock_client = AsyncMock()
     mock_client.post.side_effect = [
-        _mock_graphql_response({
-            "objects": {"nodes": [{"address": "0xa"}, {"address": "0xb"}, {"address": "0xc"}]}
-        }),
-        _mock_graphql_response({
-            "objects": {"nodes": [{"address": "0xd"}]}
-        }),
+        _mock_graphql_response(
+            {"objects": {"nodes": [{"address": "0xa"}, {"address": "0xb"}, {"address": "0xc"}]}}
+        ),
+        _mock_graphql_response({"objects": {"nodes": [{"address": "0xd"}]}}),
     ]
 
     ownership = await gql_client.scan_owned_objects(mock_client)
@@ -381,9 +420,7 @@ async def test_scan_owned_objects_skips_empty(gql_client, db_conn):
     _seed_chain_events(db_conn, [{"sender": "0xwallet1", "_ts": now}])
 
     mock_client = AsyncMock()
-    mock_client.post.return_value = _mock_graphql_response({
-        "objects": {"nodes": []}
-    })
+    mock_client.post.return_value = _mock_graphql_response({"objects": {"nodes": []}})
 
     ownership = await gql_client.scan_owned_objects(mock_client)
     assert ownership == {}

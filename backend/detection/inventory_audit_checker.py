@@ -76,9 +76,7 @@ class InventoryAuditChecker(BaseChecker):
                                 source_id=f"ledger:{assembly_id}:{item_type_id}",
                                 timestamp=0,
                                 derivation=(
-                                    f"IA1: net {net} for"
-                                    f" {item_type_id[:16]}"
-                                    " — more out than in"
+                                    f"IA1: net {net} for {item_type_id[:16]} — more out than in"
                                 ),
                             )
                         ],

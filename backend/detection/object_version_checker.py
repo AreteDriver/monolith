@@ -71,10 +71,7 @@ class ObjectVersionChecker(BaseChecker):
                             source_type="world_state",
                             source_id=f"version:{obj_id}:{row['older_version']}",
                             timestamp=row["older_fetched"],
-                            derivation=(
-                                f"OV1: v{row['older_version']}"
-                                f" at {row['older_fetched']}"
-                            ),
+                            derivation=(f"OV1: v{row['older_version']} at {row['older_fetched']}"),
                         ),
                         ProvenanceEntry(
                             source_type="world_state",
@@ -148,9 +145,7 @@ class ObjectVersionChecker(BaseChecker):
                             source_id=f"versions:{obj_id}:{row['min_ver']}-{row['max_ver']}",
                             timestamp=row["last_fetch"],
                             derivation=(
-                                f"OV2: v{row['min_ver']}"
-                                f"→v{row['max_ver']}"
-                                " no chain events"
+                                f"OV2: v{row['min_ver']}→v{row['max_ver']} no chain events"
                             ),
                         )
                     ],

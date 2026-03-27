@@ -267,6 +267,7 @@ def test_background_systems_empty(client):
     """Background systems returns empty list when no reference data."""
     # Clear cache
     import backend.api.stats as stats_mod
+
     stats_mod._bg_systems_cache = None
     stats_mod._bg_systems_etag = None
 
@@ -279,6 +280,7 @@ def test_background_systems_empty(client):
 def test_background_systems_with_data(client):
     """Background systems returns cached reference data."""
     import backend.api.stats as stats_mod
+
     stats_mod._bg_systems_cache = None
     stats_mod._bg_systems_etag = None
 
@@ -297,6 +299,7 @@ def test_background_systems_with_data(client):
 def test_background_systems_etag_304(client):
     """Background systems returns 304 when ETag matches."""
     import backend.api.stats as stats_mod
+
     stats_mod._bg_systems_cache = None
     stats_mod._bg_systems_etag = None
 
@@ -316,6 +319,7 @@ def test_background_systems_etag_304(client):
 def test_background_systems_skips_zero_coords(client):
     """Background systems excludes systems at origin (0,0)."""
     import backend.api.stats as stats_mod
+
     stats_mod._bg_systems_cache = None
     stats_mod._bg_systems_etag = None
 
@@ -333,6 +337,7 @@ def test_enrich_system_ids(client):
     """Enrich endpoint backfills system_id from nexus killmails."""
     conn = app.state.db
     import json as json_mod
+
     # Insert an object without system_id
     now = int(time.time())
     conn.execute(
@@ -345,9 +350,11 @@ def test_enrich_system_ids(client):
         "INSERT INTO nexus_events (event_id, event_type, payload, solar_system_id, received_at) "
         "VALUES (?, ?, ?, ?, ?)",
         (
-            "nex-1", "killmail",
+            "nex-1",
+            "killmail",
             json_mod.dumps({"victim": {"id": "obj-enrich"}, "killer": {"id": "obj-other"}}),
-            "30012602", now,
+            "30012602",
+            now,
         ),
     )
     conn.commit()

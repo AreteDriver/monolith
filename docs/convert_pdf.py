@@ -2,6 +2,7 @@
 """Convert aegis-whitepaper.md to styled PDF via weasyprint."""
 
 from pathlib import Path
+
 import markdown
 from weasyprint import HTML
 

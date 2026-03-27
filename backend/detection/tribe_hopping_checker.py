@@ -93,8 +93,7 @@ class TribeHoppingChecker(BaseChecker):
                                 source_id=f"versions:{obj_id}",
                                 timestamp=0,
                                 derivation=(
-                                    f"TH1: {len(tribes)} tribe_ids"
-                                    f" in 30d: {sorted(tribes)[:5]}"
+                                    f"TH1: {len(tribes)} tribe_ids in 30d: {sorted(tribes)[:5]}"
                                 ),
                             )
                         ],

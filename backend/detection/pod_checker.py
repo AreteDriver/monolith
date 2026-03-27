@@ -135,8 +135,7 @@ class PodChecker(BaseChecker):
                                 source_id=f"graphql:{obj_id}",
                                 timestamp=int(time.time()),
                                 derivation=(
-                                    "P1: chain diverges on"
-                                    f" {', '.join(mismatches.keys())}"
+                                    f"P1: chain diverges on {', '.join(mismatches.keys())}"
                                 ),
                             ),
                         ],

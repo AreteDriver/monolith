@@ -75,8 +75,7 @@ class FeralAIChecker(BaseChecker):
                             source_id=f"feral_ai:{zone_id}",
                             timestamp=0,
                             derivation=(
-                                f"FA1: {row['event_count']} events"
-                                f" in {SURGE_WINDOW // 60}min"
+                                f"FA1: {row['event_count']} events in {SURGE_WINDOW // 60}min"
                             ),
                         )
                     ],

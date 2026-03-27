@@ -50,7 +50,7 @@ def main():
     updated = 0
     for row in rows:
         # Deterministic system assignment from object_id hash
-        h = hashlib.md5(row["object_id"].encode()).hexdigest()
+        h = hashlib.md5(row["object_id"].encode(), usedforsecurity=False).hexdigest()
         idx = int(h[:8], 16) % len(system_ids)
         system_id = system_ids[idx]
 

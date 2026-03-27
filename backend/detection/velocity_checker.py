@@ -165,10 +165,7 @@ class VelocityChecker(BaseChecker):
                                 source_type="detection_rule",
                                 source_id=f"velocity:{assembly_id}",
                                 timestamp=0,
-                                derivation=(
-                                    f"EV2: 0 events in 24h,"
-                                    f" avg was {avg_daily:.1f}/day"
-                                ),
+                                derivation=(f"EV2: 0 events in 24h, avg was {avg_daily:.1f}/day"),
                             )
                         ],
                     )

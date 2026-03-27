@@ -70,10 +70,7 @@ class BotPatternChecker(BaseChecker):
                                 source_type="detection_rule",
                                 source_id=f"wallet:{row['wallet_address']}",
                                 timestamp=0,
-                                derivation=(
-                                    f"BP1: {row['tx_count']} txns,"
-                                    f" CV={cv:.4f} < {MAX_CV}"
-                                ),
+                                derivation=(f"BP1: {row['tx_count']} txns, CV={cv:.4f} < {MAX_CV}"),
                             )
                         ],
                     )

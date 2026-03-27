@@ -123,8 +123,7 @@ class MarketManipulationChecker(BaseChecker):
                             source_id=f"wash:{row['src_assembly']}:{row['dst_assembly']}",
                             timestamp=cutoff,
                             derivation=(
-                                f"MM1: {row['round_trips']} round trips"
-                                f", same_owner={same_owner}"
+                                f"MM1: {row['round_trips']} round trips, same_owner={same_owner}"
                             ),
                         )
                     ],
@@ -212,8 +211,7 @@ class MarketManipulationChecker(BaseChecker):
                                     source_id=f"pricefix:{system_id}:{price}",
                                     timestamp=matching[0]["timestamp"],
                                     derivation=(
-                                        f"MM2: {len(unique_assemblies)} assemblies"
-                                        f" @ price={price}"
+                                        f"MM2: {len(unique_assemblies)} assemblies @ price={price}"
                                     ),
                                 )
                             ],
@@ -288,8 +286,7 @@ class MarketManipulationChecker(BaseChecker):
                                     source_id=f"scarcity:{owner}:{item_type}",
                                     timestamp=0,
                                     derivation=(
-                                        f"MM3: {share * 100:.0f}% share"
-                                        f" ({amount}/{total})"
+                                        f"MM3: {share * 100:.0f}% share ({amount}/{total})"
                                     ),
                                 )
                             ],

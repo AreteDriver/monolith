@@ -356,8 +356,14 @@ class WorldPoller:
                            zone_data = excluded.zone_data,
                            last_polled = excluded.last_polled""",
                     (
-                        zone_id, zone_name, system_id, feral_ai_tier,
-                        threat_level, json.dumps(item), now, now,
+                        zone_id,
+                        zone_name,
+                        system_id,
+                        feral_ai_tier,
+                        threat_level,
+                        json.dumps(item),
+                        now,
+                        now,
                     ),
                 )
                 count += 1

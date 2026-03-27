@@ -156,50 +156,68 @@ def test_ownercap_transferred_event_type(db_conn):
 
 def test_involves_ownercap_via_event_type(db_conn):
     """_involves_ownercap: returns True for known event types."""
-    assert OwnershipChecker._involves_ownercap(
-        {"event_type": "TransferObject", "raw_json": ""},
-        {},
-    ) is True
+    assert (
+        OwnershipChecker._involves_ownercap(
+            {"event_type": "TransferObject", "raw_json": ""},
+            {},
+        )
+        is True
+    )
 
 
 def test_involves_ownercap_via_raw_json(db_conn):
     """_involves_ownercap: returns True for OwnerCap in raw_json."""
-    assert OwnershipChecker._involves_ownercap(
-        {"event_type": "SomeEvent", "raw_json": '{"type":"OwnerCap"}'},
-        {},
-    ) is True
+    assert (
+        OwnershipChecker._involves_ownercap(
+            {"event_type": "SomeEvent", "raw_json": '{"type":"OwnerCap"}'},
+            {},
+        )
+        is True
+    )
 
 
 def test_involves_ownercap_via_type_repr(db_conn):
     """_involves_ownercap: returns True when type.repr contains OwnerCap."""
-    assert OwnershipChecker._involves_ownercap(
-        {"event_type": "Other", "raw_json": "{}"},
-        {"type": {"repr": "0xpkg::auth::OwnerCap"}},
-    ) is True
+    assert (
+        OwnershipChecker._involves_ownercap(
+            {"event_type": "Other", "raw_json": "{}"},
+            {"type": {"repr": "0xpkg::auth::OwnerCap"}},
+        )
+        is True
+    )
 
 
 def test_involves_ownercap_false(db_conn):
     """_involves_ownercap: returns False for unrelated events."""
-    assert OwnershipChecker._involves_ownercap(
-        {"event_type": "FuelEvent", "raw_json": '{"amount": 100}'},
-        {"type": {"repr": "0xpkg::fuel::FuelEvent"}},
-    ) is False
+    assert (
+        OwnershipChecker._involves_ownercap(
+            {"event_type": "FuelEvent", "raw_json": '{"amount": 100}'},
+            {"type": {"repr": "0xpkg::fuel::FuelEvent"}},
+        )
+        is False
+    )
 
 
 def test_extract_address_string(db_conn):
     """_extract_address: returns string value for matching key."""
-    assert OwnershipChecker._extract_address(
-        {"sender": "0xabc", "recipient": "0xdef"},
-        "sender",
-    ) == "0xabc"
+    assert (
+        OwnershipChecker._extract_address(
+            {"sender": "0xabc", "recipient": "0xdef"},
+            "sender",
+        )
+        == "0xabc"
+    )
 
 
 def test_extract_address_nested_dict(db_conn):
     """_extract_address: extracts address from nested dict."""
-    assert OwnershipChecker._extract_address(
-        {"sender": {"address": "0x123"}},
-        "sender",
-    ) == "0x123"
+    assert (
+        OwnershipChecker._extract_address(
+            {"sender": {"address": "0x123"}},
+            "sender",
+        )
+        == "0x123"
+    )
 
 
 def test_extract_address_missing(db_conn):
@@ -246,7 +264,11 @@ def test_ownership_divergence_with_transfer(db_conn):
     )
     # Insert a transfer event
     _insert_event(
-        db_conn, "evt-transfer", "TransferObject", "obj-div", now - 30,
+        db_conn,
+        "evt-transfer",
+        "TransferObject",
+        "obj-div",
+        now - 30,
         {"parsedJson": {"objectId": "obj-div"}, "type": {"repr": "OwnerCap"}},
     )
     db_conn.commit()

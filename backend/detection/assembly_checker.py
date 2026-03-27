@@ -108,8 +108,7 @@ class AssemblyChecker(BaseChecker):
                             source_id=f"snapshot:{row['object_id']}:{row['snapshot_time']}",
                             timestamp=row["snapshot_time"],
                             derivation=(
-                                f"A1: API snapshot state '{api_state}'"
-                                f", diverged from transition"
+                                f"A1: API snapshot state '{api_state}', diverged from transition"
                             ),
                         ),
                     ],
@@ -174,8 +173,7 @@ class AssemblyChecker(BaseChecker):
                             source_id=jump["event_id"],
                             timestamp=jump["timestamp"],
                             derivation=(
-                                f"A2: JumpEvent tx {tx_hash[:18]}"
-                                f" no FuelEvent for {gate_id[:16]}"
+                                f"A2: JumpEvent tx {tx_hash[:18]} no FuelEvent for {gate_id[:16]}"
                             ),
                         )
                     ],
@@ -257,10 +255,7 @@ class AssemblyChecker(BaseChecker):
                             source_type="chain_event",
                             source_id=fuel["event_id"],
                             timestamp=fuel["timestamp"],
-                            derivation=(
-                                f"A3: FuelEvent tx {tx_hash[:18]}"
-                                " no matching JumpEvent"
-                            ),
+                            derivation=(f"A3: FuelEvent tx {tx_hash[:18]} no matching JumpEvent"),
                         )
                     ],
                 )
@@ -419,10 +414,7 @@ class AssemblyChecker(BaseChecker):
                             source_type="world_state",
                             source_id=f"snapshot:{obj_id}:{snapshots[0]['snapshot_time']}",
                             timestamp=snapshots[0]["snapshot_time"],
-                            derivation=(
-                                f"A5: new owner {new_owner[:16]}"
-                                ", no transfer event"
-                            ),
+                            derivation=(f"A5: new owner {new_owner[:16]}, no transfer event"),
                         ),
                     ],
                 )

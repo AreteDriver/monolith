@@ -173,10 +173,7 @@ class CoordinatedBuyingChecker(BaseChecker):
                         source_type="chain_event",
                         source_id=f"cluster:{system_id}",
                         timestamp=events[0].get("timestamp", 0) if events else 0,
-                        derivation=(
-                            f"CB1: {buyer_count} wallets"
-                            f" in {WINDOW_SECONDS // 60}min"
-                        ),
+                        derivation=(f"CB1: {buyer_count} wallets in {WINDOW_SECONDS // 60}min"),
                     )
                 ],
             )

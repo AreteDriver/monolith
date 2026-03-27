@@ -485,9 +485,7 @@ async def lifespan(app: FastAPI):
             )
         ),
         asyncio.create_task(table_prune_loop(conn)),
-        asyncio.create_task(
-            warden_loop(warden, settings.detection_interval, client=http_client)
-        ),
+        asyncio.create_task(warden_loop(warden, settings.detection_interval, client=http_client)),
     ]
 
     logger.info(

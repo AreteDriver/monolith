@@ -111,10 +111,7 @@ class EconomicChecker(BaseChecker):
                             source_type="world_state",
                             source_id=f"snapshot:{row['object_id']}:{row['new_time']}",
                             timestamp=row["new_time"],
-                            derivation=(
-                                f"E1: fuel={new_fuel},"
-                                f" delta={delta}, no chain events"
-                            ),
+                            derivation=(f"E1: fuel={new_fuel}, delta={delta}, no chain events"),
                         ),
                     ],
                 )
@@ -181,10 +178,7 @@ class EconomicChecker(BaseChecker):
                                 source_type="detection_rule",
                                 source_id=f"ledger:{row['assembly_id']}:{row['item_type_id']}",
                                 timestamp=0,
-                                derivation=(
-                                    f"E1: ledger={expected_balance}"
-                                    f", cargo={actual}"
-                                ),
+                                derivation=(f"E1: ledger={expected_balance}, cargo={actual}"),
                             )
                         ],
                     )
@@ -263,10 +257,7 @@ class EconomicChecker(BaseChecker):
                             source_type="world_state",
                             source_id=f"object:{obj_id}",
                             timestamp=row["last_seen"],
-                            derivation=(
-                                f"E2: last seen {row['last_seen']}"
-                                ", no destruction event"
-                            ),
+                            derivation=(f"E2: last seen {row['last_seen']}, no destruction event"),
                         )
                     ],
                 )
@@ -340,9 +331,7 @@ class EconomicChecker(BaseChecker):
                             source_id=row["transaction_hash"],
                             timestamp=0,
                             derivation=(
-                                f"E3: {row['cnt']}x"
-                                f" {row['event_type']}"
-                                f" for {row['object_id'][:16]}"
+                                f"E3: {row['cnt']}x {row['event_type']} for {row['object_id'][:16]}"
                             ),
                         )
                     ],
@@ -411,10 +400,7 @@ class EconomicChecker(BaseChecker):
                                 source_type="world_state",
                                 source_id=f"object:{row['object_id']}",
                                 timestamp=0,
-                                derivation=(
-                                    f"E4: fuel={fuel_amount}"
-                                    ", negative balance"
-                                ),
+                                derivation=(f"E4: fuel={fuel_amount}, negative balance"),
                             )
                         ],
                     )
@@ -447,8 +433,7 @@ class EconomicChecker(BaseChecker):
                                         source_id=f"object:{row['object_id']}",
                                         timestamp=0,
                                         derivation=(
-                                            f"E4: item {item_type[:16]}"
-                                            f" balance={balance}, negative"
+                                            f"E4: item {item_type[:16]} balance={balance}, negative"
                                         ),
                                     )
                                 ],

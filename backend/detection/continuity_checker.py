@@ -92,8 +92,7 @@ class ContinuityChecker(BaseChecker):
                             source_id=row["transaction_hash"],
                             timestamp=row["timestamp"],
                             derivation=(
-                                f"C1: {row['event_type']} refs"
-                                f" {obj_id[:16]} not in objects"
+                                f"C1: {row['event_type']} refs {obj_id[:16]} not in objects"
                             ),
                         )
                     ],
@@ -158,9 +157,7 @@ class ContinuityChecker(BaseChecker):
                             source_id=row["transaction_hash"],
                             timestamp=row["event_time"],
                             derivation=(
-                                f"C2: post-destruction"
-                                f" {row['event_type']}"
-                                f" at {row['event_time']}"
+                                f"C2: post-destruction {row['event_type']} at {row['event_time']}"
                             ),
                         ),
                     ],
@@ -237,10 +234,7 @@ class ContinuityChecker(BaseChecker):
                                 source_type="world_state",
                                 source_id=f"snapshot:{obj_id}:{snapshots[0]['snapshot_time']}",
                                 timestamp=snapshots[0]["snapshot_time"],
-                                derivation=(
-                                    f"C3: new state '{new_state}'"
-                                    ", invalid transition"
-                                ),
+                                derivation=(f"C3: new state '{new_state}', invalid transition"),
                             ),
                         ],
                     )

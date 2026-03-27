@@ -156,7 +156,9 @@ async def fetch_location_registry(client: httpx.AsyncClient) -> dict[str, str]:
     contents = move.get("contents", {})
     registry_json = contents.get("json", {})
 
-    logger.info("Registry contents keys: %s", list(registry_json.keys()) if registry_json else "empty")
+    logger.info(
+        "Registry contents keys: %s", list(registry_json.keys()) if registry_json else "empty"
+    )
 
     # The registry has a `locations` field which is a Move Table { id, size }
     locations_table = registry_json.get("locations", {})
@@ -190,11 +192,15 @@ async def fetch_location_registry(client: httpx.AsyncClient) -> dict[str, str]:
         page = 0
         while True:
             page += 1
-            table_data = await graphql(client, GET_TABLE_ENTRIES_QUERY, {
-                "address": table_id,
-                "first": 50,
-                "after": cursor,
-            })
+            table_data = await graphql(
+                client,
+                GET_TABLE_ENTRIES_QUERY,
+                {
+                    "address": table_id,
+                    "first": 50,
+                    "after": cursor,
+                },
+            )
             table_obj = table_data.get("object", {})
             if not table_obj:
                 logger.warning("Table object %s not found", table_id)
@@ -227,7 +233,9 @@ async def fetch_location_registry(client: httpx.AsyncClient) -> dict[str, str]:
                     if sid:
                         mappings[obj_addr] = sid
 
-            logger.info("  Table page %d: %d entries, total mappings: %d", page, len(nodes), len(mappings))
+            logger.info(
+                "  Table page %d: %d entries, total mappings: %d", page, len(nodes), len(mappings)
+            )
 
             if not page_info.get("hasNextPage") or not nodes:
                 break

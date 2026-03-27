@@ -4,8 +4,10 @@
 Run with: pipx run --spec weasyprint python md2pdf.py
 Or after: pipx inject weasyprint markdown
 """
-import markdown
+
 from pathlib import Path
+
+import markdown
 
 MD_PATH = Path(__file__).parent / "aegis-whitepaper.md"
 PDF_PATH = Path(__file__).parent / "aegis-whitepaper.pdf"
@@ -155,7 +157,8 @@ def main():
     # Python markdown library requires blank line before list starts (unlike CommonMark).
     # Insert blank lines before lines starting with "- " that follow non-blank, non-list lines.
     import re
-    md_text = re.sub(r'(\n)([^\n-][^\n]*\n)(- )', r'\1\2\n\3', md_text)
+
+    md_text = re.sub(r"(\n)([^\n-][^\n]*\n)(- )", r"\1\2\n\3", md_text)
 
     html_body = markdown.markdown(
         md_text,

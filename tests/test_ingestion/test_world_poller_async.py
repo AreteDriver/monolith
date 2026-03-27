@@ -52,7 +52,8 @@ async def test_poll_static_data_fetches_all_endpoints(poller, db_conn):
 
     # Verify data was stored in reference_data
     row = db_conn.execute(
-        "SELECT name FROM reference_data WHERE data_type = 'solarsystems' AND data_id = 'solarsystems-1'"
+        "SELECT name FROM reference_data "
+        "WHERE data_type = 'solarsystems' AND data_id = 'solarsystems-1'"
     ).fetchone()
     assert row["name"] == "Test solarsystems 1"
 
@@ -68,9 +69,7 @@ async def test_poll_static_data_handles_partial_failure(poller, db_conn):
             )
         )
         # types endpoint fails
-        respx.get(f"{BASE_URL}/v2/types").mock(
-            return_value=httpx.Response(500)
-        )
+        respx.get(f"{BASE_URL}/v2/types").mock(return_value=httpx.Response(500))
         respx.get(f"{BASE_URL}/v2/tribes").mock(
             return_value=httpx.Response(
                 200,
@@ -136,6 +135,7 @@ async def test_fetch_paginated_follows_pagination(poller, db_conn):
         async with httpx.AsyncClient() as client:
             # Use PAGE_LIMIT=2 to force pagination
             from backend.ingestion import world_poller
+
             original_limit = world_poller.PAGE_LIMIT
             world_poller.PAGE_LIMIT = 2
             try:
@@ -193,10 +193,10 @@ async def test_fetch_paginated_non_list_data(poller, db_conn):
 async def test_poll_tribes_stores_and_marks_stale(poller, db_conn):
     """poll_tribes stores tribes and marks unseen ones as stale."""
     # Pre-seed a tribe that won't appear in the API response
-    poller.store_tribe({"id": "old-tribe", "name": "Gone", "nameShort": "GN", "memberCount": 1, "taxRate": 0.0})
-    db_conn.execute(
-        "UPDATE tribe_cache SET last_confirmed_at = 0 WHERE tribe_id = 'old-tribe'"
+    poller.store_tribe(
+        {"id": "old-tribe", "name": "Gone", "nameShort": "GN", "memberCount": 1, "taxRate": 0.0}
     )
+    db_conn.execute("UPDATE tribe_cache SET last_confirmed_at = 0 WHERE tribe_id = 'old-tribe'")
     db_conn.commit()
 
     with respx.mock:
@@ -205,8 +205,20 @@ async def test_poll_tribes_stores_and_marks_stale(poller, db_conn):
                 200,
                 json={
                     "data": [
-                        {"id": "tribe-1", "name": "Raiders", "nameShort": "RDR", "memberCount": 42, "taxRate": 0.1},
-                        {"id": "tribe-2", "name": "Nomads", "nameShort": "NMD", "memberCount": 15, "taxRate": 0.0},
+                        {
+                            "id": "tribe-1",
+                            "name": "Raiders",
+                            "nameShort": "RDR",
+                            "memberCount": 42,
+                            "taxRate": 0.1,
+                        },
+                        {
+                            "id": "tribe-2",
+                            "name": "Nomads",
+                            "nameShort": "NMD",
+                            "memberCount": 15,
+                            "taxRate": 0.0,
+                        },
                     ],
                     "metadata": {"total": 2},
                 },
@@ -224,7 +236,9 @@ async def test_poll_tribes_stores_and_marks_stale(poller, db_conn):
     assert row["member_count"] == 42
 
     # old-tribe should be stale (last_confirmed_at=0, well over 1 hour ago)
-    old = db_conn.execute("SELECT is_stale FROM tribe_cache WHERE tribe_id = 'old-tribe'").fetchone()
+    old = db_conn.execute(
+        "SELECT is_stale FROM tribe_cache WHERE tribe_id = 'old-tribe'"
+    ).fetchone()
     assert old["is_stale"] == 1
 
 
@@ -233,6 +247,7 @@ async def test_poll_tribes_pagination(poller, db_conn):
     """poll_tribes follows pagination."""
     with respx.mock:
         from backend.ingestion import world_poller
+
         original_limit = world_poller.PAGE_LIMIT
         world_poller.PAGE_LIMIT = 1
 
@@ -242,14 +257,30 @@ async def test_poll_tribes_pagination(poller, db_conn):
                     httpx.Response(
                         200,
                         json={
-                            "data": [{"id": "t1", "name": "A", "nameShort": "A", "memberCount": 1, "taxRate": 0}],
+                            "data": [
+                                {
+                                    "id": "t1",
+                                    "name": "A",
+                                    "nameShort": "A",
+                                    "memberCount": 1,
+                                    "taxRate": 0,
+                                }
+                            ],
                             "metadata": {"total": 2},
                         },
                     ),
                     httpx.Response(
                         200,
                         json={
-                            "data": [{"id": "t2", "name": "B", "nameShort": "B", "memberCount": 2, "taxRate": 0}],
+                            "data": [
+                                {
+                                    "id": "t2",
+                                    "name": "B",
+                                    "nameShort": "B",
+                                    "memberCount": 2,
+                                    "taxRate": 0,
+                                }
+                            ],
                             "metadata": {"total": 2},
                         },
                     ),
@@ -268,9 +299,7 @@ async def test_poll_tribes_pagination(poller, db_conn):
 async def test_poll_tribes_http_error(poller, db_conn):
     """poll_tribes raises on HTTP error."""
     with respx.mock:
-        respx.get(f"{BASE_URL}/v2/tribes").mock(
-            return_value=httpx.Response(500)
-        )
+        respx.get(f"{BASE_URL}/v2/tribes").mock(return_value=httpx.Response(500))
 
         async with httpx.AsyncClient() as client:
             with pytest.raises(httpx.HTTPStatusError):
@@ -349,9 +378,7 @@ async def test_poll_orbital_zones_skips_no_id(poller, db_conn):
 async def test_poll_orbital_zones_http_error(poller, db_conn):
     """poll_orbital_zones handles HTTP error gracefully (breaks loop, returns 0)."""
     with respx.mock:
-        respx.get(f"{BASE_URL}/v2/orbitalzones").mock(
-            return_value=httpx.Response(500)
-        )
+        respx.get(f"{BASE_URL}/v2/orbitalzones").mock(return_value=httpx.Response(500))
 
         async with httpx.AsyncClient() as client:
             count = await poller.poll_orbital_zones(client)
@@ -368,7 +395,15 @@ async def test_poll_orbital_zones_upsert(poller, db_conn):
             return_value=httpx.Response(
                 200,
                 json={
-                    "data": [{"id": "z1", "name": "Old Name", "solarSystemId": "sys1", "feralAiTier": 1, "threatLevel": "low"}],
+                    "data": [
+                        {
+                            "id": "z1",
+                            "name": "Old Name",
+                            "solarSystemId": "sys1",
+                            "feralAiTier": 1,
+                            "threatLevel": "low",
+                        }
+                    ],
                     "metadata": {"total": 1},
                 },
             )
@@ -382,7 +417,15 @@ async def test_poll_orbital_zones_upsert(poller, db_conn):
             return_value=httpx.Response(
                 200,
                 json={
-                    "data": [{"id": "z1", "name": "New Name", "solarSystemId": "sys1", "feralAiTier": 5, "threatLevel": "critical"}],
+                    "data": [
+                        {
+                            "id": "z1",
+                            "name": "New Name",
+                            "solarSystemId": "sys1",
+                            "feralAiTier": 5,
+                            "threatLevel": "critical",
+                        }
+                    ],
                     "metadata": {"total": 1},
                 },
             )
@@ -403,9 +446,7 @@ async def test_poll_orbital_zones_upsert(poller, db_conn):
 async def test_check_health_available(poller):
     """check_health returns available=True on 200."""
     with respx.mock:
-        respx.get(f"{BASE_URL}/health").mock(
-            return_value=httpx.Response(200)
-        )
+        respx.get(f"{BASE_URL}/health").mock(return_value=httpx.Response(200))
 
         async with httpx.AsyncClient() as client:
             result = await poller.check_health(client)
@@ -418,9 +459,7 @@ async def test_check_health_available(poller):
 async def test_check_health_server_error(poller):
     """check_health returns available=False on non-200."""
     with respx.mock:
-        respx.get(f"{BASE_URL}/health").mock(
-            return_value=httpx.Response(503)
-        )
+        respx.get(f"{BASE_URL}/health").mock(return_value=httpx.Response(503))
 
         async with httpx.AsyncClient() as client:
             result = await poller.check_health(client)
@@ -433,9 +472,7 @@ async def test_check_health_server_error(poller):
 async def test_check_health_connection_error(poller):
     """check_health returns available=False with error on connection failure."""
     with respx.mock:
-        respx.get(f"{BASE_URL}/health").mock(
-            side_effect=httpx.ConnectError("connection refused")
-        )
+        respx.get(f"{BASE_URL}/health").mock(side_effect=httpx.ConnectError("connection refused"))
 
         async with httpx.AsyncClient() as client:
             result = await poller.check_health(client)
@@ -456,9 +493,11 @@ async def test_check_health_no_base_url(db_conn):
 # ── _store_reference ─────────────────────────────────────────────────────────
 
 
-def test_store_reference_uses_solarSystemId(poller, db_conn):
+def test_store_reference_uses_solar_system_id(poller, db_conn):
     """_store_reference extracts solarSystemId for id."""
-    poller._store_reference("solarsystems", {"solarSystemId": "30012602", "solarSystemName": "Alpha"})
+    poller._store_reference(
+        "solarsystems", {"solarSystemId": "30012602", "solarSystemName": "Alpha"}
+    )
     db_conn.commit()
 
     row = db_conn.execute(
@@ -468,7 +507,7 @@ def test_store_reference_uses_solarSystemId(poller, db_conn):
     assert row["name"] == "Alpha"
 
 
-def test_store_reference_uses_typeId(poller, db_conn):
+def test_store_reference_uses_type_id(poller, db_conn):
     """_store_reference extracts typeId for id."""
     poller._store_reference("types", {"typeId": "123", "name": "Frigate"})
     db_conn.commit()

@@ -125,8 +125,7 @@ class OrbitalZoneChecker(BaseChecker):
                             source_id=f"zone:{row['zone_id']}",
                             timestamp=0,
                             derivation=(
-                                f"OZ2: tier {row['feral_ai_tier']}"
-                                f" {row['recent_events']} events/hr"
+                                f"OZ2: tier {row['feral_ai_tier']} {row['recent_events']} events/hr"
                             ),
                         )
                     ],

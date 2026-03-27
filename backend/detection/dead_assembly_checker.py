@@ -101,10 +101,7 @@ class DeadAssemblyChecker(BaseChecker):
                             source_type="chain_event",
                             source_id=f"fuel:{object_id}",
                             timestamp=last_fuel_ts,
-                            derivation=(
-                                "DA1: last fuel"
-                                f" {(now - last_fuel_ts) / 86400:.1f}d ago"
-                            ),
+                            derivation=(f"DA1: last fuel {(now - last_fuel_ts) / 86400:.1f}d ago"),
                         ),
                     ],
                 )

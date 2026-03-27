@@ -196,8 +196,7 @@ class EngagementChecker(BaseChecker):
                                 source_id=km.get("event_id", ""),
                                 timestamp=km_ts,
                                 derivation=(
-                                    f"ES2: victim {victim_id[:16]}"
-                                    " zero prior chain history"
+                                    f"ES2: victim {victim_id[:16]} zero prior chain history"
                                 ),
                             )
                         ],

@@ -179,7 +179,12 @@ def test_a3_failed_transport(db_conn):
     now = int(time.time())
     _insert_object(db_conn, "gate-3", {}, obj_type="gate")
     _insert_chain_event(
-        db_conn, "fuel-3", "0xpkg::fuel::FuelEvent", "gate-3", "tx-a3", now,
+        db_conn,
+        "fuel-3",
+        "0xpkg::fuel::FuelEvent",
+        "gate-3",
+        "tx-a3",
+        now,
         raw_json={"parsedJson": {"action": {"variant": "TRANSPORT_BURN"}}},
     )
 
@@ -195,7 +200,12 @@ def test_a3_passive_burn_ignored(db_conn):
     now = int(time.time())
     _insert_object(db_conn, "gate-4", {}, obj_type="gate")
     _insert_chain_event(
-        db_conn, "fuel-4", "0xpkg::fuel::FuelEvent", "gate-4", "tx-a3b", now,
+        db_conn,
+        "fuel-4",
+        "0xpkg::fuel::FuelEvent",
+        "gate-4",
+        "tx-a3b",
+        now,
         raw_json={"parsedJson": {"action": {"variant": "BURNING_UPDATED"}}},
     )
 
