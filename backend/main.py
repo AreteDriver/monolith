@@ -606,9 +606,18 @@ async def _check_sui_rpc(rpc_url: str) -> str:
         return "unreachable"
 
 
+@app.get("/api/ready")
+async def ready() -> dict:
+    """Lightweight readiness probe for Fly.io health checks.
+
+    Returns immediately — no DB queries, no external calls.
+    """
+    return {"status": "ok", "uptime_seconds": int(time.time() - START_TIME)}
+
+
 @app.get("/api/health")
 async def health() -> dict:
-    """System health — uptime, row counts, chain info."""
+    """System health — uptime, row counts, chain info (heavy, not for health checks)."""
     conn = app.state.db
     settings = app.state.settings
     counts = get_row_counts(conn)

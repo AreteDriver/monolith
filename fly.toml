@@ -21,7 +21,7 @@ primary_region = 'iad'
     interval = "15s"
     timeout = "10s"
     method = "GET"
-    path = "/api/health"
+    path = "/api/ready"
 
 [mounts]
   source = 'monolith_data'
