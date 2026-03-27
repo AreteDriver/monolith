@@ -409,13 +409,11 @@ async def test_static_data_loop_calls_all_pollers():
     poller.poll_orbital_zones = AsyncMock(return_value=2)
 
     with patch("backend.main.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-        # Sleeps: 15s startup, 2s per endpoint inside poll_static_data (mocked),
-        # 5s pause, tribes, 5s pause, orbital zones, then interval sleep -> cancel
+        # Sleeps: 15s startup, then interval sleep -> cancel
+        # (gather runs all three pollers in parallel, no intermediate sleeps)
         mock_sleep.side_effect = [
             None,  # 15s startup
-            None,  # 5s pause before tribes
-            None,  # 5s pause before orbital zones
-            asyncio.CancelledError(),  # interval sleep
+            asyncio.CancelledError(),  # interval sleep after initial gather
         ]
         with pytest.raises(asyncio.CancelledError):
             await static_data_loop(poller, interval=3600, client=None)
@@ -434,7 +432,7 @@ async def test_static_data_loop_handles_exception():
     poller.poll_orbital_zones = AsyncMock(side_effect=RuntimeError("api down"))
 
     with patch("backend.main.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-        mock_sleep.side_effect = [None, None, None, asyncio.CancelledError()]
+        mock_sleep.side_effect = [None, asyncio.CancelledError()]
         with pytest.raises(asyncio.CancelledError):
             await static_data_loop(poller, interval=3600)
 
