@@ -109,16 +109,25 @@ export default function StatsPanel() {
             By Severity
           </h2>
           {severityData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={260}>
               <PieChart>
                 <Pie
                   data={severityData}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  label={({ name, value }) => `${name}: ${value}`}
+                  cy="45%"
+                  outerRadius={80}
+                  label={({ name, value, cx: cxPos, x, y, midAngle }) => {
+                    const offset = x > cxPos ? 8 : -8
+                    const anchor = x > cxPos ? 'start' : 'end'
+                    return (
+                      <text x={x + offset} y={y} textAnchor={anchor} fill="#e5e5e5" fontSize={11}>
+                        {`${name}: ${value}`}
+                      </text>
+                    )
+                  }}
+                  labelLine={{ stroke: '#6b7280', strokeWidth: 1 }}
                 >
                   {severityData.map((entry) => (
                     <Cell
@@ -127,7 +136,9 @@ export default function StatsPanel() {
                     />
                   ))}
                 </Pie>
-                <Legend />
+                <Legend
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
