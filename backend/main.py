@@ -216,8 +216,6 @@ async def graphql_enrichment_loop(
     client: httpx.AsyncClient | None = None,
 ) -> None:
     """Background task: enrich locations + entity names via Sui GraphQL."""
-    import gc
-
     # Wait for initial chain data + static data to finish before enrichment
     await asyncio.sleep(120)
     while True:
@@ -225,31 +223,26 @@ async def graphql_enrichment_loop(
             updated = await gql_client.enrich_locations(client)
             if updated > 0:
                 logger.info("GraphQL enrichment: %d objects updated", updated)
-            gc.collect()
 
             # Refresh character name cache via NameResolver (replaces NEXUS)
             names = await name_resolver._fetch_characters(client, max_pages=10)
             if names > 0:
                 logger.info("NameResolver: %d characters resolved", names)
-            gc.collect()
 
             # Audit object versions for state change detection
             versions = await gql_client.audit_object_versions(client)
             if versions > 0:
                 logger.info("GraphQL versions: %d snapshots stored", versions)
-            gc.collect()
 
             # Poll config singletons for change detection
             configs = await gql_client.poll_config_singletons(client)
             if configs > 0:
                 logger.info("GraphQL configs: %d config versions stored", configs)
-            gc.collect()
 
             # Profile wallet activity for bot detection
             profiles = await gql_client.profile_wallet_activity(client, max_wallets=10)
             if profiles > 0:
                 logger.info("GraphQL profiles: %d wallets profiled", profiles)
-            gc.collect()
         except Exception:
             logger.exception("GraphQL enrichment error")
         await asyncio.sleep(interval)
@@ -460,7 +453,7 @@ async def lifespan(app: FastAPI):
 
     # Shared HTTP client for all background tasks — bounded connection pool
     http_client = httpx.AsyncClient(
-        limits=httpx.Limits(max_connections=5, max_keepalive_connections=2),
+        limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
         timeout=httpx.Timeout(30.0, connect=10.0),
     )
     app.state.http_client = http_client
