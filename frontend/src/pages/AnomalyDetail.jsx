@@ -203,9 +203,9 @@ export default function AnomalyDetail() {
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-        {reportId ? (
+        {(reportId || a.report_id) ? (
           <Link
-            to={`/reports/${reportId}`}
+            to={`/reports/${reportId || a.report_id}`}
             className="bg-[#22c55e] text-black px-4 py-2.5 text-sm font-bold no-underline hover:bg-[#16a34a] text-center"
           >
             Reported — View Report
@@ -218,14 +218,6 @@ export default function AnomalyDetail() {
           >
             {generating ? 'Reporting...' : 'Generate Bug Report'}
           </button>
-        )}
-        {a.report_id && !reportId && (
-          <Link
-            to={`/reports/${a.report_id}`}
-            className="border border-[#2a2a2a] text-[#e5e5e5] px-4 py-2 text-sm no-underline hover:bg-[#1a1a1a]"
-          >
-            View Existing Report
-          </Link>
         )}
       </div>
     </div>
