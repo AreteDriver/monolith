@@ -276,7 +276,7 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_type ON anomalies(anomaly_type);
 CREATE INDEX IF NOT EXISTS idx_anomalies_detected ON anomalies(detected_at);
 CREATE INDEX IF NOT EXISTS idx_anomalies_object ON anomalies(object_id);
 CREATE INDEX IF NOT EXISTS idx_anomalies_status ON anomalies(status);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
+CREATE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
 CREATE INDEX IF NOT EXISTS idx_reference_data_type ON reference_data(data_type);
 CREATE INDEX IF NOT EXISTS idx_nexus_events_type ON nexus_events(event_type, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_item_ledger_assembly ON item_ledger(assembly_id);
@@ -358,11 +358,21 @@ def _migrate_add_column(conn: sqlite3.Connection, table: str, column: str, col_t
 def _migrate_unique_index(
     conn: sqlite3.Connection, table: str, column: str, index_name: str
 ) -> None:
-    """Replace a non-unique index with a unique one (idempotent)."""
+    """Replace a non-unique index with a unique one (idempotent).
+
+    Deduplicates existing rows first — keeps the row with the highest rowid.
+    """
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='index' AND name=?", (index_name,)
     ).fetchone()
     if row and "UNIQUE" not in (row[0] or "").upper():
+        # Remove duplicates before creating unique index (keep latest rowid)
+        deleted = conn.execute(
+            f"DELETE FROM {table} WHERE rowid NOT IN "  # noqa: S608
+            f"(SELECT MAX(rowid) FROM {table} GROUP BY {column})"
+        ).rowcount
+        if deleted > 0:
+            logger.info("Migration: removed %d duplicate %s rows from %s", deleted, column, table)
         conn.execute(f"DROP INDEX IF EXISTS {index_name}")  # noqa: S608
         conn.execute(
             f"CREATE UNIQUE INDEX {index_name} ON {table}({column})"  # noqa: S608
