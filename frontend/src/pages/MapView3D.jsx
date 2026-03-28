@@ -243,6 +243,16 @@ export default function MapView3D() {
   const [bgPositions, setBgPositions] = useState(null)
   const [anomalySystems, setAnomalySystems] = useState([])
   const [hovered, setHovered] = useState(null)
+  const [visibleSeverities, setVisibleSeverities] = useState({
+    critical: true,
+    high: true,
+    medium: true,
+    low: true,
+  })
+
+  const toggleSeverity = useCallback((level) => {
+    setVisibleSeverities((prev) => ({ ...prev, [level]: !prev[level] }))
+  }, [])
 
   const { data: mapData, loading: mapLoading } = useApi('/api/stats/map', { poll: 60000 })
   const { data: bgData } = useApi('/api/stats/map/systems', { poll: 0 })
@@ -317,14 +327,38 @@ export default function MapView3D() {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="absolute bottom-3 right-4 z-10 flex gap-3">
-        {Object.entries(SEVERITY_COLORS).map(([level, color]) => (
-          <span key={level} className="flex items-center gap-1 text-[8px] text-[#6b7280]">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-            {level}
-          </span>
-        ))}
+      {/* Selectable Legend */}
+      <div className="absolute bottom-3 left-4 z-10 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1">
+        <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Filter by Severity</div>
+        {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
+          const active = visibleSeverities[level]
+          const count = anomalySystems.filter((s) => getMaxSeverity(s) === level).length
+          return (
+            <button
+              key={level}
+              onClick={() => toggleSeverity(level)}
+              className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5 group"
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-sm border transition-all"
+                style={{
+                  backgroundColor: active ? color : 'transparent',
+                  borderColor: color,
+                  opacity: active ? 1 : 0.4,
+                }}
+              />
+              <span
+                className="text-[10px] uppercase font-bold transition-opacity"
+                style={{ color, opacity: active ? 1 : 0.3 }}
+              >
+                {level}
+              </span>
+              <span className="text-[9px] text-[#6b7280] ml-auto" style={{ opacity: active ? 1 : 0.3 }}>
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Hover tooltip */}
@@ -359,19 +393,21 @@ export default function MapView3D() {
 
           {bgPositions && <StarField positions={bgPositions} />}
 
-          {anomalySystems.map((sys) => (
-            <AnomalyMarker
-              key={sys.system_id}
-              position={[
-                (sys.nx - 0.5) * 70,
-                0,
-                (sys.nz - 0.5) * 70,
-              ]}
-              system={sys}
-              onHover={setHovered}
-              onClick={handleClick}
-            />
-          ))}
+          {anomalySystems
+            .filter((sys) => visibleSeverities[getMaxSeverity(sys)])
+            .map((sys) => (
+              <AnomalyMarker
+                key={sys.system_id}
+                position={[
+                  (sys.nx - 0.5) * 70,
+                  0,
+                  (sys.nz - 0.5) * 70,
+                ]}
+                system={sys}
+                onHover={setHovered}
+                onClick={handleClick}
+              />
+            ))}
         </Suspense>
       </Canvas>
     </div>
