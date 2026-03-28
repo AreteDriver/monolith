@@ -18,7 +18,7 @@ def db():
         """CREATE TABLE objects (
             object_id TEXT PRIMARY KEY,
             object_type TEXT,
-            owner TEXT,
+            current_owner TEXT,
             system_id TEXT,
             current_state TEXT,
             last_seen INTEGER,

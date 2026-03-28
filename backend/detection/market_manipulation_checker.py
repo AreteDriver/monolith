@@ -297,10 +297,10 @@ class MarketManipulationChecker(BaseChecker):
     def _get_assembly_owner(self, assembly_id: str) -> str:
         """Get the owner address of an assembly from the objects table."""
         row = self.conn.execute(
-            "SELECT owner FROM objects WHERE object_id = ?", (assembly_id,)
+            "SELECT current_owner FROM objects WHERE object_id = ?", (assembly_id,)
         ).fetchone()
         if row:
-            return row["owner"] or ""
+            return row["current_owner"] or ""
         return ""
 
     def _resolve_system(self, assembly_id: str) -> str:

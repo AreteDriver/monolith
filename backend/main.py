@@ -33,7 +33,7 @@ from backend.api.submit import router as submit_router
 from backend.api.subscriptions import router as subscriptions_router
 from backend.api.systems import router as systems_router
 from backend.config import get_settings
-from backend.db.database import get_row_counts, init_db
+from backend.db.database import get_connection, get_row_counts, init_db
 from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
@@ -428,20 +428,36 @@ async def lifespan(app: FastAPI):
             "Set MONOLITH_SUI_PACKAGE_ID or ensure World API /config is reachable."
         )
 
-    # Initialize components
-    world_poller = WorldPoller(conn, settings.world_api_url, settings.world_api_timeout)
-    chain_reader = ChainReader(conn, sui_rpc_url, package_id, settings.sui_rpc_timeout)
-    event_processor = EventProcessor(conn)
-    snapshotter = StateSnapshotter(conn)
-    detection_engine = DetectionEngine(conn)
+    # Per-task connections — WAL mode allows concurrent writers from separate
+    # connections but Python sqlite3 serializes all access through a single
+    # connection object.  Giving each background loop its own connection
+    # eliminates "database is locked" contention.
+    db_path = settings.database_path
+    conn_chain = get_connection(db_path)       # chain_poll_loop
+    conn_detection = get_connection(db_path)    # detection_loop
+    conn_pod = get_connection(db_path)          # pod_check_loop
+    conn_snapshot = get_connection(db_path)     # snapshot_loop
+    conn_world = get_connection(db_path)        # static_data_loop
+    conn_gql = get_connection(db_path)          # graphql_enrichment_loop
+    conn_prune = get_connection(db_path)        # table_prune_loop
+    conn_warden = get_connection(db_path)       # warden_loop
+    bg_conns = [conn_chain, conn_detection, conn_pod, conn_snapshot,
+                conn_world, conn_gql, conn_prune, conn_warden]
+
+    # Initialize components — each gets its own connection
+    world_poller = WorldPoller(conn_world, settings.world_api_url, settings.world_api_timeout)
+    chain_reader = ChainReader(conn_chain, sui_rpc_url, package_id, settings.sui_rpc_timeout)
+    event_processor = EventProcessor(conn_chain)
+    snapshotter = StateSnapshotter(conn_snapshot)
+    detection_engine = DetectionEngine(conn_detection)
 
     pod_verifier = PodVerifier(base_url=settings.world_api_url, timeout=settings.world_api_timeout)
     app.state.pod_verifier = pod_verifier
 
-    warden = Warden(conn, sui_rpc_url)
+    warden = Warden(conn_warden, sui_rpc_url)
 
-    gql_client = SuiGraphQLClient(conn, package_id)
-    name_resolver = NameResolver(conn, package_id)
+    gql_client = SuiGraphQLClient(conn_gql, package_id)
+    name_resolver = NameResolver(conn_gql, package_id)
     app.state.gql_client = gql_client
     app.state.name_resolver = name_resolver
     app.state.warden = warden
@@ -468,7 +484,7 @@ async def lifespan(app: FastAPI):
         ),
         asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
         asyncio.create_task(
-            detection_loop(detection_engine, settings.detection_interval, settings, conn)
+            detection_loop(detection_engine, settings.detection_interval, settings, conn_detection)
         ),
         asyncio.create_task(
             static_data_loop(world_poller, settings.static_data_interval, client=http_client)
@@ -480,7 +496,7 @@ async def lifespan(app: FastAPI):
         ),
         asyncio.create_task(
             pod_check_loop(
-                conn,
+                conn_pod,
                 pod_verifier,
                 detection_engine,
                 settings.detection_interval,
@@ -488,7 +504,7 @@ async def lifespan(app: FastAPI):
                 client=http_client,
             )
         ),
-        asyncio.create_task(table_prune_loop(conn)),
+        asyncio.create_task(table_prune_loop(conn_prune)),
         asyncio.create_task(warden_loop(warden, settings.detection_interval, client=http_client)),
     ]
 
@@ -508,6 +524,8 @@ async def lifespan(app: FastAPI):
             await task
 
     await http_client.aclose()
+    for bg_conn in bg_conns:
+        bg_conn.close()
     conn.close()
     logger.info("Monolith shutdown")
 
