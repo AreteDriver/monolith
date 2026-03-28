@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState, useRef, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Points, PointMaterial, Html } from '@react-three/drei'
+import { Points, PointMaterial, Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { useApi } from '../hooks/useApi'
 import { getDisplayName } from '../displayNames'
@@ -47,23 +47,11 @@ function StarField({ positions }) {
 
   return (
     <group ref={ref}>
-      {/* Dim galaxy layer */}
       <Points positions={positions} stride={3}>
         <PointMaterial
           transparent
-          color="#556"
-          size={0.25}
-          sizeAttenuation
-          depthWrite={false}
-          opacity={0.2}
-        />
-      </Points>
-      {/* Brighter core stars — sample every 40th for sparkle */}
-      <Points positions={positions.filter((_, i) => i % 120 < 3)} stride={3}>
-        <PointMaterial
-          transparent
-          color="#aab"
-          size={0.4}
+          color="#667"
+          size={0.15}
           sizeAttenuation
           depthWrite={false}
           opacity={0.35}
@@ -169,21 +157,6 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
   )
 }
 
-// Auto-rotation
-function AutoRotate() {
-  const { camera } = useThree()
-  const angleRef = useRef(0)
-
-  useFrame(() => {
-    angleRef.current += 0.0008
-    const radius = 55
-    camera.position.x = Math.cos(angleRef.current) * radius
-    camera.position.z = Math.sin(angleRef.current) * radius
-    camera.lookAt(0, 0, 0)
-  })
-
-  return null
-}
 
 function GridPlane() {
   return (
@@ -262,13 +235,13 @@ export default function MapView3D() {
     const allSystems = bgData?.all_systems || []
     if (allSystems.length === 0) return
 
-    // Sample every 8th for performance (~3K points)
+    // All systems — R3F handles 24K points fine with PointMaterial
     const positions = []
-    for (let i = 0; i < allSystems.length; i += 8) {
+    for (let i = 0; i < allSystems.length; i++) {
       const s = allSystems[i]
       positions.push(
         (s.nx - 0.5) * 70,
-        (Math.random() - 0.5) * 6,
+        (Math.random() - 0.5) * 4,
         ((s.nz || 0) - 0.5) * 70,
       )
     }
@@ -398,7 +371,15 @@ export default function MapView3D() {
       >
         <Suspense fallback={null}>
           <ambientLight intensity={0.3} />
-          <AutoRotate />
+          <OrbitControls
+            autoRotate
+            autoRotateSpeed={0.3}
+            enableDamping
+            dampingFactor={0.05}
+            minDistance={15}
+            maxDistance={120}
+            enablePan
+          />
           <DeepSpaceStars />
           <SpaceDust />
 
