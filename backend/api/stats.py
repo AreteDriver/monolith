@@ -28,6 +28,18 @@ _wt_cache: dict | None = None
 _wt_cache_time: float = 0
 _WT_CACHE_TTL = 60  # seconds
 
+# Map data cache — anomaly aggregation is expensive, cache for 30s.
+_map_cache: dict | None = None
+_map_cache_time: float = 0
+_MAP_CACHE_TTL = 30  # seconds
+
+
+def clear_map_cache() -> None:
+    """Clear the map data cache (used by tests)."""
+    global _map_cache, _map_cache_time  # noqa: PLW0603
+    _map_cache = None
+    _map_cache_time = 0
+
 
 def _get_db(request: Request) -> sqlite3.Connection:
     return request.app.state.db
@@ -139,6 +151,11 @@ def get_stats(request: Request) -> dict:
 @router.get("/map")
 def get_map_data(request: Request) -> dict:
     """Get anomaly-affected systems with coordinates for map rendering."""
+    global _map_cache, _map_cache_time  # noqa: PLW0603
+    now = time.time()
+    if _map_cache is not None and (now - _map_cache_time) < _MAP_CACHE_TTL:
+        return _map_cache
+
     conn = _get_db(request)
 
     # Resolve effective system_id: prefer anomaly's own, fall back to objects table
@@ -244,10 +261,13 @@ def get_map_data(request: Request) -> dict:
             entry["nz"] = (c["z"] - bounds["min_z"]) / bounds["range_z"]
         recent_events.append(entry)
 
-    return {
+    result = {
         "systems": systems,
         "recent_events": recent_events,
     }
+    _map_cache = result
+    _map_cache_time = time.time()
+    return result
 
 
 def _load_bg_systems(conn: sqlite3.Connection) -> list[dict]:

@@ -5,6 +5,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.api.stats import clear_map_cache
 from backend.db.database import init_db
 from backend.main import app
 
@@ -13,7 +14,9 @@ from backend.main import app
 def client():
     conn = init_db(":memory:")
     app.state.db = conn
+    clear_map_cache()
     yield TestClient(app, raise_server_exceptions=False)
+    clear_map_cache()
     conn.close()
 
 

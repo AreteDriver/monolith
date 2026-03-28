@@ -276,6 +276,7 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_type ON anomalies(anomaly_type);
 CREATE INDEX IF NOT EXISTS idx_anomalies_detected ON anomalies(detected_at);
 CREATE INDEX IF NOT EXISTS idx_anomalies_object ON anomalies(object_id);
 CREATE INDEX IF NOT EXISTS idx_anomalies_status ON anomalies(status);
+CREATE INDEX IF NOT EXISTS idx_anomalies_status_detected ON anomalies(status, detected_at);
 CREATE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
 CREATE INDEX IF NOT EXISTS idx_reference_data_type ON reference_data(data_type);
 CREATE INDEX IF NOT EXISTS idx_nexus_events_type ON nexus_events(event_type, received_at DESC);
