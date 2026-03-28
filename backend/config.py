@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Discord webhooks
     discord_webhook_url: str = ""
-    discord_rate_limit: int = 5  # max messages per minute
+    discord_rate_limit: int = 30  # max messages per minute (bumped for demo)
 
     # GitHub issue auto-filing (CRITICAL anomalies only)
     github_repo: str = ""  # e.g., "AreteDriver/monolith"

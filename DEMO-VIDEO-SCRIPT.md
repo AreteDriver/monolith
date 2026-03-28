@@ -1,18 +1,18 @@
 # Aegis Stack Demo Video — 3 Minutes
 
 **Target**: Hackathon submission video (DeepSurge). Screen recording with voiceover.
-**Covers**: WatchTower + Monolith (unified Aegis Stack demo)
+**Covers**: WatchTower + Monolith + Discord Bot + Smart Assembly in-game (unified Aegis Stack demo)
 **Tone**: Confident, concise, intelligence-briefing cadence. No hype words. No filler.
-**Format**: 1920x1080 screen recording, separate voiceover track preferred.
-**Canonical script**: This file mirrors `witness/scripts/demo_video_script.md`. Keep in sync.
+**Format**: 1920x1080 screen recording, record segments separately and edit together.
+**Canonical script**: `witness/scripts/demo_video_script.md`. Keep in sync.
 
 ---
 
 ## TAB SETUP (do this BEFORE hitting record)
 
-Open 9 Chrome tabs in this exact order, left-to-right.
+Open all tabs in this exact order, left-to-right.
 Pre-scroll and zoom each tab to the exact state described.
-During recording, Ctrl+Tab through them like a slideshow. One direction. Never go backwards.
+Recording is done per-segment (stop/start between segments), edited together at the end.
 
 ```
 TAB 1 — WatchTower Landing
@@ -38,68 +38,103 @@ TAB 4 — WatchTower Tactical
   State: Click "Tactical" tab. Let kill graph render. Pre-scroll to
          show HotzoneMap bars.
 
-TAB 5 — WatchTower Feed & Rankings
-  URL: https://watchtower-evefrontier.vercel.app/
-  Zoom: 125%
-  State: Navigate to Feed tab. Scroll to show story feed + leaderboard.
-
-TAB 6 — WatchTower Dossier NFT
+TAB 5 — WatchTower Dossier NFT
   URL: https://watchtower-evefrontier.vercel.app/dossier/Specter
   Zoom: 125%
   State: Show the 600x900 card render. Tier selection visible.
+         Wallet connected and funded (~5 SUI min for mint + subscribe).
 
-TAB 7 — Monolith Landing + Anomaly Feed
+TAB 6 — WatchTower Account (Subscription + NEXUS)
+  URL: https://watchtower-evefrontier.vercel.app/ (Account tab)
+  Zoom: 125%
+  State: Wallet connected. Tier badge visible. NEXUS webhook section loaded.
+
+TAB 7 — Discord (#demo-alerts channel)
+  URL: Discord app or browser — your server's #demo-alerts channel
+  State: Channel empty / clean. Webhook created (URL copied for NEXUS demo).
+         Bot online and visible in member list.
+
+TAB 8 — Monolith Anomaly Feed
   URL: https://monolith-evefrontier.fly.dev/
   Zoom: 125%
   State: Scroll to show anomaly feed with recent detections.
-         Pre-identify one CRITICAL anomaly to click during recording.
+         Pre-pick MNLT-20260328-0026 (GHOST_ENGAGEMENT, CRITICAL).
 
-TAB 8 — Monolith Map (Command Center)
+TAB 9 — Monolith Map (Command Center)
   URL: https://monolith-evefrontier.fly.dev/map
   Zoom: 125%
-  State: Map should show 24K systems with anomaly heatmap + WatchTower overlay.
+  State: Map should show 24K systems with anomaly heatmap.
          Pre-zoom to a cluster with anomalies. Reset button visible.
 
-TAB 9 — WatchTower Landing (closing shot)
+TAB 10 — Smart Assembly In-Game (OPTIONAL — server dependent)
+  Source: Screenshot of deployed WatchTower Smart Assembly in EVE Frontier
+  Zoom: 100%
+  State: Show the assembly online in-game with name visible.
+  FALLBACK: Suiscan screenshot of the subscription contract showing
+            on-chain state + SubscriptionCap object.
+
+TAB 11 — Sui Move Integration Code
+  URL: Open contracts/sui/sources/integration_examples.move in VS Code
+  Zoom: 125%
+  State: Scroll to `assert_trusted()` function — the gate denial code.
+         This is the money shot. Judges see: this changes gameplay.
+
+TAB 12 — WatchTower Landing (closing shot)
   URL: https://watchtower-evefrontier.vercel.app/
   Zoom: 125%
   State: Same as Tab 1. This is for the closing numbers delivery.
+
+TERMINAL — Keep a terminal ready (not a tab, use split or second monitor)
+  State: Ready for NEXUS webhook curl command (pre-typed, don't hit enter yet).
 ```
 
-**Flow during recording:** Tab 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9. One direction. Never go backwards.
+**Segment recording order:** Record each segment separately, stop between them. Edit together in post. See RECORDING ORDER section below.
 
 ---
 
 ## PRE-RECORD CHECKLIST
 
-- [ ] All 9 tabs open and pre-scrolled per setup above
+**Infrastructure**
+- [ ] All 12 tabs open and pre-scrolled per setup above
+- [ ] Terminal ready with NEXUS curl command pre-typed
 - [ ] Browser: dark mode, no bookmarks bar (`Ctrl+Shift+B`), no extensions visible
 - [ ] Window: 1920x1080 on left half of ultrawide (`Super+Left` to snap)
-- [ ] Browser zoom: 125% on all tabs
-- [ ] Verify WatchTower LIVE indicator shows green dot
-- [ ] Verify Monolith map renders 24K systems (not black screen)
-- [ ] Verify Specter entity has data (kills, reputation, titles)
-- [ ] Pre-pick one CRITICAL anomaly on Monolith — verify detail + report generation works
+- [ ] Browser zoom: 125% on all tabs (100% on Tab 10 if screenshot)
 - [ ] Clear browser history/autocomplete (no embarrassing suggestions)
 - [ ] Disable notifications: `gsettings set org.gnome.desktop.notifications show-banners false`
-- [ ] Close Slack/Discord/other windows on recording half
-- [ ] wf-recorder ready: `wf-recorder -g "0,0 1920x1080" -f ~/Videos/aegis-demo-raw.mp4`
-- [ ] Practice the tab-through sequence twice before recording
-- [ ] Have backup curl commands ready in terminal (see bottom of script)
+- [ ] Close Slack/other windows on recording half (Discord stays open for Tab 7)
+- [ ] wf-recorder ready: `wf-recorder -g "0,0 1920x1080" -f ~/Videos/aegis-seg-N.mp4`
+
+**Services**
+- [ ] Verify WatchTower LIVE indicator shows green dot
+- [ ] Verify Monolith map renders 24K systems (not black screen)
+- [ ] Verify Specter entity has data (105 kills, 3 titles)
+- [ ] Verify Social Assassin has data (67 kills, 67:1 KD)
+- [ ] Pre-pick MNLT-20260328-0026 (GHOST_ENGAGEMENT) — verify detail + provenance works
+- [ ] Verify hackathon mode active: `curl -s https://watchtower-evefrontier.fly.dev/api/account/hackathon-status | python3 -m json.tool`
+
+**Wallet + Discord**
+- [ ] Sui testnet wallet funded (~10 SUI from faucet)
+- [ ] Wallet connected on WatchTower Account tab
+- [ ] Discord `#demo-alerts` channel created with webhook URL copied
+- [ ] Discord bot online in server (check member list)
+- [ ] VS Code open to `integration_examples.move` (Tab 11)
+- [ ] Smart Assembly screenshot/Suiscan fallback ready (Tab 10, optional)
+- [ ] Practice each segment once before recording
 
 ---
 
-## SCENE 1 — HOOK (0:00-0:10)
+## SEGMENT A — HOOK (0:00-0:12)
 
 **[Screen: WatchTower landing page — "///" pulse, tagline visible]**
 
-> "Aegis Stack is the immune system of EVE Frontier. Two systems — WatchTower for behavioral intelligence, Monolith for anomaly detection — reading every event from the Sui blockchain and turning raw chain data into actionable signal."
+> "Every hackathon project reads the chain. Aegis Stack writes back to it. Two systems — WatchTower for behavioral intelligence, Monolith for anomaly detection — ingesting every Sui event and publishing reputation scores that Smart Assemblies enforce in the same transaction. This isn't a dashboard. It's infrastructure that changes on-chain behavior."
 
 **Action**: Hold on landing page 3 seconds. Let the pulse animation breathe.
 
 ---
 
-## SCENE 2 — ENTITY DOSSIER (0:10-0:35)
+## SEGMENT B — ENTITY DOSSIER + REPUTATION (0:12-0:50)
 
 **[Screen: Click search bar, type "Specter"]**
 
@@ -107,124 +142,141 @@ TAB 9 — WatchTower Landing (closing shot)
 
 **Action**: Select Specter from dropdown. Entity page loads.
 
-> "Full intelligence dossier. Confirmed kills, deaths, chain events. Behavioral fingerprint — temporal patterns, route analysis, OPSEC scoring. Everything computed from on-chain evidence. Nothing self-reported."
+> "Full intelligence dossier. A hundred five confirmed kills. Behavioral fingerprint — temporal patterns, route analysis, OPSEC scoring. Everything computed from on-chain evidence. Nothing self-reported."
 
 **Action**: Scroll slowly through entity page. Pause on:
-1. Kill/death stats + danger rating
+1. Kill/death stats + danger rating (105 kills, 12 deaths)
 2. Fingerprint card (threat level, kills/day)
 3. Earned titles: "The Hunter", "The Marked", "The Reaper"
 
 > "Earned titles are deterministic. Fifty kills earns 'The Reaper.' Thirty transits with zero combat earns 'The Ghost.' The chain writes the names."
 
----
+**Action**: Scroll to reputation section.
 
-## SCENE 3 — REPUTATION (0:35-0:55)
-
-**Action**: Scroll to reputation section on entity page.
-
-> "Every entity scored zero to one hundred across six dimensions — Combat Honor, Target Diversity, Reciprocity, Consistency, Community, Restraint."
-
-**Action**: Point at each dimension bar. Pause on the overall trust score.
-
-> "These scores aren't cosmetic. They publish on-chain as Sui Move objects. A gate operator can enforce: deny docking if trust is below forty. The reputation check and the gate check happen in the same transaction. No oracle delay. No stale data."
-
-**Action**: Briefly show the on-chain badge / "Published on Sui" indicator if visible.
+> "Every entity scored zero to one hundred across six dimensions — Combat Honor, Target Diversity, Reciprocity, Consistency, Community, Restraint. These scores publish on-chain as Sui Move objects. A gate operator can enforce: deny docking if trust is below forty. Same transaction. No oracle delay."
 
 ---
 
-## SCENE 4 — TACTICAL (0:55-1:15)
+## SEGMENT C — TACTICAL (0:50-1:05)
 
 **Action**: Click "Tactical" tab.
 
-> "Kill network graph — who kills whom, with vendetta detection for mutual killers."
+> "Kill network graph — who kills whom, vendetta detection for mutual killers. Danger zones rank systems by kill density."
 
-**Action**: Let kill graph render. Pause 2 seconds.
+**Action**: Let kill graph render. Pause 2 seconds. Point at HotzoneMap bars.
 
-> "Danger zones rank systems by kill density. Color-coded threat levels."
-
-**Action**: Point at HotzoneMap bars. Click top system.
-
-> "System dossier — top attackers, victims, activity by hour. All from chain events."
-
-**Action**: Scroll system dossier briefly, navigate back.
+> "System dossier — top attackers, victims, activity by hour. All derived from chain events."
 
 ---
 
-## SCENE 5 — STORY FEED + LIVE DATA (1:15-1:30)
+## SEGMENT D — DOSSIER NFT MINT + WALLET (1:05-1:30)
 
-**Action**: Click "Feed & Rankings" tab.
+**Action**: Navigate to dossier page. Show the 600x900 card render.
 
-> "WatchTower auto-generates intelligence stories. Kill streaks, new entity sightings, skirmish alerts — derived from event clustering, not AI. The leaderboard tracks top killers, most deaths, most traveled."
+> "Dossier NFTs turn intelligence into tradeable on-chain assets. Three tiers — Intel is free, Classified costs half a SUI, Oracle costs two SUI. The Oracle tier references live shared registries. As reputation updates, the card updates. Trade the NFT, trade the live intelligence feed."
 
-**Action**: Scroll feed briefly. Glance at leaderboard. Click a name to show it links to dossier.
+**Action**: Click mint button (Intel free or Classified 0.5 SUI). Approve in wallet popup. Show transaction confirmation.
 
----
+> "That's a live Sui transaction. The card is in my wallet now."
 
-## SCENE 6 — DOSSIER NFTs (1:30-1:45)
-
-**Action**: Navigate to dossier page.
-
-> "Dossier NFTs turn intelligence into tradeable on-chain assets. Three tiers — Intel is free, Classified costs half a SUI, Oracle costs two SUI. The Oracle tier auto-updates. Trade the card, trade the live intelligence feed. The card never goes stale."
-
-**Action**: Show the 600x900 card render with threat bars, reputation stats, titles. Point at tier selection if visible.
+**Action**: Open Sui wallet extension. Show the DossierCard NFT in your objects/assets list. Hold 3 seconds.
 
 ---
 
-## SCENE 7 — MONOLITH TRANSITION (1:45-1:55)
+## SEGMENT E — SUBSCRIPTION + NEXUS WEBHOOK (1:30-1:55)
+
+**Action**: Navigate to Account tab. Show wallet connected, tier badge.
+
+> "Subscriptions work two ways — native SUI on-chain or Stripe for fiat. The on-chain subscription mints a SubscriptionCap — a proof-of-subscription NFT that any smart contract can verify atomically."
+
+**Action**: If subscribing live, click subscribe → approve MoveCall → show SubscriptionCap in wallet.
+**Alt**: Show existing subscription status if already subscribed.
+
+**Action**: Switch to terminal. Run pre-typed NEXUS curl command:
+
+```bash
+curl -X POST https://watchtower-evefrontier.fly.dev/api/nexus/subscribe \
+  -H "Content-Type: application/json" \
+  -d '{"webhook_url":"DISCORD_WEBHOOK_URL","event_types":["killmail"]}'
+```
+
+> "The NEXUS API lets any builder register a webhook. Enriched chain events — killmails, anomalies, entity movements — pushed to your endpoint with HMAC signatures. Ten subscriptions, a thousand events per day at Spymaster tier."
+
+**Action**: Show the API key and secret returned in the terminal output.
+
+---
+
+## SEGMENT F — DISCORD BOT (1:55-2:15)
+
+**Action**: Switch to Discord `#demo-alerts` channel.
+
+> "Twenty-one Discord slash commands. Full intelligence accessible without leaving comms."
+
+**Action**: Type `/watchtower Specter` → show the embed response with fingerprint data, danger rating, titles.
+
+**Action**: Type `/watch Specter` with webhook URL → show confirmation embed.
+
+> "Standing watches. Set a target, get alerted on movement, kills, or proximity events. The Oracle loop evaluates every five minutes and fires Discord embeds."
+
+**Action**: Type `/killfeed 3` → show latest kills embed.
+
+**Action**: If a NEXUS webhook alert has fired to the channel, point at it:
+
+> "And there's a NEXUS delivery — the webhook we just registered, already receiving enriched killmail data."
+
+---
+
+## SEGMENT G — MONOLITH TRANSITION + ANOMALY DETECTION (2:15-2:45)
 
 **Action**: Switch to Monolith tab.
 
 > "Monolith is the other half of the stack. Same chain data, different question. Not 'who is this entity' but 'is the economy intact.'"
 
-**Action**: Let Monolith landing page load. Show the anomaly feed with live stats.
-
----
-
-## SCENE 8 — ANOMALY DETECTION + PROVENANCE (1:55-2:25)
-
 **Action**: Scroll through anomaly feed.
 
-> "Thirty-nine detection rules across eighteen checkers. Every rule is a pure function — events and state in, anomaly or nothing out. Supply discrepancies, duplicate mints, bot patterns, tribe-hopping spy signals, dead infrastructure mapping, wallet concentration."
+> "Forty-two detection rules across twenty checkers. Supply discrepancies, duplicate mints, bot patterns, tribe-hopping spy signals, wallet concentration. Every rule is a pure function — events in, anomaly or nothing out."
 
-**Action**: Click into a specific anomaly. Show the detail view.
+**Action**: Click MNLT-20260328-0026 (GHOST_ENGAGEMENT, CRITICAL). Show the detail view.
 
-> "Each detection carries a provenance chain — a full audit trail linking the detection back to the exact chain events that produced it. Source type, transaction hash, timestamp, derivation logic. The Warden — an autonomous verification system — queries the Sui chain and appends its own provenance when it confirms or dismisses."
+> "Ghost engagement — a killmail victim with zero prior chain history. Phantom kill. Each detection carries a provenance chain — full audit trail back to the exact chain events. The Warden — an autonomous verifier — queries Sui and appends its own verdict. Take any entry, query the chain yourself. Zero trust required."
 
-**Action**: Point at the provenance entries in the detail view. Highlight source_type and derivation fields.
-
-> "Take any provenance entry, query the chain yourself, reproduce the detection. Zero trust required. Cryptographic proof all the way down."
-
-**Action**: Point at the severity badge and Warden status (VERIFIED/DISMISSED).
+**Action**: Point at provenance entries and evidence JSON.
 
 ---
 
-## SCENE 9 — HEATMAP (2:25-2:40)
+## SEGMENT H — HEATMAP (2:45-2:55)
 
 **Action**: Navigate to the map view. Let Canvas2D heatmap render.
 
-> "Twenty-four thousand five hundred systems rendered at sixty frames per second. Canvas2D scanline heatmap with WatchTower intelligence overlay — kill networks, threat zones, assembly states. Click any system for the detection breakdown."
+> "Twenty-four thousand five hundred systems at sixty frames per second. Anomaly density by region. Click any system for the detection breakdown."
 
-**Action**: Pan/zoom the map briefly. Click a highlighted system. Show the threat feed filtering on the right.
-
----
-
-## SCENE 10 — THE LOOP (2:40-2:50)
-
-**Action**: Switch back to WatchTower tab. Show the landing page.
-
-> "Here's the loop no other project closes. Chain events flow in. WatchTower fingerprints behavior and scores reputation. Scores publish on-chain. Smart Assemblies read those scores in the same transaction they make access control decisions. Player behavior adapts. New chain events flow in. The cycle tightens."
-
-**Action**: Scroll to show the Aegis ecosystem section if visible.
-
-> "Monolith's public API and webhooks give CCP a real-time economic audit layer. Bot detection, supply integrity, state anomalies — consumable without building it themselves."
+**Action**: Pan/zoom briefly. Click a highlighted system.
 
 ---
 
-## SCENE 11 — NUMBERS + CLOSE (2:50-3:00)
+## SEGMENT I — SMART ASSEMBLY + MOVE CODE (2:55-3:15)
 
-**[Screen: Hold on WatchTower landing page]**
+**Action**: Switch to Tab 10 (in-game screenshot or Suiscan). **OPTIONAL — skip if server down.**
 
-> "Fifteen hundred sixty tests. Thirty-nine detection rules — each with full provenance chains. A hundred sixty-seven API endpoints. Four Sui Move modules deployed. Forty-seven thousand chain events. Six hundred sixty anomalies detected with auditable evidence trails. Nearly three hundred thousand state transitions tracked. Both systems live in production. Solo-built. Aegis Stack — the immune system of EVE Frontier."
+> "This is a WatchTower Smart Assembly deployed in-game. A revenue-generating intelligence node — every deployment is both a service point and a billboard."
+
+**Action**: Hold on in-game screenshot 3 seconds. Switch to Tab 11 (VS Code with Move code).
+
+> "Here's why this matters. Any gate operator imports our registry. `assert_trusted` — entity address, minimum trust score, shared reputation registry. The check happens atomically in the same transaction as the gate decision. No off-chain lookup. No bridge. No latency. Reputation scores that change docking permissions in real time."
+
+**Action**: Highlight the `assert_trusted()` function. Pause on it 3 seconds. Judges need to read it.
+
+---
+
+## SEGMENT J — THE LOOP + CLOSE (3:15-3:30)
+
+**Action**: Switch back to WatchTower landing page.
+
+> "Here's the loop no other project closes. Chain events flow in. WatchTower fingerprints behavior and scores reputation. Scores publish on-chain. Smart Assemblies read those scores in the same transaction they make access decisions. Player behavior adapts. New events flow in. The cycle tightens."
+
+**Action**: Brief pause.
+
+> "Sixteen hundred forty tests. Forty-two detection rules with full provenance chains. Six Sui Move modules. Over fifty-four thousand chain events ingested. Seven hundred twenty-one anomalies detected. Thirteen thousand entities fingerprinted. Both systems live in production. Solo-built. Aegis Stack."
 
 **Action**: Hold on landing page. Let the "///" pulse breathe. End recording.
 
@@ -233,19 +285,18 @@ TAB 9 — WatchTower Landing (closing shot)
 ## RECORDING COMMANDS
 
 ```bash
-# Start recording (left half of 3840x1080 ultrawide)
-wf-recorder -g "0,0 1920x1080" -f ~/Videos/aegis-demo-raw.mp4
-
-# Stop: Ctrl+C
-
 # Test capture first (5 seconds)
 timeout 5 wf-recorder -g "0,0 1920x1080" -f ~/Videos/test-capture.mp4
 xdg-open ~/Videos/test-capture.mp4
 
-# Record with microphone (live narration)
-wf-recorder -g "0,0 1920x1080" --audio -f ~/Videos/aegis-demo-raw.mp4
+# Record each segment separately (replace N with segment letter)
+wf-recorder -g "0,0 1920x1080" -f ~/Videos/aegis-seg-A.mp4
+# Stop: Ctrl+C between segments
 
-# Record voiceover separately (recommended)
+# Record with microphone (if doing live narration per segment)
+wf-recorder -g "0,0 1920x1080" --audio -f ~/Videos/aegis-seg-A.mp4
+
+# Record voiceover separately (alternative — record all VO in one pass)
 ffmpeg -f pulse -i default -ac 1 -ar 44100 ~/Videos/voiceover.mp3
 # Stop: Ctrl+C
 ```
@@ -253,11 +304,21 @@ ffmpeg -f pulse -i default -ac 1 -ar 44100 ~/Videos/voiceover.mp3
 ## POST-PRODUCTION (ffmpeg)
 
 ```bash
-# Trim dead air (adjust timestamps)
-ffmpeg -i ~/Videos/aegis-demo-raw.mp4 -ss 2 -to 185 -c copy ~/Videos/aegis-demo-trimmed.mp4
+# Trim dead air from each segment (adjust timestamps per file)
+for seg in A B C D E F G H I J; do
+  ffmpeg -i ~/Videos/aegis-seg-${seg}.mp4 -ss 1 -c copy ~/Videos/aegis-trim-${seg}.mp4
+done
 
-# Merge video + separate voiceover
-ffmpeg -i ~/Videos/aegis-demo-trimmed.mp4 -i ~/Videos/voiceover.mp3 \
+# Concatenate all trimmed segments
+# 1. Create file list
+for seg in A B C D E F G H I J; do
+  echo "file 'aegis-trim-${seg}.mp4'" >> ~/Videos/concat-list.txt
+done
+# 2. Merge
+ffmpeg -f concat -safe 0 -i ~/Videos/concat-list.txt -c copy ~/Videos/aegis-demo-joined.mp4
+
+# Add voiceover (if recorded separately)
+ffmpeg -i ~/Videos/aegis-demo-joined.mp4 -i ~/Videos/voiceover.mp3 \
   -c:v copy -c:a aac -map 0:v -map 1:a ~/Videos/aegis-demo-final.mp4
 
 # Compress for upload (<100MB for YouTube)
@@ -273,49 +334,53 @@ ls -lh ~/Videos/aegis-demo-upload.mp4
 
 - **Pace**: ~150 words/minute. Slightly slower than conversational.
 - **Mouse**: Move deliberately. No jittery cursor. Hover on what you're discussing.
-- **Pauses**: 1-second pause between scenes. Let visuals register.
-- **Transitions**: Tab switch between WatchTower and Monolith should feel natural.
-- **Audio**: Record voiceover SEPARATELY for cleaner mix. Or narrate live.
-- **If over 3 min**: Cut Scene 5 (Feed) and trim Scene 9 (Heatmap to 5 seconds).
-- **If under 2:30**: Expand Scene 3 (Reputation) with a second entity comparison.
+- **Pauses**: 1-second pause between segments. Let visuals register.
+- **Segments**: Record each separately. Stop between them. Retake any that feel off.
+- **Segment I is the money shot**: Linger on the Move code. Let judges read `assert_trusted()`.
+- **Audio**: Record voiceover per-segment for easiest editing. Or do one VO pass in post.
+- **Wallet shots**: After every on-chain action (mint, subscribe), show the wallet.
+- **Discord**: Have the channel visible. If a webhook fires during recording, capture it.
+- **If over 3:30**: Trim Segment C (Tactical) to 5 seconds. Cut the system click.
+- **If under 2:30**: Expand Segment I (Smart Assembly) with `full_security_check()` example.
 
-## CLICK SEQUENCE (cheat sheet)
+## RECORDING ORDER (cheat sheet)
+
+Record in this order. Stop/start between each. Edit together in post.
 
 ```
-1. WatchTower `/` — hold 3s
-2. Search "Specter" -> click -> entity page
-3. Scroll: stats -> fingerprint -> titles -> reputation
-4. Click "Tactical" tab -> kill graph -> hotzone bars -> click system
-5. Back -> "Feed & Rankings" -> scroll feed -> glance leaderboard
-6. Dossier tab -> show card render -> tier selection
-7. Switch to Monolith tab
-8. Anomaly feed -> click anomaly detail -> show provenance chain
-9. Map view -> pan/zoom -> click system -> threat feed filters
-10. Back to WatchTower tab -> landing page
-11. Hold on "///" — deliver closing numbers — end
+SEG A — WatchTower `/` — hold 3s on "///" pulse
+SEG B — Search "Specter" -> entity page -> scroll stats/fingerprint/titles/reputation
+SEG C — Click "Tactical" -> kill graph -> hotzone bars
+SEG D — Dossier page -> show card -> MINT (approve in wallet) -> open wallet -> show NFT
+SEG E — Account tab (subscription) -> terminal: NEXUS curl -> show API key returned
+SEG F — Discord: /watchtower Specter -> /watch Specter -> /killfeed 3 -> webhook alert
+SEG G — Monolith landing -> anomaly feed -> click CRITICAL -> show evidence + provenance
+SEG H — Map view -> pan/zoom -> click system
+SEG I — SA screenshot (optional) -> VS Code: assert_trusted() (hold 3s)
+SEG J — WatchTower landing -> deliver numbers -> hold on "///" -> end
 ```
 
-## NUMBERS TO CITE (verified 2026-03-27 post-repopulation from live /api/health)
+## NUMBERS TO CITE (verify from live /api/health BEFORE recording)
 
 | Metric | Value | Say As | Source |
 |--------|-------|--------|--------|
-| Tests | 1,560+ | "fifteen hundred sixty" | pytest (774+567+195) |
-| Detection rules | 39 | "thirty-nine" | monolith CLAUDE.md |
-| Checkers | 19 | "nineteen" | monolith CLAUDE.md |
-| API endpoints | 167 | "a hundred sixty-seven" | route counts |
-| Chain events | 49,594 | "nearly fifty thousand" | monolith /api/health |
-| Anomalies detected | 684 | "six hundred eighty-four" | monolith /api/health |
-| State transitions | 295,307 | "nearly three hundred thousand" | monolith /api/health |
-| Objects tracked | 849 | "over eight hundred" | monolith /api/health |
+| Tests | 1,640 | "sixteen hundred forty" | pytest (1,033 witness + 607 monolith) |
+| Detection rules | 42 | "forty-two" | monolith checkers |
+| Checkers | 20 | "twenty" | monolith engine |
+| Chain events | 54,237 | "over fifty-four thousand" | monolith /api/health |
+| Anomalies detected | 721 | "seven hundred twenty-one" | monolith /api/health |
+| State transitions | 295,828 | "nearly three hundred thousand" | monolith /api/health |
+| Objects tracked | 861 | "over eight hundred" | monolith /api/health |
 | Systems mapped | 24,502 | "twenty-four thousand five hundred" | static data |
-| Entities indexed | 12,583 | "over twelve thousand" | watchtower /api/health |
-| Killmails analyzed | 426 | "over four hundred" | watchtower /api/health |
-| Story feed items | 591 | "nearly six hundred" | watchtower /api/health (rebuilding) |
-| Bug reports auto-filed | 43 | "forty-three" | monolith /api/health |
-| Sui Move modules | 4 | "four" | deployed contracts |
-| Discord commands | 15 | "fifteen" | bot registration |
-| On-chain transactions | 68+ | "sixty-eight" | sui explorer |
+| Entities indexed | 13,161 | "thirteen thousand" | watchtower /api/health |
+| Killmails analyzed | 449 | "over four hundred" | watchtower /api/health |
+| Story feed items | 750 | "seven hundred fifty" | watchtower /api/health |
+| Sui Move modules | 6 | "six" | deployed contracts |
+| Discord commands | 21 | "twenty-one" | bot registration |
 | Live deployments | 5 | "five" | Fly.io x2 + Vercel x3 |
+| Hackathon mode | Active | "expires May first" | /api/account/hackathon-status |
+
+**Verify before recording**: `curl -s https://monolith-evefrontier.fly.dev/api/health | python3 -m json.tool` and `curl -s https://watchtower-evefrontier.fly.dev/api/health | python3 -m json.tool` — numbers will have grown by recording time.
 
 ## BACKUP: API DEMO (if frontend has issues)
 
@@ -323,17 +388,52 @@ ls -lh ~/Videos/aegis-demo-upload.mp4
 # WatchTower
 curl -s https://watchtower-evefrontier.fly.dev/api/health | python3 -m json.tool
 curl -s 'https://watchtower-evefrontier.fly.dev/api/search?q=Specter' | python3 -m json.tool
-curl -s https://watchtower-evefrontier.fly.dev/api/leaderboard/top_killers | python3 -m json.tool
-curl -s https://watchtower-evefrontier.fly.dev/api/hotzones | python3 -m json.tool
+curl -s https://watchtower-evefrontier.fly.dev/api/entity/2112077764 | python3 -m json.tool
+curl -s https://watchtower-evefrontier.fly.dev/api/entity/2112077764/fingerprint | python3 -m json.tool
+curl -s https://watchtower-evefrontier.fly.dev/api/feed?limit=5 | python3 -m json.tool
+curl -s https://watchtower-evefrontier.fly.dev/api/account/hackathon-status | python3 -m json.tool
 
 # Monolith
 curl -s https://monolith-evefrontier.fly.dev/api/health | python3 -m json.tool
-curl -s 'https://monolith-evefrontier.fly.dev/api/anomalies?limit=5' | python3 -m json.tool
+curl -s 'https://monolith-evefrontier.fly.dev/api/anomalies?limit=5&severity=CRITICAL' | python3 -m json.tool
 curl -s https://monolith-evefrontier.fly.dev/api/stats | python3 -m json.tool
+
+# NEXUS webhook subscribe (use your Discord webhook URL)
+curl -X POST https://watchtower-evefrontier.fly.dev/api/nexus/subscribe \
+  -H "Content-Type: application/json" \
+  -d '{"webhook_url":"YOUR_DISCORD_WEBHOOK_URL","event_types":["killmail"]}'
 ```
+
+## DEMO ENTITIES (pre-scouted 2026-03-28)
+
+| Entity | ID | Kills | Deaths | Titles | Use For |
+|--------|----|-------|--------|--------|---------|
+| **Specter** | 2112077764 | 105 | 12 | Hunter, Marked, Reaper | Primary demo — in script |
+| **Social Assassin** | 2112077449 | 67 | 1 | Hunter, Reaper | Alt demo — 67:1 KD, OPSEC 25/100 |
+
+## DEMO ANOMALIES (pre-picked 2026-03-28)
+
+| ID | Type | Severity | Rule | Good Because |
+|----|------|----------|------|--------------|
+| MNLT-20260328-0026 | GHOST_ENGAGEMENT | CRITICAL | ES2 | Phantom victim, zero chain history — dramatic |
+| MNLT-20260328-0009 | UNAUTHORIZED_STATE_MODIFICATION | HIGH | OV2 | Version delta 967K — impressive number |
 
 ## RE-ENABLE AFTER RECORDING
 
 ```bash
 gsettings set org.gnome.desktop.notifications show-banners true
 ```
+
+## SA DEPLOYMENT NOTES (OPTIONAL — server dependent)
+
+If EVE Frontier server (Stillness) comes back online before recording:
+1. Deploy a WatchTower Smart Assembly in-game
+2. Screenshot the assembly ONLINE with name visible
+3. Get the Suiscan link for the on-chain object
+4. Note the system name for the voiceover
+5. If possible, capture a short clip of a player interacting with it
+6. Update Tab 10 with the actual screenshot before recording
+
+**FALLBACK** (server down): Use Suiscan screenshot of the deployed contract:
+`https://suiscan.xyz/testnet/object/0x3ca7e3af5bf5b072157d02534f5e4013cf11a12b79385c270d97de480e7b7dca`
+Show the 6 modules (reputation, threat_registry, dossier, subscription, titles, integration_examples).

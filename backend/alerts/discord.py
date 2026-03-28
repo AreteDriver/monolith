@@ -37,13 +37,13 @@ async def send_alert(
     """Send a Discord embed for a detected anomaly.
 
     Returns True if sent, False if rate-limited or failed.
-    Only sends for CRITICAL and HIGH severity by default.
+    Sends for all severity levels (demo mode).
     """
     if not webhook_url:
         return False
 
     severity = anomaly.get("severity", "LOW")
-    if severity not in ("CRITICAL", "HIGH"):
+    if severity not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
         return False
 
     # Rate limit: max N messages per 60 seconds
