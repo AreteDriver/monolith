@@ -24,6 +24,11 @@ export default function AnomalyDetail() {
   const [generating, setGenerating] = useState(false)
   const [reportId, setReportId] = useState(null)
 
+  // Sync reportId from loaded anomaly data
+  useEffect(() => {
+    if (data?.report_id && !reportId) setReportId(data.report_id)
+  }, [data, reportId])
+
   const systemId = data?.system_id
   const systemIds = useMemo(() => systemId ? [systemId] : [], [systemId])
   const systemNames = useSystemNames(systemIds)
