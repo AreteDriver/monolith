@@ -135,12 +135,19 @@ function SpaceDust() {
   )
 }
 
-// Nebula volumes for color depth
+// Nebula — subtle color wisps behind the galaxy
 function Nebula({ position, color, size }) {
   return (
     <mesh position={position}>
-      <sphereGeometry args={[size, 16, 16]} />
-      <meshBasicMaterial color={color} transparent opacity={0.025} side={THREE.BackSide} />
+      <planeGeometry args={[size, size]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.03}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   )
 }
@@ -307,12 +314,10 @@ export default function MapView3D() {
 
           <SpaceDust />
 
-          {/* Nebulae — larger, more visible */}
-          <Nebula position={[-18, 3, -15]} color="#ff4444" size={22} />
-          <Nebula position={[20, -2, 18]} color="#4488ff" size={28} />
-          <Nebula position={[5, 8, -25]} color="#aa55ff" size={18} />
-          <Nebula position={[-22, -4, 12]} color="#44cc88" size={16} />
-          <Nebula position={[0, -3, 0]} color="#ff8800" size={15} />
+          {/* Nebulae — subtle backdrop wisps */}
+          <Nebula position={[-30, -8, -30]} color="#ff4444" size={40} />
+          <Nebula position={[35, -10, 25]} color="#4488ff" size={50} />
+          <Nebula position={[10, -12, -40]} color="#aa55ff" size={35} />
 
           {/* Galaxy disc */}
           {bgPositions && <GalaxyField positions={bgPositions} />}
