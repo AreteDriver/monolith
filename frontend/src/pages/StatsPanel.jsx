@@ -118,7 +118,7 @@ export default function StatsPanel() {
                   cx="50%"
                   cy="45%"
                   outerRadius={80}
-                  label={({ name, value, cx: cxPos, x, y, midAngle }) => {
+                  label={({ name, value, cx: cxPos, x, y }) => {
                     const offset = x > cxPos ? 8 : -8
                     const anchor = x > cxPos ? 'start' : 'end'
                     return (
