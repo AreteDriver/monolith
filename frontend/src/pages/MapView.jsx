@@ -99,6 +99,27 @@ function getMaxSeverity(sys) {
   return 'low'
 }
 
+// --- PRE-COMPUTED STARFIELD (generated once, rendered every frame) ---
+const STAR_COUNT = 800
+const STARS = Array.from({ length: STAR_COUNT }, () => ({
+  x: Math.random(),
+  y: Math.random(),
+  r: Math.random() * 1.2 + 0.3,
+  alpha: Math.random() * 0.5 + 0.1,
+  twinkleSpeed: Math.random() * 0.002 + 0.001,
+  twinkleOffset: Math.random() * Math.PI * 2,
+}))
+
+// --- NEBULA CLOUD DEFINITIONS (subtle colored fog patches) ---
+const NEBULAE = [
+  { x: 0.15, y: 0.25, r: 0.18, color: [239, 68, 68], alpha: 0.025 },   // red
+  { x: 0.75, y: 0.15, r: 0.22, color: [59, 130, 246], alpha: 0.02 },    // blue
+  { x: 0.5, y: 0.7, r: 0.2, color: [168, 85, 247], alpha: 0.02 },       // purple
+  { x: 0.85, y: 0.65, r: 0.15, color: [245, 158, 11], alpha: 0.018 },   // amber
+  { x: 0.3, y: 0.8, r: 0.16, color: [16, 185, 129], alpha: 0.015 },     // emerald
+  { x: 0.6, y: 0.35, r: 0.12, color: [236, 72, 153], alpha: 0.015 },    // pink
+]
+
 export function AnomalyMap({ onSystemSelect, height } = {}) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -116,6 +137,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
   const wtHotzonesRef = useRef([])
   const wtThreatRef = useRef([])
   const wtAssembliesRef = useRef([])
+  const nebulaCanvasRef = useRef(null) // offscreen canvas for nebula (rendered once)
   const [layers, setLayers] = useState({
     background: true, anomalies: true,
     hotzones: true, threat: true, assemblies: false,
@@ -185,11 +207,49 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     const h = rect.height
 
     // Background
-    ctx.fillStyle = '#0a0a0a'
+    ctx.fillStyle = '#050508'
     ctx.fillRect(0, 0, w, h)
 
-    // Grid
-    ctx.strokeStyle = '#222222'
+    // --- NEBULA CLOUDS (offscreen canvas, rendered once per size) ---
+    const nc = nebulaCanvasRef.current
+    if (!nc || nc.width !== Math.floor(w) || nc.height !== Math.floor(h)) {
+      const offscreen = document.createElement('canvas')
+      offscreen.width = Math.floor(w)
+      offscreen.height = Math.floor(h)
+      const nctx = offscreen.getContext('2d')
+      nctx.globalCompositeOperation = 'lighter'
+      for (const neb of NEBULAE) {
+        const nx = neb.x * w
+        const ny = neb.y * h
+        const nr = neb.r * Math.max(w, h)
+        const grad = nctx.createRadialGradient(nx, ny, 0, nx, ny, nr)
+        grad.addColorStop(0, `rgba(${neb.color[0]},${neb.color[1]},${neb.color[2]},${neb.alpha})`)
+        grad.addColorStop(0.4, `rgba(${neb.color[0]},${neb.color[1]},${neb.color[2]},${neb.alpha * 0.5})`)
+        grad.addColorStop(1, `rgba(${neb.color[0]},${neb.color[1]},${neb.color[2]},0)`)
+        nctx.beginPath()
+        nctx.arc(nx, ny, nr, 0, Math.PI * 2)
+        nctx.fillStyle = grad
+        nctx.fill()
+      }
+      nebulaCanvasRef.current = offscreen
+    }
+    ctx.drawImage(nebulaCanvasRef.current, 0, 0)
+
+    // --- STARFIELD (twinkle animation) ---
+    const ts = timestamp || 0
+    for (const star of STARS) {
+      const twinkle = Math.sin(ts * star.twinkleSpeed + star.twinkleOffset)
+      const alpha = star.alpha + twinkle * 0.15
+      if (alpha <= 0.02) continue
+      ctx.beginPath()
+      ctx.arc(star.x * w, star.y * h, star.r, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(200,210,230,${Math.min(0.7, alpha)})`
+      ctx.fill()
+    }
+
+    // Grid (fade with zoom — visible at low zoom, disappears at high)
+    const gridAlpha = Math.max(0.03, 0.15 - (transform.scale - 1) * 0.03)
+    ctx.strokeStyle = `rgba(34,34,34,${gridAlpha})`
     ctx.lineWidth = 0.5
     const gridSize = 60 * transform.scale
     const offsetX = transform.x % gridSize
@@ -207,14 +267,22 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       ctx.stroke()
     }
 
-    // Scanline sweep effect
-    const scanY = ((timestamp || 0) * 0.03) % h
-    const scanGrad = ctx.createLinearGradient(0, scanY - 30, 0, scanY + 30)
+    // Scanline sweep effect (dual sweep for cinematic feel)
+    const scanY = (ts * 0.03) % h
+    const scanGrad = ctx.createLinearGradient(0, scanY - 40, 0, scanY + 40)
     scanGrad.addColorStop(0, 'rgba(245,158,11,0)')
-    scanGrad.addColorStop(0.5, 'rgba(245,158,11,0.03)')
+    scanGrad.addColorStop(0.5, 'rgba(245,158,11,0.035)')
     scanGrad.addColorStop(1, 'rgba(245,158,11,0)')
     ctx.fillStyle = scanGrad
-    ctx.fillRect(0, scanY - 30, w, 60)
+    ctx.fillRect(0, scanY - 40, w, 80)
+    // Secondary slower sweep (blue tint)
+    const scanY2 = (ts * 0.015 + h * 0.6) % h
+    const scanGrad2 = ctx.createLinearGradient(0, scanY2 - 50, 0, scanY2 + 50)
+    scanGrad2.addColorStop(0, 'rgba(59,130,246,0)')
+    scanGrad2.addColorStop(0.5, 'rgba(59,130,246,0.015)')
+    scanGrad2.addColorStop(1, 'rgba(59,130,246,0)')
+    ctx.fillStyle = scanGrad2
+    ctx.fillRect(0, scanY2 - 50, w, 100)
 
     const systems = systemsRef.current
     const events = eventsRef.current
@@ -232,19 +300,28 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     const drawW = w - pad * 2
     const drawH = h - pad * 2
 
-    // --- BACKGROUND SYSTEMS (dim dots — fade out when zoomed in) ---
+    // --- BACKGROUND SYSTEMS (dim dots with subtle twinkle) ---
     if (layers.background && bgSystems.length) {
       // Fade background as zoom increases: full opacity at 1x, nearly invisible at 4x+
       const bgAlpha = Math.max(0.08, 1 - (transform.scale - 1) * 0.3)
       const bgRadius = Math.min(2, Math.max(1, 1.5 * transform.scale))  // cap at 2px
-      ctx.fillStyle = `rgba(51,65,85,${bgAlpha})`
-      for (const sys of bgSystems) {
+      for (let i = 0; i < bgSystems.length; i++) {
+        const sys = bgSystems[i]
         const sx = pad + sys.nx * drawW
         const sy = pad + sys.nz * drawH
         const px = sx * transform.scale + transform.x
         const py = sy * transform.scale + transform.y
 
         if (px < -5 || px > w + 5 || py < -5 || py > h + 5) continue
+
+        // Subtle twinkle — use index as seed for stable per-star phase
+        const twinkle = Math.sin(ts * 0.0008 + i * 1.7) * 0.3 + 0.7  // 0.4 - 1.0
+        const a = bgAlpha * twinkle
+        // Slight color variation: most are slate, some are warm
+        const warm = (i % 17 === 0) ? 1 : 0
+        ctx.fillStyle = warm
+          ? `rgba(120,100,80,${a})`
+          : `rgba(51,65,85,${a})`
 
         ctx.beginPath()
         ctx.arc(px, py, bgRadius, 0, Math.PI * 2)
@@ -544,6 +621,34 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       }
     }
 
+    // --- CRITICAL PULSE RINGS (expanding/fading circles on critical systems) ---
+    if (layers.anomalies) {
+      for (const mp of markerPos) {
+        const { sys, px, py } = mp
+        if (sys.critical === 0) continue
+        if (px < -80 || px > w + 80 || py < -80 || py > h + 80) continue
+
+        const color = SEVERITY_COLORS.critical
+        const r = parseInt(color.slice(1, 3), 16)
+        const g = parseInt(color.slice(3, 5), 16)
+        const b = parseInt(color.slice(5, 7), 16)
+
+        // Two offset rings for continuous pulse effect
+        for (let ring = 0; ring < 2; ring++) {
+          const phase = ((ts * 0.0008 + ring * 0.5) % 1)
+          const ringRadius = (20 + phase * 60) * transform.scale
+          const ringAlpha = (1 - phase) * 0.25
+          if (ringAlpha < 0.02) continue
+
+          ctx.beginPath()
+          ctx.arc(px, py, ringRadius, 0, Math.PI * 2)
+          ctx.strokeStyle = `rgba(${r},${g},${b},${ringAlpha})`
+          ctx.lineWidth = 1.5 - phase
+          ctx.stroke()
+        }
+      }
+    }
+
     // --- EVENT MARKERS (animated pulsing) ---
     if (layers.anomalies && events.length) {
       const pulse = (Math.sin((timestamp || 0) * 0.003) + 1) / 2 // 0-1 oscillation
@@ -620,6 +725,14 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
         }
       }
     }
+
+    // --- VIGNETTE (dark edges, draws focus to center) ---
+    const vignetteGrad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75)
+    vignetteGrad.addColorStop(0, 'rgba(5,5,8,0)')
+    vignetteGrad.addColorStop(0.7, 'rgba(5,5,8,0.15)')
+    vignetteGrad.addColorStop(1, 'rgba(5,5,8,0.5)')
+    ctx.fillStyle = vignetteGrad
+    ctx.fillRect(0, 0, w, h)
 
     // Continue animation loop
     animRef.current = requestAnimationFrame(drawRef.current)

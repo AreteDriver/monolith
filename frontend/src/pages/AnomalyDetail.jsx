@@ -124,6 +124,78 @@ export default function AnomalyDetail() {
         </pre>
       </div>
 
+      {/* Provenance Chain */}
+      {a.provenance && a.provenance.length > 0 && (
+        <div className="border border-[#2a2a2a] p-4 mb-6">
+          <h2 className="text-sm font-bold text-[#a3a3a3] mb-3">PROVENANCE CHAIN</h2>
+          <div className="space-y-0">
+            {a.provenance.map((p, i) => (
+              <div key={i} className="flex items-start gap-3 relative">
+                {/* Vertical connector line */}
+                {i < a.provenance.length - 1 && (
+                  <div className="absolute left-[7px] top-[18px] w-[2px] h-[calc(100%)] bg-[#2a2a2a]" />
+                )}
+                {/* Node dot */}
+                <div className="w-4 h-4 rounded-full border-2 flex-shrink-0 mt-0.5"
+                  style={{
+                    borderColor: p.source_type === 'warden_verification' ? '#22c55e'
+                      : p.source_type === 'chain_event' ? '#f59e0b'
+                      : '#3b82f6',
+                    backgroundColor: p.source_type === 'warden_verification' ? '#22c55e20'
+                      : p.source_type === 'chain_event' ? '#f59e0b20'
+                      : '#3b82f620',
+                  }}
+                />
+                <div className="pb-4 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase"
+                      style={{
+                        color: p.source_type === 'warden_verification' ? '#22c55e'
+                          : p.source_type === 'chain_event' ? '#f59e0b'
+                          : '#3b82f6',
+                      }}
+                    >
+                      {p.source_type.replace(/_/g, ' ')}
+                    </span>
+                    {p.timestamp > 0 && (
+                      <TimeAgo timestamp={p.timestamp} />
+                    )}
+                  </div>
+                  <p className="text-sm text-[#e5e5e5] mt-0.5">{p.derivation}</p>
+                  <p className="mono text-xs text-[#6b7280] mt-0.5 break-all">
+                    {p.source_id}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Warden Verdict */}
+      {a.status === 'VERIFIED' && (
+        <div className="border border-[#22c55e]/30 bg-[#22c55e]/5 p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] inline-block" />
+            <span className="text-sm font-bold text-[#22c55e]">WARDEN VERIFIED</span>
+          </div>
+          <p className="text-xs text-[#a3a3a3] mt-1">
+            Autonomous verification confirmed this anomaly against on-chain state via Sui RPC.
+          </p>
+        </div>
+      )}
+      {a.status === 'DISMISSED' && (
+        <div className="border border-[#6b7280]/30 bg-[#6b7280]/5 p-4 mb-6">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#6b7280] inline-block" />
+            <span className="text-sm font-bold text-[#6b7280]">WARDEN DISMISSED</span>
+          </div>
+          <p className="text-xs text-[#a3a3a3] mt-1">
+            Autonomous verification could not confirm on-chain. May be resolved or a detection artifact.
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {reportId ? (
