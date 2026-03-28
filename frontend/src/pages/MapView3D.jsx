@@ -135,22 +135,6 @@ function SpaceDust() {
   )
 }
 
-// Nebula — subtle color wisps behind the galaxy
-function Nebula({ position, color, size }) {
-  return (
-    <mesh position={position}>
-      <planeGeometry args={[size, size]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={0.03}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  )
-}
 
 export default function MapView3D() {
   const navigate = useNavigate()
@@ -313,11 +297,6 @@ export default function MapView3D() {
           <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0.3} />
 
           <SpaceDust />
-
-          {/* Nebulae — subtle backdrop wisps */}
-          <Nebula position={[-30, -8, -30]} color="#ff4444" size={40} />
-          <Nebula position={[35, -10, 25]} color="#4488ff" size={50} />
-          <Nebula position={[10, -12, -40]} color="#aa55ff" size={35} />
 
           {/* Galaxy disc */}
           {bgPositions && <GalaxyField positions={bgPositions} />}
