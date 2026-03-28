@@ -16,6 +16,7 @@ const ZonesPage = lazy(() => import('./pages/ZonesPage'))
 const StatsPanel = lazy(() => import('./pages/StatsPanel'))
 const MapView = lazy(() => import('./pages/MapView'))
 const CommandCenter = lazy(() => import('./pages/CommandCenter'))
+const EmbeddedView = lazy(() => import('./pages/EmbeddedView'))
 
 function Nav() {
   return (
@@ -81,6 +82,8 @@ export default function App() {
         </div>
         <Suspense fallback={SuspenseFallback}>
           <Routes>
+            {/* Embedded view — no chrome, for Smart Assembly browser panels */}
+            <Route path="/embed" element={<EmbeddedView />} />
             <Route path="/map" element={<CommandCenter />} />
             <Route path="*" element={
               <main className="max-w-7xl mx-auto px-6 py-6">
