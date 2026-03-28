@@ -215,7 +215,7 @@ class EventProcessor:
 
     def _handle_killmail(self, event: dict, parsed: dict) -> None:
         """KillmailCreatedEvent → mark victim as destroyed."""
-        victim_id = parsed.get("victim_id", parsed.get("victimId", ""))
+        victim_id = self._extract_entity_id(parsed, "victim_id", "victimId", "victim")
         if victim_id:
             self.conn.execute(
                 """UPDATE objects SET destroyed_at = ?
@@ -224,12 +224,29 @@ class EventProcessor:
             )
 
         # Also track killer activity
-        killer_id = parsed.get("killer_id", parsed.get("killerId", ""))
+        killer_id = self._extract_entity_id(parsed, "killer_id", "killerId", "killer")
         if killer_id:
             self.conn.execute(
                 "UPDATE objects SET last_seen = ? WHERE object_id = ?",
                 (event["timestamp"], killer_id),
             )
+
+    @staticmethod
+    def _extract_entity_id(parsed: dict, *keys: str) -> str:
+        """Extract an entity ID from parsed event data, unwrapping nested objects.
+
+        Killmail events may store victim/killer as nested dicts with address/id
+        fields rather than flat string IDs.
+        """
+        for key in keys:
+            val = parsed.get(key)
+            if val is None:
+                continue
+            if isinstance(val, str):
+                return val
+            if isinstance(val, dict):
+                return str(val.get("id", val.get("address", "")))
+        return ""
 
     def _handle_ownership_transfer(self, event: dict, parsed: dict) -> None:
         """OwnerCapTransferred → update owner on the authorized object."""
