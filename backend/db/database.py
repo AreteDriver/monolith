@@ -276,7 +276,7 @@ CREATE INDEX IF NOT EXISTS idx_anomalies_type ON anomalies(anomaly_type);
 CREATE INDEX IF NOT EXISTS idx_anomalies_detected ON anomalies(detected_at);
 CREATE INDEX IF NOT EXISTS idx_anomalies_object ON anomalies(object_id);
 CREATE INDEX IF NOT EXISTS idx_anomalies_status ON anomalies(status);
-CREATE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bug_reports_anomaly ON bug_reports(anomaly_id);
 CREATE INDEX IF NOT EXISTS idx_reference_data_type ON reference_data(data_type);
 CREATE INDEX IF NOT EXISTS idx_nexus_events_type ON nexus_events(event_type, received_at DESC);
 CREATE INDEX IF NOT EXISTS idx_item_ledger_assembly ON item_ledger(assembly_id);
@@ -341,6 +341,8 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
     _migrate_add_column(conn, "anomalies", "cycle", "INTEGER DEFAULT 5")
     # Provenance chains: auditable derivation trail per anomaly
     _migrate_add_column(conn, "anomalies", "provenance_json", "TEXT")
+    # Enforce 1 bug report per anomaly — upgrade non-unique index to unique
+    _migrate_unique_index(conn, "bug_reports", "anomaly_id", "idx_bug_reports_anomaly")
     conn.commit()
     logger.info("Database initialized: %s", db_path)
     return conn
@@ -351,6 +353,21 @@ def _migrate_add_column(conn: sqlite3.Connection, table: str, column: str, col_t
     if not column_exists(conn, table, column):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")  # noqa: S608
         logger.info("Migration: added %s.%s (%s)", table, column, col_type)
+
+
+def _migrate_unique_index(
+    conn: sqlite3.Connection, table: str, column: str, index_name: str
+) -> None:
+    """Replace a non-unique index with a unique one (idempotent)."""
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='index' AND name=?", (index_name,)
+    ).fetchone()
+    if row and "UNIQUE" not in (row[0] or "").upper():
+        conn.execute(f"DROP INDEX IF EXISTS {index_name}")  # noqa: S608
+        conn.execute(
+            f"CREATE UNIQUE INDEX {index_name} ON {table}({column})"  # noqa: S608
+        )
+        logger.info("Migration: upgraded %s to UNIQUE on %s.%s", index_name, table, column)
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:

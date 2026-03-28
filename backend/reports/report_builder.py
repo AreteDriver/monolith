@@ -302,6 +302,12 @@ def store_report(report: dict, conn: sqlite3.Connection) -> bool:
         )
         conn.commit()
         return True
+    except sqlite3.IntegrityError:
+        logger.warning(
+            "Duplicate bug report for anomaly %s — already exists",
+            report.get("anomaly_id", "?"),
+        )
+        return False
     except sqlite3.Error:
         logger.warning("Failed to store bug report %s", report.get("report_id", "?"))
         return False
