@@ -35,7 +35,7 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-// Background star field from all 24K systems
+// Background star field from all 24K systems — two layers for depth
 function StarField({ positions }) {
   const ref = useRef()
 
@@ -46,14 +46,63 @@ function StarField({ positions }) {
   if (!positions || positions.length === 0) return null
 
   return (
+    <group ref={ref}>
+      {/* Dim galaxy layer */}
+      <Points positions={positions} stride={3}>
+        <PointMaterial
+          transparent
+          color="#556"
+          size={0.25}
+          sizeAttenuation
+          depthWrite={false}
+          opacity={0.2}
+        />
+      </Points>
+      {/* Brighter core stars — sample every 40th for sparkle */}
+      <Points positions={positions.filter((_, i) => i % 120 < 3)} stride={3}>
+        <PointMaterial
+          transparent
+          color="#aab"
+          size={0.4}
+          sizeAttenuation
+          depthWrite={false}
+          opacity={0.35}
+        />
+      </Points>
+    </group>
+  )
+}
+
+// Distant background stars — not from data, just ambiance
+function DeepSpaceStars() {
+  const ref = useRef()
+  const [positions] = useState(() => {
+    const p = new Float32Array(2000 * 3)
+    for (let i = 0; i < 2000; i++) {
+      // Place on a large sphere shell
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(2 * Math.random() - 1)
+      const r = 80 + Math.random() * 30
+      p[i * 3] = r * Math.sin(phi) * Math.cos(theta)
+      p[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
+      p[i * 3 + 2] = r * Math.cos(phi)
+    }
+    return p
+  })
+
+  useFrame(() => {
+    if (ref.current) ref.current.rotation.y += 0.00003
+  })
+
+  return (
     <Points ref={ref} positions={positions} stride={3}>
       <PointMaterial
         transparent
-        color="#334"
-        size={0.2}
-        sizeAttenuation
+        color="#fff"
+        size={0.08}
+        sizeAttenuation={false}
         depthWrite={false}
-        opacity={0.25}
+        opacity={0.5}
       />
     </Points>
   )
@@ -298,14 +347,15 @@ export default function MapView3D() {
         <Suspense fallback={null}>
           <ambientLight intensity={0.3} />
           <AutoRotate />
-          <GridPlane />
+          <DeepSpaceStars />
           <SpaceDust />
 
-          {/* Nebula fog */}
-          <NebulaCloud position={[-15, 5, -20]} color="#ef4444" size={18} />
-          <NebulaCloud position={[20, -3, 15]} color="#3b82f6" size={22} />
-          <NebulaCloud position={[5, 8, -25]} color="#a855f7" size={15} />
-          <NebulaCloud position={[-25, -5, 10]} color="#10b981" size={16} />
+          {/* Nebula fog — large, subtle, gives depth */}
+          <NebulaCloud position={[-15, 5, -20]} color="#ef4444" size={20} />
+          <NebulaCloud position={[22, -3, 18]} color="#3b82f6" size={25} />
+          <NebulaCloud position={[5, 10, -28]} color="#a855f7" size={18} />
+          <NebulaCloud position={[-28, -6, 12]} color="#10b981" size={16} />
+          <NebulaCloud position={[0, -8, 0]} color="#f59e0b" size={30} />
 
           {bgPositions && <StarField positions={bgPositions} />}
 
