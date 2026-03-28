@@ -62,7 +62,7 @@ jobs:
         run: npm run build
 
       - name: Notify Discord
-        if: always()
+        if: always() && secrets.DISCORD_WEBHOOK_CICD != ''
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
         run: |
