@@ -286,16 +286,34 @@ export default function MapView3D() {
       lookup.set(s.system_id, { nx: s.nx, nz: s.nz || 0, name: s.name })
     }
 
-    const markers = systems
+    const raw = systems
       .map((sys) => {
         const coords = lookup.get(sys.system_id)
         if (!coords) return null
         return { ...sys, nx: coords.nx, nz: coords.nz, name: coords.name || sys.system_id }
       })
       .filter(Boolean)
-      .sort((a, b) => a.count - b.count)
 
-    setAnomalySystems(markers)
+    // Auto-normalize anomaly coords to fill the view space
+    if (raw.length > 0) {
+      const nxValues = raw.map((s) => s.nx)
+      const nzValues = raw.map((s) => s.nz)
+      const minNx = Math.min(...nxValues)
+      const maxNx = Math.max(...nxValues)
+      const minNz = Math.min(...nzValues)
+      const maxNz = Math.max(...nzValues)
+      const rangeNx = maxNx - minNx || 1
+      const rangeNz = maxNz - minNz || 1
+      // Add 10% padding
+      const pad = 0.1
+      for (const s of raw) {
+        s.nx = pad + ((s.nx - minNx) / rangeNx) * (1 - pad * 2)
+        s.nz = pad + ((s.nz - minNz) / rangeNz) * (1 - pad * 2)
+      }
+    }
+
+    raw.sort((a, b) => a.count - b.count)
+    setAnomalySystems(raw)
   }, [mapData, bgData])
 
   const handleClick = useCallback((system) => {

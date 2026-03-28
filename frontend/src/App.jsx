@@ -76,17 +76,26 @@ class ErrorBoundary extends Component {
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#0a0a0a]">
-        <Nav />
-        <div className="max-w-7xl mx-auto px-6 pt-4">
-          <CycleBanner />
-        </div>
-        <Suspense fallback={SuspenseFallback}>
-          <Routes>
-            {/* Embedded view — no chrome, for Smart Assembly browser panels */}
-            <Route path="/embed" element={<EmbeddedView />} />
-            <Route path="/map" element={<MapView3D />} />
-            <Route path="*" element={
+      <Suspense fallback={SuspenseFallback}>
+        <Routes>
+          {/* No chrome */}
+          <Route path="/embed" element={<EmbeddedView />} />
+
+          {/* Nav only — full viewport map */}
+          <Route path="/map" element={
+            <div className="min-h-screen bg-[#0a0a0a]">
+              <Nav />
+              <MapView3D />
+            </div>
+          } />
+
+          {/* Full app shell */}
+          <Route path="*" element={
+            <div className="min-h-screen bg-[#0a0a0a]">
+              <Nav />
+              <div className="max-w-7xl mx-auto px-6 pt-4">
+                <CycleBanner />
+              </div>
               <main className="max-w-7xl mx-auto px-6 py-6">
                 <Breadcrumbs />
                 <ErrorBoundary>
@@ -104,21 +113,21 @@ export default function App() {
                   </Suspense>
                 </ErrorBoundary>
               </main>
-            } />
-          </Routes>
-        </Suspense>
-        <div className="max-w-7xl mx-auto px-6 pb-8">
-          <AegisEcosystem />
-        </div>
-        <footer className="border-t border-[#2a2a2a] px-6 py-4 mt-8">
-          <div className="max-w-7xl mx-auto text-center text-xs text-[#6b7280] space-y-1">
-            <div>Monolith — Blockchain Integrity Monitor — EVE Frontier Hackathon 2026</div>
-            <div style={{ fontFamily: "'Share Tech Mono', monospace", color: '#7F77DD', letterSpacing: '0.15em' }}>
-              POWERED BY AEGIS STACK
+              <div className="max-w-7xl mx-auto px-6 pb-8">
+                <AegisEcosystem />
+              </div>
+              <footer className="border-t border-[#2a2a2a] px-6 py-4 mt-8">
+                <div className="max-w-7xl mx-auto text-center text-xs text-[#6b7280] space-y-1">
+                  <div>Monolith — Blockchain Integrity Monitor — EVE Frontier Hackathon 2026</div>
+                  <div style={{ fontFamily: "'Share Tech Mono', monospace", color: '#7F77DD', letterSpacing: '0.15em' }}>
+                    POWERED BY AEGIS STACK
+                  </div>
+                </div>
+              </footer>
             </div>
-          </div>
-        </footer>
-      </div>
+          } />
+        </Routes>
+      </Suspense>
       <Analytics />
     </BrowserRouter>
   )
