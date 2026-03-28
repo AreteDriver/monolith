@@ -247,7 +247,7 @@ export default function MapView3D() {
 
   if (mapLoading && !bgPositions) {
     return (
-      <div className="bg-[#08080e] flex items-center justify-center" style={{ height: '100%', minHeight: 500 }}>
+      <div className="bg-[#08080e] flex items-center justify-center" style={{ height: 'calc(100vh - 52px)' }}>
         <div className="flex items-center gap-2 text-[#6b7280] text-xs">
           <span className="text-[#f59e0b] animate-pulse">///</span>
           Loading galaxy...
@@ -257,7 +257,7 @@ export default function MapView3D() {
   }
 
   return (
-    <div className="bg-[#08080e] relative" style={{ height: '100%', minHeight: 500 }}>
+    <div className="bg-[#08080e] relative" style={{ height: 'calc(100vh - 52px)' }}>
       {/* Header overlay */}
       <div className="absolute top-3 left-4 z-10">
         <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">
