@@ -1,23 +1,23 @@
 /**
- * MapView3D — React Three Fiber galaxy map for Monolith.
+ * MapView3D — EVE Frontier-style 3D galaxy map.
  *
- * Shows 24K background systems as a dim point cloud with anomaly-affected
- * systems as glowing colored spheres. Size = anomaly count, color = max
- * severity. Auto-rotation, hover tooltip, click to navigate.
- * WatchTower hotzone overlay as secondary markers.
+ * All 24K systems as a galaxy disc with realistic thickness, bloom
+ * post-processing on anomaly markers, space gradient background,
+ * OrbitControls for user interaction. Anomaly systems glow bright
+ * against the dim galaxy field.
  */
-import { useCallback, useEffect, useState, useRef, Suspense } from 'react'
+import { useCallback, useEffect, useState, useRef, useMemo, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Points, PointMaterial, Html, OrbitControls } from '@react-three/drei'
+import { Canvas, useFrame, extend } from '@react-three/fiber'
+import { Points, PointMaterial, Html, OrbitControls, Stars } from '@react-three/drei'
+import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { useApi } from '../hooks/useApi'
-import { getDisplayName } from '../displayNames'
 
 const SEVERITY_COLORS = {
-  critical: '#ef4444',
-  high: '#f97316',
-  medium: '#eab308',
+  critical: '#ff4444',
+  high: '#ff8800',
+  medium: '#ffcc00',
   low: '#6b7280',
 }
 
@@ -28,171 +28,18 @@ function getMaxSeverity(sys) {
   return 'low'
 }
 
-function hexToRgba(hex, alpha) {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-// Background star field from all 24K systems — two layers for depth
-function StarField({ positions }) {
+// Galaxy disc — all 24K systems with realistic disc thickness
+function GalaxyField({ positions }) {
   const ref = useRef()
-
-  useFrame(() => {
-    if (ref.current) ref.current.rotation.y += 0.00008
-  })
 
   if (!positions || positions.length === 0) return null
 
   return (
-    <group ref={ref}>
-      <Points positions={positions} stride={3}>
-        <PointMaterial
-          transparent
-          color="#667"
-          size={0.15}
-          sizeAttenuation
-          depthWrite={false}
-          opacity={0.35}
-        />
-      </Points>
-    </group>
-  )
-}
-
-// Distant background stars — not from data, just ambiance
-function DeepSpaceStars() {
-  const ref = useRef()
-  const [positions] = useState(() => {
-    const p = new Float32Array(2000 * 3)
-    for (let i = 0; i < 2000; i++) {
-      // Place on a large sphere shell
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(2 * Math.random() - 1)
-      const r = 80 + Math.random() * 30
-      p[i * 3] = r * Math.sin(phi) * Math.cos(theta)
-      p[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
-      p[i * 3 + 2] = r * Math.cos(phi)
-    }
-    return p
-  })
-
-  useFrame(() => {
-    if (ref.current) ref.current.rotation.y += 0.00003
-  })
-
-  return (
     <Points ref={ref} positions={positions} stride={3}>
       <PointMaterial
         transparent
-        color="#fff"
-        size={0.08}
-        sizeAttenuation={false}
-        depthWrite={false}
-        opacity={0.5}
-      />
-    </Points>
-  )
-}
-
-// Anomaly marker sphere
-function AnomalyMarker({ position, system, onHover, onClick }) {
-  const glowRef = useRef()
-  const severity = getMaxSeverity(system)
-  const color = SEVERITY_COLORS[severity]
-  const radius = Math.max(0.25, Math.min(1.0, Math.sqrt(system.count) * 0.3))
-  const isHot = severity === 'critical' || severity === 'high'
-
-  useFrame(({ clock }) => {
-    if (glowRef.current && isHot) {
-      const pulse = 1 + Math.sin(clock.elapsedTime * 2.5 + system.count) * 0.25
-      glowRef.current.scale.setScalar(pulse)
-    }
-  })
-
-  const name = system.name || system.system_id?.slice(0, 10)
-
-  return (
-    <group position={position}>
-      {/* Outer glow */}
-      <mesh ref={glowRef}>
-        <sphereGeometry args={[radius * 2.5, 12, 12]} />
-        <meshBasicMaterial color={color} transparent opacity={0.06} />
-      </mesh>
-      {/* Mid glow */}
-      <mesh>
-        <sphereGeometry args={[radius * 1.5, 12, 12]} />
-        <meshBasicMaterial color={color} transparent opacity={0.12} />
-      </mesh>
-      {/* Core */}
-      <mesh
-        onPointerOver={(e) => { e.stopPropagation(); onHover(system) }}
-        onPointerOut={() => onHover(null)}
-        onClick={(e) => { e.stopPropagation(); onClick(system) }}
-      >
-        <sphereGeometry args={[radius, 12, 12]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      {/* Label for significant anomalies */}
-      {system.count >= 3 && (
-        <Html
-          position={[radius + 0.4, 0.2, 0]}
-          style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
-          distanceFactor={30}
-        >
-          <div style={{
-            fontFamily: 'monospace',
-            fontSize: 9,
-            color: color,
-            textShadow: '0 0 4px rgba(0,0,0,0.9)',
-            opacity: 0.85,
-          }}>
-            {name}
-            <span style={{ color: '#6b7280', marginLeft: 3 }}>{system.count}</span>
-          </div>
-        </Html>
-      )}
-    </group>
-  )
-}
-
-
-function GridPlane() {
-  return (
-    <gridHelper
-      args={[70, 20, '#1a1a2a', '#10101a']}
-      position={[0, -12, 0]}
-    />
-  )
-}
-
-// Ambient dust particles floating in space
-function SpaceDust() {
-  const ref = useRef()
-  const [positions] = useState(() => {
-    const p = new Float32Array(600 * 3)
-    for (let i = 0; i < 600; i++) {
-      p[i * 3] = (Math.random() - 0.5) * 100
-      p[i * 3 + 1] = (Math.random() - 0.5) * 40
-      p[i * 3 + 2] = (Math.random() - 0.5) * 100
-    }
-    return p
-  })
-
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.rotation.y = clock.elapsedTime * 0.02
-      ref.current.rotation.x = Math.sin(clock.elapsedTime * 0.01) * 0.05
-    }
-  })
-
-  return (
-    <Points ref={ref} positions={positions} stride={3}>
-      <PointMaterial
-        transparent
-        color="#445"
-        size={0.15}
+        color="#8899aa"
+        size={0.12}
         sizeAttenuation
         depthWrite={false}
         opacity={0.4}
@@ -201,12 +48,99 @@ function SpaceDust() {
   )
 }
 
-// Nebula glow — colored fog spheres
-function NebulaCloud({ position, color, size }) {
+// Anomaly marker — emissive sphere that triggers bloom
+function AnomalyMarker({ position, system, onHover, onClick }) {
+  const glowRef = useRef()
+  const severity = getMaxSeverity(system)
+  const color = SEVERITY_COLORS[severity]
+  const radius = Math.max(0.3, Math.min(1.5, Math.sqrt(system.count) * 0.35))
+  const isHot = severity === 'critical' || severity === 'high'
+
+  useFrame(({ clock }) => {
+    if (glowRef.current && isHot) {
+      const pulse = 1 + Math.sin(clock.elapsedTime * 2 + system.count) * 0.2
+      glowRef.current.scale.setScalar(pulse)
+    }
+  })
+
+  const name = system.name || system.system_id?.slice(0, 10)
+
+  return (
+    <group position={position}>
+      {/* Bloom-triggering emissive core */}
+      <mesh ref={glowRef}
+        onPointerOver={(e) => { e.stopPropagation(); onHover(system) }}
+        onPointerOut={() => onHover(null)}
+        onClick={(e) => { e.stopPropagation(); onClick(system) }}
+      >
+        <sphereGeometry args={[radius, 16, 16]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={isHot ? 3 : 1.5}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* Soft outer halo */}
+      <mesh>
+        <sphereGeometry args={[radius * 2.5, 16, 16]} />
+        <meshBasicMaterial color={color} transparent opacity={0.04} side={THREE.BackSide} />
+      </mesh>
+      {/* Label */}
+      {(system.count >= 2 || severity === 'critical') && (
+        <Html
+          position={[radius + 0.5, 0.3, 0]}
+          style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
+          distanceFactor={25}
+        >
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: 10,
+            color: color,
+            textShadow: `0 0 6px ${color}, 0 0 12px rgba(0,0,0,0.9)`,
+            opacity: 0.9,
+          }}>
+            {name}
+            <span style={{ color: '#999', marginLeft: 4, fontSize: 9 }}>{system.count}</span>
+          </div>
+        </Html>
+      )}
+    </group>
+  )
+}
+
+// Ambient dust
+function SpaceDust() {
+  const ref = useRef()
+  const positions = useMemo(() => {
+    const p = new Float32Array(400 * 3)
+    for (let i = 0; i < 400; i++) {
+      p[i * 3] = (Math.random() - 0.5) * 100
+      p[i * 3 + 1] = (Math.random() - 0.5) * 50
+      p[i * 3 + 2] = (Math.random() - 0.5) * 100
+    }
+    return p
+  }, [])
+
+  useFrame(({ clock }) => {
+    if (ref.current) {
+      ref.current.rotation.y = clock.elapsedTime * 0.008
+    }
+  })
+
+  return (
+    <Points ref={ref} positions={positions} stride={3}>
+      <PointMaterial transparent color="#445" size={0.1} sizeAttenuation depthWrite={false} opacity={0.3} />
+    </Points>
+  )
+}
+
+// Nebula volumes for color depth
+function Nebula({ position, color, size }) {
   return (
     <mesh position={position}>
       <sphereGeometry args={[size, 16, 16]} />
-      <meshBasicMaterial color={color} transparent opacity={0.015} side={THREE.BackSide} />
+      <meshBasicMaterial color={color} transparent opacity={0.025} side={THREE.BackSide} />
     </mesh>
   )
 }
@@ -217,10 +151,7 @@ export default function MapView3D() {
   const [anomalySystems, setAnomalySystems] = useState([])
   const [hovered, setHovered] = useState(null)
   const [visibleSeverities, setVisibleSeverities] = useState({
-    critical: true,
-    high: true,
-    medium: true,
-    low: true,
+    critical: true, high: true, medium: true, low: true,
   })
 
   const toggleSeverity = useCallback((level) => {
@@ -230,25 +161,26 @@ export default function MapView3D() {
   const { data: mapData, loading: mapLoading } = useApi('/api/stats/map', { poll: 60000 })
   const { data: bgData } = useApi('/api/stats/map/systems', { poll: 0 })
 
-  // Build background positions from all systems
+  // All 24K systems — galaxy disc with thickness
   useEffect(() => {
     const allSystems = bgData?.all_systems || []
     if (allSystems.length === 0) return
 
-    // All systems — R3F handles 24K points fine with PointMaterial
     const positions = []
-    for (let i = 0; i < allSystems.length; i++) {
-      const s = allSystems[i]
-      positions.push(
-        (s.nx - 0.5) * 70,
-        (Math.random() - 0.5) * 4,
-        ((s.nz || 0) - 0.5) * 70,
-      )
+    for (const s of allSystems) {
+      const x = (s.nx - 0.5) * 70
+      const z = ((s.nz || 0) - 0.5) * 70
+      // Disc thickness — thicker near center, thinner at edges
+      const distFromCenter = Math.sqrt(x * x + z * z)
+      const maxThickness = 3
+      const thickness = maxThickness * Math.exp(-distFromCenter * distFromCenter / 800)
+      const y = (Math.random() - 0.5) * 2 * thickness
+      positions.push(x, y, z)
     }
     setBgPositions(new Float32Array(positions))
   }, [bgData])
 
-  // Build anomaly markers with positions
+  // Anomaly markers with auto-normalized positions
   useEffect(() => {
     const systems = mapData?.systems || []
     const allSystems = bgData?.all_systems || []
@@ -266,26 +198,8 @@ export default function MapView3D() {
         return { ...sys, nx: coords.nx, nz: coords.nz, name: coords.name || sys.system_id }
       })
       .filter(Boolean)
+      .sort((a, b) => a.count - b.count)
 
-    // Auto-normalize anomaly coords to fill the view space
-    if (raw.length > 0) {
-      const nxValues = raw.map((s) => s.nx)
-      const nzValues = raw.map((s) => s.nz)
-      const minNx = Math.min(...nxValues)
-      const maxNx = Math.max(...nxValues)
-      const minNz = Math.min(...nzValues)
-      const maxNz = Math.max(...nzValues)
-      const rangeNx = maxNx - minNx || 1
-      const rangeNz = maxNz - minNz || 1
-      // Add 10% padding
-      const pad = 0.1
-      for (const s of raw) {
-        s.nx = pad + ((s.nx - minNx) / rangeNx) * (1 - pad * 2)
-        s.nz = pad + ((s.nz - minNz) / rangeNz) * (1 - pad * 2)
-      }
-    }
-
-    raw.sort((a, b) => a.count - b.count)
     setAnomalySystems(raw)
   }, [mapData, bgData])
 
@@ -297,7 +211,7 @@ export default function MapView3D() {
 
   if (mapLoading && !bgPositions) {
     return (
-      <div className="bg-[#08080e] flex items-center justify-center" style={{ height: 'calc(100vh - 52px)' }}>
+      <div className="bg-[#030308] flex items-center justify-center" style={{ height: 'calc(100vh - 52px)' }}>
         <div className="flex items-center gap-2 text-[#6b7280] text-xs">
           <span className="text-[#f59e0b] animate-pulse">///</span>
           Loading galaxy...
@@ -307,20 +221,20 @@ export default function MapView3D() {
   }
 
   return (
-    <div className="bg-[#08080e] relative" style={{ height: 'calc(100vh - 52px)' }}>
-      {/* Header overlay */}
+    <div className="bg-[#030308] relative" style={{ height: 'calc(100vh - 52px)' }}>
+      {/* Header */}
       <div className="absolute top-3 left-4 z-10">
         <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">
-          Anomaly Map
+          Galaxy Map
         </div>
         <div className="text-[9px] text-[#6b7280]">
-          {anomalySystems.length} systems · {totalAnomalies} anomalies
+          {bgPositions ? (bgPositions.length / 3).toLocaleString() : 0} systems · {totalAnomalies} anomalies
         </div>
       </div>
 
       {/* Selectable Legend */}
       <div className="absolute bottom-3 left-4 z-10 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1">
-        <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Filter by Severity</div>
+        <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Severity</div>
         {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
           const active = visibleSeverities[level]
           const count = anomalySystems.filter((s) => getMaxSeverity(s) === level).length
@@ -328,20 +242,17 @@ export default function MapView3D() {
             <button
               key={level}
               onClick={() => toggleSeverity(level)}
-              className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5 group"
+              className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
             >
               <span
-                className="w-2.5 h-2.5 rounded-sm border transition-all"
+                className="w-2.5 h-2.5 rounded-sm border"
                 style={{
                   backgroundColor: active ? color : 'transparent',
                   borderColor: color,
                   opacity: active ? 1 : 0.4,
                 }}
               />
-              <span
-                className="text-[10px] uppercase font-bold transition-opacity"
-                style={{ color, opacity: active ? 1 : 0.3 }}
-              >
+              <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>
                 {level}
               </span>
               <span className="text-[9px] text-[#6b7280] ml-auto" style={{ opacity: active ? 1 : 0.3 }}>
@@ -352,9 +263,14 @@ export default function MapView3D() {
         })}
       </div>
 
-      {/* Hover tooltip */}
+      {/* Controls hint */}
+      <div className="absolute bottom-3 right-4 z-10 text-[9px] text-[#6b7280]">
+        Drag to rotate · Scroll to zoom · Right-click to pan
+      </div>
+
+      {/* Tooltip */}
       {hovered && (
-        <div className="absolute top-3 right-4 z-10 bg-[#0a0a0a] border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
+        <div className="absolute top-3 right-4 z-10 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
           <div className="font-bold text-[#e5e5e5]">{hovered.name || hovered.system_id}</div>
           <div style={{ color: SEVERITY_COLORS[getMaxSeverity(hovered)] }}>
             {getMaxSeverity(hovered).toUpperCase()} — {hovered.count} anomalies
@@ -366,32 +282,42 @@ export default function MapView3D() {
       )}
 
       <Canvas
-        camera={{ position: [55, 18, 0], fov: 45, near: 0.1, far: 200 }}
-        style={{ background: '#08080e' }}
+        camera={{ position: [40, 25, 40], fov: 50, near: 0.1, far: 300 }}
+        style={{ background: '#030308' }}
+        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
       >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.3} />
+          <ambientLight intensity={0.2} />
+          <pointLight position={[0, 30, 0]} intensity={0.5} color="#6688ff" />
+
           <OrbitControls
             autoRotate
-            autoRotateSpeed={0.3}
+            autoRotateSpeed={0.2}
             enableDamping
             dampingFactor={0.05}
-            minDistance={15}
-            maxDistance={120}
+            minDistance={10}
+            maxDistance={100}
             enablePan
+            maxPolarAngle={Math.PI * 0.85}
+            minPolarAngle={Math.PI * 0.15}
           />
-          <DeepSpaceStars />
+
+          {/* Deep space background */}
+          <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0.3} />
+
           <SpaceDust />
 
-          {/* Nebula fog — large, subtle, gives depth */}
-          <NebulaCloud position={[-15, 5, -20]} color="#ef4444" size={20} />
-          <NebulaCloud position={[22, -3, 18]} color="#3b82f6" size={25} />
-          <NebulaCloud position={[5, 10, -28]} color="#a855f7" size={18} />
-          <NebulaCloud position={[-28, -6, 12]} color="#10b981" size={16} />
-          <NebulaCloud position={[0, -8, 0]} color="#f59e0b" size={30} />
+          {/* Nebulae — larger, more visible */}
+          <Nebula position={[-18, 3, -15]} color="#ff4444" size={22} />
+          <Nebula position={[20, -2, 18]} color="#4488ff" size={28} />
+          <Nebula position={[5, 8, -25]} color="#aa55ff" size={18} />
+          <Nebula position={[-22, -4, 12]} color="#44cc88" size={16} />
+          <Nebula position={[0, -3, 0]} color="#ff8800" size={15} />
 
-          {bgPositions && <StarField positions={bgPositions} />}
+          {/* Galaxy disc */}
+          {bgPositions && <GalaxyField positions={bgPositions} />}
 
+          {/* Anomaly markers */}
           {anomalySystems
             .filter((sys) => visibleSeverities[getMaxSeverity(sys)])
             .map((sys) => (
@@ -400,13 +326,23 @@ export default function MapView3D() {
                 position={[
                   (sys.nx - 0.5) * 70,
                   0,
-                  (sys.nz - 0.5) * 70,
+                  ((sys.nz || 0) - 0.5) * 70,
                 ]}
                 system={sys}
                 onHover={setHovered}
                 onClick={handleClick}
               />
             ))}
+
+          {/* Bloom post-processing */}
+          <EffectComposer>
+            <Bloom
+              luminanceThreshold={0.8}
+              luminanceSmoothing={0.3}
+              intensity={1.5}
+              radius={0.8}
+            />
+          </EffectComposer>
         </Suspense>
       </Canvas>
     </div>
