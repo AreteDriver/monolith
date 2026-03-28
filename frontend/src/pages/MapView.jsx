@@ -100,24 +100,24 @@ function getMaxSeverity(sys) {
 }
 
 // --- PRE-COMPUTED STARFIELD (generated once, rendered every frame) ---
-const STAR_COUNT = 800
+const STAR_COUNT = 1200
 const STARS = Array.from({ length: STAR_COUNT }, () => ({
   x: Math.random(),
   y: Math.random(),
-  r: Math.random() * 1.2 + 0.3,
-  alpha: Math.random() * 0.5 + 0.1,
-  twinkleSpeed: Math.random() * 0.002 + 0.001,
+  r: Math.random() * 1.8 + 0.4,
+  alpha: Math.random() * 0.6 + 0.15,
+  twinkleSpeed: Math.random() * 0.003 + 0.001,
   twinkleOffset: Math.random() * Math.PI * 2,
 }))
 
 // --- NEBULA CLOUD DEFINITIONS (subtle colored fog patches) ---
 const NEBULAE = [
-  { x: 0.15, y: 0.25, r: 0.18, color: [239, 68, 68], alpha: 0.025 },   // red
-  { x: 0.75, y: 0.15, r: 0.22, color: [59, 130, 246], alpha: 0.02 },    // blue
-  { x: 0.5, y: 0.7, r: 0.2, color: [168, 85, 247], alpha: 0.02 },       // purple
-  { x: 0.85, y: 0.65, r: 0.15, color: [245, 158, 11], alpha: 0.018 },   // amber
-  { x: 0.3, y: 0.8, r: 0.16, color: [16, 185, 129], alpha: 0.015 },     // emerald
-  { x: 0.6, y: 0.35, r: 0.12, color: [236, 72, 153], alpha: 0.015 },    // pink
+  { x: 0.15, y: 0.25, r: 0.22, color: [239, 68, 68], alpha: 0.06 },     // red
+  { x: 0.75, y: 0.15, r: 0.28, color: [59, 130, 246], alpha: 0.05 },    // blue
+  { x: 0.5, y: 0.7, r: 0.25, color: [168, 85, 247], alpha: 0.05 },      // purple
+  { x: 0.85, y: 0.65, r: 0.2, color: [245, 158, 11], alpha: 0.045 },    // amber
+  { x: 0.3, y: 0.8, r: 0.2, color: [16, 185, 129], alpha: 0.04 },       // emerald
+  { x: 0.6, y: 0.35, r: 0.16, color: [236, 72, 153], alpha: 0.04 },     // pink
 ]
 
 export function AnomalyMap({ onSystemSelect, height } = {}) {
@@ -271,7 +271,7 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     const scanY = (ts * 0.03) % h
     const scanGrad = ctx.createLinearGradient(0, scanY - 40, 0, scanY + 40)
     scanGrad.addColorStop(0, 'rgba(245,158,11,0)')
-    scanGrad.addColorStop(0.5, 'rgba(245,158,11,0.035)')
+    scanGrad.addColorStop(0.5, 'rgba(245,158,11,0.06)')
     scanGrad.addColorStop(1, 'rgba(245,158,11,0)')
     ctx.fillStyle = scanGrad
     ctx.fillRect(0, scanY - 40, w, 80)
@@ -729,8 +729,8 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     // --- VIGNETTE (dark edges, draws focus to center) ---
     const vignetteGrad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75)
     vignetteGrad.addColorStop(0, 'rgba(5,5,8,0)')
-    vignetteGrad.addColorStop(0.7, 'rgba(5,5,8,0.15)')
-    vignetteGrad.addColorStop(1, 'rgba(5,5,8,0.5)')
+    vignetteGrad.addColorStop(0.6, 'rgba(5,5,8,0.25)')
+    vignetteGrad.addColorStop(1, 'rgba(5,5,8,0.7)')
     ctx.fillStyle = vignetteGrad
     ctx.fillRect(0, 0, w, h)
 
