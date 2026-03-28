@@ -114,8 +114,8 @@ async def detection_loop(
                         a["object_id"][:20],
                         a["evidence"].get("description", "")[:80],
                     )
-                    # Fire Discord alert for CRITICAL/HIGH
-                    if webhook_url and a["severity"] in ("CRITICAL", "HIGH"):
+                    # Fire Discord alert for all severities (demo mode)
+                    if webhook_url:
                         await send_alert(webhook_url, a, rate_limit)
                     # File GitHub issue for CRITICAL only
                     if github_repo and github_token and a["severity"] == "CRITICAL":
@@ -163,7 +163,7 @@ async def pod_check_loop(
                         a["object_id"][:20],
                         a["evidence"].get("description", "")[:80],
                     )
-                    if webhook_url and a["severity"] in ("CRITICAL", "HIGH"):
+                    if webhook_url:
                         await send_alert(webhook_url, a, rate_limit)
                     if github_repo and github_token and a["severity"] == "CRITICAL":
                         await file_github_issue(github_repo, github_token, a, conn)
@@ -189,10 +189,7 @@ async def pod_check_loop(
                             a["object_id"][:20],
                             a["evidence"].get("description", "")[:80],
                         )
-                        if webhook_url and a["severity"] in (
-                            "CRITICAL",
-                            "HIGH",
-                        ):
+                        if webhook_url:
                             await send_alert(webhook_url, a, rate_limit)
                         if github_repo and github_token and a["severity"] == "CRITICAL":
                             await file_github_issue(github_repo, github_token, a, conn)
@@ -433,16 +430,24 @@ async def lifespan(app: FastAPI):
     # connection object.  Giving each background loop its own connection
     # eliminates "database is locked" contention.
     db_path = settings.database_path
-    conn_chain = get_connection(db_path)       # chain_poll_loop
-    conn_detection = get_connection(db_path)    # detection_loop
-    conn_pod = get_connection(db_path)          # pod_check_loop
-    conn_snapshot = get_connection(db_path)     # snapshot_loop
-    conn_world = get_connection(db_path)        # static_data_loop
-    conn_gql = get_connection(db_path)          # graphql_enrichment_loop
-    conn_prune = get_connection(db_path)        # table_prune_loop
-    conn_warden = get_connection(db_path)       # warden_loop
-    bg_conns = [conn_chain, conn_detection, conn_pod, conn_snapshot,
-                conn_world, conn_gql, conn_prune, conn_warden]
+    conn_chain = get_connection(db_path)  # chain_poll_loop
+    conn_detection = get_connection(db_path)  # detection_loop
+    conn_pod = get_connection(db_path)  # pod_check_loop
+    conn_snapshot = get_connection(db_path)  # snapshot_loop
+    conn_world = get_connection(db_path)  # static_data_loop
+    conn_gql = get_connection(db_path)  # graphql_enrichment_loop
+    conn_prune = get_connection(db_path)  # table_prune_loop
+    conn_warden = get_connection(db_path)  # warden_loop
+    bg_conns = [
+        conn_chain,
+        conn_detection,
+        conn_pod,
+        conn_snapshot,
+        conn_world,
+        conn_gql,
+        conn_prune,
+        conn_warden,
+    ]
 
     # Initialize components — each gets its own connection
     world_poller = WorldPoller(conn_world, settings.world_api_url, settings.world_api_timeout)
