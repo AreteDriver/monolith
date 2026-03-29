@@ -7,7 +7,7 @@
  * against the dim galaxy field.
  */
 import { useCallback, useEffect, useState, useRef, useMemo, Suspense } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Points, PointMaterial, Html, OrbitControls, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
@@ -128,6 +128,76 @@ function SpaceDust() {
   )
 }
 
+
+const SEVERITY_LABEL_COLORS = {
+  CRITICAL: '#ef4444',
+  HIGH: '#f97316',
+  MEDIUM: '#eab308',
+  LOW: '#6b7280',
+}
+
+function timeAgo(ts) {
+  const diff = Math.floor(Date.now() / 1000) - ts
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+function LiveFeed() {
+  const { data, loading } = useApi('/api/anomalies?limit=6', { poll: 30000 })
+  const anomalies = data?.data || []
+
+  return (
+    <div className="absolute top-3 right-4 z-10 w-56">
+      <div className="bg-[#0a0a0a]/85 border border-[#2a2a2a] rounded backdrop-blur-sm">
+        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+            <span className="text-[9px] font-bold text-[#6b7280] uppercase tracking-wider">Live Feed</span>
+          </div>
+          <Link to="/anomalies" className="text-[8px] text-[#f59e0b] hover:text-[#fbbf24] no-underline">
+            View All
+          </Link>
+        </div>
+        <div className="max-h-48 overflow-y-auto">
+          {loading && anomalies.length === 0 ? (
+            <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">Loading...</div>
+          ) : anomalies.length === 0 ? (
+            <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No anomalies detected</div>
+          ) : (
+            anomalies.map((a) => (
+              <Link
+                key={a.anomaly_id}
+                to={`/anomalies/${a.id}`}
+                className="flex items-start gap-2 px-2.5 py-1.5 hover:bg-[#1a1a1a] no-underline border-b border-[#1a1a1a] last:border-0"
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
+                  style={{ backgroundColor: SEVERITY_LABEL_COLORS[a.severity] || '#6b7280' }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[9px] text-[#e5e5e5] truncate">
+                    {a.anomaly_type.replace(/_/g, ' ')}
+                  </div>
+                  <div className="text-[8px] text-[#6b7280] truncate">
+                    {a.anomaly_id} · {timeAgo(a.detected_at)}
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+        <Link
+          to="/submit"
+          className="flex items-center justify-center gap-1 px-2.5 py-1.5 border-t border-[#2a2a2a] text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider"
+        >
+          File Bug Report
+        </Link>
+      </div>
+    </div>
+  )
+}
 
 export default function MapView3D() {
   const navigate = useNavigate()
@@ -252,9 +322,12 @@ export default function MapView3D() {
         Drag to rotate · Scroll to zoom · Right-click to pan
       </div>
 
-      {/* Tooltip */}
+      {/* Live Anomaly Feed */}
+      <LiveFeed />
+
+      {/* Tooltip — positioned below live feed */}
       {hovered && (
-        <div className="absolute top-3 right-4 z-10 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
+        <div className="absolute top-[17rem] right-4 z-10 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
           <div className="font-bold text-[#e5e5e5]">{hovered.name || hovered.system_id}</div>
           <div style={{ color: SEVERITY_COLORS[getMaxSeverity(hovered)] }}>
             {getMaxSeverity(hovered).toUpperCase()} — {hovered.count} anomalies

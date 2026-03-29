@@ -1,5 +1,4 @@
 import { useApi } from '../hooks/useApi'
-import { useEffect, useState } from 'react'
 
 const STATUS_COLORS = {
   up: '#22c55e',
