@@ -13,11 +13,21 @@ class FakeRequest:
     """Minimal request stub for route handlers."""
 
     def __init__(self, conn, heartbeats=None, intervals=None):
-        self.app = type("App", (), {"state": type("State", (), {
-            "db": conn,
-            "loop_heartbeats": heartbeats or {},
-            "loop_intervals": intervals or {},
-        })()})()
+        self.app = type(
+            "App",
+            (),
+            {
+                "state": type(
+                    "State",
+                    (),
+                    {
+                        "db": conn,
+                        "loop_heartbeats": heartbeats or {},
+                        "loop_intervals": intervals or {},
+                    },
+                )()
+            },
+        )()
 
 
 @pytest.fixture

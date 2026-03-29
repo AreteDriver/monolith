@@ -1162,12 +1162,13 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
               type="checkbox"
               checked={layers[key]}
               onChange={() => toggleLayer(key)}
-              className="accent-[#f59e0b] w-3 h-3"
+              className="accent-[#22c55e] w-3 h-3"
             />
-            <span className={layers[key] ? 'text-[#e0e0e0]' : 'text-[#6b7280]'}>{label}</span>
+            <span className={layers[key] ? 'text-[#22c55e] font-bold' : 'text-[#ef4444]'}>{label}</span>
           </label>
         ))}
       </div>
+
     </div>
   )
 }

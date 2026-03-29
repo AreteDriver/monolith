@@ -13,6 +13,7 @@ import { Points, PointMaterial, Html, OrbitControls, Stars } from '@react-three/
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { useApi } from '../hooks/useApi'
+import { getDisplayName } from '../displayNames'
 
 const SEVERITY_COLORS = {
   critical: '#ff4444',
@@ -145,55 +146,68 @@ function timeAgo(ts) {
 }
 
 function LiveFeed() {
-  const { data, loading } = useApi('/api/anomalies?limit=6', { poll: 30000 })
+  const { data, loading } = useApi('/api/anomalies?limit=8', { poll: 30000 })
+  const [collapsed, setCollapsed] = useState(false)
   const anomalies = data?.data || []
 
   return (
-    <div className="absolute top-3 right-4 z-10 w-56">
-      <div className="bg-[#0a0a0a]/85 border border-[#2a2a2a] rounded backdrop-blur-sm">
-        <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a]">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-            <span className="text-[9px] font-bold text-[#6b7280] uppercase tracking-wider">Live Feed</span>
-          </div>
-          <Link to="/anomalies" className="text-[8px] text-[#f59e0b] hover:text-[#fbbf24] no-underline">
-            View All
-          </Link>
-        </div>
-        <div className="max-h-48 overflow-y-auto">
-          {loading && anomalies.length === 0 ? (
-            <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">Loading...</div>
-          ) : anomalies.length === 0 ? (
-            <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No anomalies detected</div>
-          ) : (
-            anomalies.map((a) => (
-              <Link
-                key={a.anomaly_id}
-                to={`/anomalies/${a.id}`}
-                className="flex items-start gap-2 px-2.5 py-1.5 hover:bg-[#1a1a1a] no-underline border-b border-[#1a1a1a] last:border-0"
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
-                  style={{ backgroundColor: SEVERITY_LABEL_COLORS[a.severity] || '#6b7280' }}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[9px] text-[#e5e5e5] truncate">
-                    {a.anomaly_type.replace(/_/g, ' ')}
-                  </div>
-                  <div className="text-[8px] text-[#6b7280] truncate">
-                    {a.anomaly_id} · {timeAgo(a.detected_at)}
-                  </div>
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
-        <Link
-          to="/submit"
-          className="flex items-center justify-center gap-1 px-2.5 py-1.5 border-t border-[#2a2a2a] text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider"
+    <div className="absolute top-3 right-4 z-20 w-60">
+      <div className="bg-[#0a0a0a]/95 border border-[#f59e0b]/40 rounded backdrop-blur-sm">
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] bg-transparent cursor-pointer"
         >
-          File Bug Report
-        </Link>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">Live Feed</span>
+            {anomalies.length > 0 && (
+              <span className="text-[8px] text-[#6b7280]">({anomalies.length})</span>
+            )}
+          </div>
+          <span className="text-[#6b7280] text-[9px]">{collapsed ? '\u25bc' : '\u25b2'}</span>
+        </button>
+        {!collapsed && (
+          <>
+            <div className="max-h-[300px] overflow-y-auto">
+              {loading && anomalies.length === 0 ? (
+                <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">Scanning...</div>
+              ) : anomalies.length === 0 ? (
+                <div className="px-2.5 py-3 text-[9px] text-[#22c55e] text-center">All clear</div>
+              ) : (
+                anomalies.map((a) => (
+                  <Link
+                    key={a.anomaly_id}
+                    to={`/anomalies/${a.anomaly_id}`}
+                    className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-[#1a1a1a] no-underline border-b border-[#1a1a1a] last:border-0 transition-colors"
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: SEVERITY_LABEL_COLORS[a.severity] || '#6b7280' }}
+                    />
+                    <span className="text-[10px] text-[#e5e5e5] truncate flex-1">
+                      {getDisplayName(a)}
+                    </span>
+                    <span className="text-[8px] text-[#6b7280] shrink-0">{timeAgo(a.detected_at)}</span>
+                  </Link>
+                ))
+              )}
+            </div>
+            <div className="flex border-t border-[#2a2a2a]">
+              <Link
+                to="/anomalies"
+                className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider border-r border-[#2a2a2a] transition-colors"
+              >
+                View All
+              </Link>
+              <Link
+                to="/submit"
+                className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider transition-colors"
+              >
+                Report
+              </Link>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -276,73 +290,13 @@ export default function MapView3D() {
 
   return (
     <div className="bg-[#030308] relative" style={{ height: 'calc(100vh - 52px)' }}>
-      {/* Header */}
-      <div className="absolute top-3 left-4 z-10">
-        <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">
-          Galaxy Map
-        </div>
-        <div className="text-[9px] text-[#6b7280]">
-          {bgPositions ? (bgPositions.length / 3).toLocaleString() : 0} systems · {totalAnomalies} anomalies
-        </div>
-      </div>
-
-      {/* Selectable Legend */}
-      <div className="absolute bottom-3 left-4 z-10 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1">
-        <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Severity</div>
-        {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
-          const active = visibleSeverities[level]
-          const count = anomalySystems.filter((s) => getMaxSeverity(s) === level).length
-          return (
-            <button
-              key={level}
-              onClick={() => toggleSeverity(level)}
-              className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-sm border"
-                style={{
-                  backgroundColor: active ? color : 'transparent',
-                  borderColor: color,
-                  opacity: active ? 1 : 0.4,
-                }}
-              />
-              <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>
-                {level}
-              </span>
-              <span className="text-[9px] text-[#6b7280] ml-auto" style={{ opacity: active ? 1 : 0.3 }}>
-                {count}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Controls hint */}
-      <div className="absolute bottom-3 right-4 z-10 text-[9px] text-[#6b7280]">
-        Drag to rotate · Scroll to zoom · Right-click to pan
-      </div>
-
-      {/* Live Anomaly Feed */}
-      <LiveFeed />
-
-      {/* Tooltip — positioned below live feed */}
-      {hovered && (
-        <div className="absolute top-[17rem] right-4 z-10 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
-          <div className="font-bold text-[#e5e5e5]">{hovered.name || hovered.system_id}</div>
-          <div style={{ color: SEVERITY_COLORS[getMaxSeverity(hovered)] }}>
-            {getMaxSeverity(hovered).toUpperCase()} — {hovered.count} anomalies
-          </div>
-          {hovered.critical > 0 && <div className="text-[#ef4444]">{hovered.critical} critical</div>}
-          {hovered.high > 0 && <div className="text-[#f97316]">{hovered.high} high</div>}
-          <div className="text-[9px] text-[#6b7280]">Click for anomaly feed</div>
-        </div>
-      )}
-
-      <Canvas
-        camera={{ position: [40, 25, 40], fov: 50, near: 0.1, far: 300 }}
-        style={{ background: '#030308' }}
-        gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
-      >
+      {/* Canvas layer — pinned behind overlays */}
+      <div className="absolute inset-0" style={{ zIndex: 0 }}>
+        <Canvas
+          camera={{ position: [40, 25, 40], fov: 50, near: 0.1, far: 300 }}
+          style={{ background: '#030308' }}
+          gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
+        >
         <Suspense fallback={null}>
           <ambientLight intensity={0.2} />
           <pointLight position={[0, 30, 0]} intensity={0.5} color="#6688ff" />
@@ -394,6 +348,65 @@ export default function MapView3D() {
           </EffectComposer>
         </Suspense>
       </Canvas>
+      </div>
+
+      {/* UI overlays — above Canvas */}
+      <div className="absolute top-3 left-4" style={{ zIndex: 10 }}>
+        <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">
+          Galaxy Map
+        </div>
+        <div className="text-[9px] text-[#6b7280]">
+          {bgPositions ? (bgPositions.length / 3).toLocaleString() : 0} systems · {totalAnomalies} anomalies
+        </div>
+      </div>
+
+      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1" style={{ zIndex: 10 }}>
+        <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Severity</div>
+        {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
+          const active = visibleSeverities[level]
+          const count = anomalySystems.filter((s) => getMaxSeverity(s) === level).length
+          return (
+            <button
+              key={level}
+              onClick={() => toggleSeverity(level)}
+              className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-sm border"
+                style={{
+                  backgroundColor: active ? color : 'transparent',
+                  borderColor: color,
+                  opacity: active ? 1 : 0.4,
+                }}
+              />
+              <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>
+                {level}
+              </span>
+              <span className="text-[9px] ml-auto" style={{ color: active ? '#22c55e' : '#ef4444', opacity: active ? 1 : 0.6 }}>
+                {active ? 'ON' : 'OFF'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="absolute bottom-3 right-4 text-[9px] text-[#6b7280]" style={{ zIndex: 10 }}>
+        Drag to rotate · Scroll to zoom · Right-click to pan
+      </div>
+
+      <LiveFeed />
+
+      {hovered && (
+        <div className="absolute top-[17rem] right-4 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5" style={{ zIndex: 10 }}>
+          <div className="font-bold text-[#e5e5e5]">{hovered.name || hovered.system_id}</div>
+          <div style={{ color: SEVERITY_COLORS[getMaxSeverity(hovered)] }}>
+            {getMaxSeverity(hovered).toUpperCase()} — {hovered.count} anomalies
+          </div>
+          {hovered.critical > 0 && <div className="text-[#ef4444]">{hovered.critical} critical</div>}
+          {hovered.high > 0 && <div className="text-[#f97316]">{hovered.high} high</div>}
+          <div className="text-[9px] text-[#6b7280]">Click for anomaly feed</div>
+        </div>
+      )}
     </div>
   )
 }

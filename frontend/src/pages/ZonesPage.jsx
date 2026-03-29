@@ -13,7 +13,7 @@ export default function ZonesPage() {
     fetch(`${API_BASE}/api/orbital-zones/cycle`)
       .then(r => r.ok ? r.json() : null)
       .then(setCycle)
-      .catch(() => {})
+      .catch(() => setCycle(null))
 
     fetch(`${API_BASE}/api/orbital-zones/threats`)
       .then(r => r.ok ? r.json() : null)

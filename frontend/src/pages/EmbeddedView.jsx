@@ -209,7 +209,7 @@ export default function EmbeddedView() {
       {/* Footer */}
       <div style={{ textAlign: 'center', marginTop: 8 }}>
         <a
-          href="https://monolith-evefrontier.vercel.app/anomalies"
+          href="/anomalies"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: '#6b7280', fontSize: 9, textDecoration: 'none' }}

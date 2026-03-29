@@ -17,7 +17,6 @@ from backend.alerts.service_health import (
     record_check,
 )
 
-
 # --- External check tests ---
 
 
@@ -150,8 +149,7 @@ def test_event_lag_degraded(db_conn):
     """Event lag reports degraded above 1000 unprocessed."""
     for i in range(1100):
         db_conn.execute(
-            "INSERT INTO chain_events (event_id, event_type, processed) "
-            "VALUES (?, 'test', 0)",
+            "INSERT INTO chain_events (event_id, event_type, processed) VALUES (?, 'test', 0)",
             (f"evt-{i}",),
         )
     db_conn.commit()
@@ -163,8 +161,7 @@ def test_event_lag_down(db_conn):
     """Event lag reports down above 5000 unprocessed."""
     for i in range(5100):
         db_conn.execute(
-            "INSERT INTO chain_events (event_id, event_type, processed) "
-            "VALUES (?, 'test', 0)",
+            "INSERT INTO chain_events (event_id, event_type, processed) VALUES (?, 'test', 0)",
             (f"evt-{i}",),
         )
     db_conn.commit()
@@ -176,8 +173,7 @@ def test_detection_errors_ok(db_conn):
     """Detection health up when no errors."""
     for i in range(10):
         db_conn.execute(
-            "INSERT INTO detection_cycles (started_at, finished_at, error) "
-            "VALUES (?, ?, NULL)",
+            "INSERT INTO detection_cycles (started_at, finished_at, error) VALUES (?, ?, NULL)",
             (float(i), float(i + 1)),
         )
     db_conn.commit()
@@ -190,8 +186,7 @@ def test_detection_errors_degraded(db_conn):
     for i in range(10):
         error = "boom" if i < 6 else None
         db_conn.execute(
-            "INSERT INTO detection_cycles (started_at, finished_at, error) "
-            "VALUES (?, ?, ?)",
+            "INSERT INTO detection_cycles (started_at, finished_at, error) VALUES (?, ?, ?)",
             (float(i), float(i + 1), error),
         )
     db_conn.commit()
@@ -204,8 +199,7 @@ def test_detection_errors_down(db_conn):
     for i in range(10):
         error = "boom" if i < 9 else None
         db_conn.execute(
-            "INSERT INTO detection_cycles (started_at, finished_at, error) "
-            "VALUES (?, ?, ?)",
+            "INSERT INTO detection_cycles (started_at, finished_at, error) VALUES (?, ?, ?)",
             (float(i), float(i + 1), error),
         )
     db_conn.commit()
@@ -221,9 +215,7 @@ def test_record_check_first(db_conn):
     result = CheckResult("world_api", "up", 150, None, int(time.time()))
     transition = record_check(db_conn, result)
     assert transition is None
-    row = db_conn.execute(
-        "SELECT * FROM service_state WHERE service_name = 'world_api'"
-    ).fetchone()
+    row = db_conn.execute("SELECT * FROM service_state WHERE service_name = 'world_api'").fetchone()
     assert row["current_status"] == "up"
 
 
@@ -233,9 +225,7 @@ def test_record_check_transition(db_conn):
     # Initialize
     record_check(db_conn, CheckResult("sui_rpc", "up", 100, None, now))
     # Transition
-    transition = record_check(
-        db_conn, CheckResult("sui_rpc", "down", 0, "timeout", now + 60)
-    )
+    transition = record_check(db_conn, CheckResult("sui_rpc", "down", 0, "timeout", now + 60))
     assert transition == "up->down"
 
 
@@ -243,9 +233,7 @@ def test_record_check_no_transition(db_conn):
     """Same status produces no transition."""
     now = int(time.time())
     record_check(db_conn, CheckResult("sui_rpc", "up", 100, None, now))
-    transition = record_check(
-        db_conn, CheckResult("sui_rpc", "up", 120, None, now + 60)
-    )
+    transition = record_check(db_conn, CheckResult("sui_rpc", "up", 120, None, now + 60))
     assert transition is None
 
 

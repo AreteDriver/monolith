@@ -419,8 +419,11 @@ async def static_data_loop(
 
     Initial fetch runs all sources in parallel to cut startup time from ~90s to ~30s.
     """
-    # Delay so HTTP server starts first, and chain_poll_loop gets priority
-    await asyncio.sleep(15)
+    # Delay so HTTP server passes health checks before heavy World API fetch.
+    # The initial fetch pages through 24K+ systems (~120 sequential requests)
+    # which saturates CPU/memory on small VMs — must complete after health
+    # check grace period (120s) to avoid crashlooping on Fly.io.
+    await asyncio.sleep(45)
     # Initial fetch — all sources in parallel
     await asyncio.gather(
         _fetch_static(poller, client),
