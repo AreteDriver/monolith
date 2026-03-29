@@ -111,7 +111,6 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
 
 // Ambient dust
 function SpaceDust() {
-  const ref = useRef()
   const positions = useMemo(() => {
     const p = new Float32Array(400 * 3)
     for (let i = 0; i < 400; i++) {
@@ -122,14 +121,8 @@ function SpaceDust() {
     return p
   }, [])
 
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.rotation.y = clock.elapsedTime * 0.008
-    }
-  })
-
   return (
-    <Points ref={ref} positions={positions} stride={3}>
+    <Points positions={positions} stride={3}>
       <PointMaterial transparent color="#445" size={0.1} sizeAttenuation depthWrite={false} opacity={0.3} />
     </Points>
   )
@@ -282,8 +275,7 @@ export default function MapView3D() {
           <pointLight position={[0, 30, 0]} intensity={0.5} color="#6688ff" />
 
           <OrbitControls
-            autoRotate
-            autoRotateSpeed={0.2}
+            autoRotate={false}
             enableDamping
             dampingFactor={0.05}
             minDistance={10}
@@ -294,7 +286,7 @@ export default function MapView3D() {
           />
 
           {/* Deep space background */}
-          <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0.3} />
+          <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0} />
 
           <SpaceDust />
 

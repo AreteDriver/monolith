@@ -7,7 +7,6 @@ import Landing from './pages/Landing'
 import ObjectTracker from './pages/ObjectTracker'
 import ReportView from './pages/ReportView'
 import SubmitPage from './pages/SubmitPage'
-import AegisEcosystem from './components/AegisEcosystem'
 import Breadcrumbs from './components/Breadcrumbs'
 import CycleBanner from './components/CycleBanner'
 
@@ -118,9 +117,6 @@ export default function App() {
                   </Suspense>
                 </ErrorBoundary>
               </main>
-              <div className="max-w-7xl mx-auto px-6 pb-8">
-                <AegisEcosystem />
-              </div>
               <footer className="border-t border-[#2a2a2a] px-6 py-4 mt-8">
                 <div className="max-w-7xl mx-auto text-center text-xs text-[#6b7280] space-y-1">
                   <div>Monolith — Blockchain Integrity Monitor — EVE Frontier Hackathon 2026</div>
