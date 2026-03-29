@@ -259,6 +259,25 @@ CREATE TABLE IF NOT EXISTS feral_ai_events (
     detected_at INTEGER,
     severity TEXT DEFAULT 'MEDIUM'
 );
+
+-- Service health check history
+CREATE TABLE IF NOT EXISTS service_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    response_time_ms INTEGER,
+    error_message TEXT,
+    checked_at INTEGER NOT NULL
+);
+
+-- Service current state for transition detection
+CREATE TABLE IF NOT EXISTS service_state (
+    service_name TEXT PRIMARY KEY,
+    current_status TEXT NOT NULL DEFAULT 'unknown',
+    last_change_at INTEGER,
+    consecutive_failures INTEGER DEFAULT 0,
+    last_checked_at INTEGER
+);
 """
 
 INDEXES = """
@@ -296,6 +315,8 @@ CREATE INDEX IF NOT EXISTS idx_feral_ai_entity ON feral_ai_events(ai_entity_id);
 CREATE INDEX IF NOT EXISTS idx_feral_ai_type ON feral_ai_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_feral_ai_zone ON feral_ai_events(zone_id);
 CREATE INDEX IF NOT EXISTS idx_feral_ai_detected ON feral_ai_events(detected_at);
+CREATE INDEX IF NOT EXISTS idx_service_checks_svc ON service_checks(service_name, checked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_service_checks_checked ON service_checks(checked_at);
 """
 
 FTS = """
@@ -403,6 +424,8 @@ def get_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
         "detection_cycles",
         "orbital_zones",
         "feral_ai_events",
+        "service_checks",
+        "service_state",
     ]
     counts = {}
     for table in tables:

@@ -18,6 +18,7 @@ const MapView = lazy(() => import('./pages/MapView'))
 const MapView3D = lazy(() => import('./pages/MapView3D'))
 const CommandCenter = lazy(() => import('./pages/CommandCenter'))
 const EmbeddedView = lazy(() => import('./pages/EmbeddedView'))
+const StatusPage = lazy(() => import('./pages/StatusPage'))
 
 function Nav() {
   return (
@@ -36,6 +37,9 @@ function Nav() {
       </Link>
       <Link to="/zones" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Zones
+      </Link>
+      <Link to="/status" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
+        Status
       </Link>
       <Link to="/submit" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Submit Bug
@@ -108,6 +112,7 @@ export default function App() {
                       <Route path="/objects/:id" element={<ObjectTracker />} />
                       <Route path="/stats" element={<StatsPanel />} />
                       <Route path="/zones" element={<ZonesPage />} />
+                      <Route path="/status" element={<StatusPage />} />
                       <Route path="/submit" element={<SubmitPage />} />
                     </Routes>
                   </Suspense>

@@ -107,6 +107,80 @@ async def send_alert(
         return False
 
 
+STATUS_COLORS = {
+    "down": 0xFF0000,  # Red
+    "degraded": 0xFF8C00,  # Amber
+    "up": 0x00FF00,  # Green (recovery)
+}
+
+STATUS_TITLES = {
+    "down": "SERVICE DOWN",
+    "degraded": "SERVICE DEGRADED",
+    "up": "SERVICE RECOVERED",
+}
+
+
+async def send_status_alert(
+    webhook_url: str,
+    service_name: str,
+    old_status: str,
+    new_status: str,
+    response_time_ms: int = 0,
+    error_message: str | None = None,
+    consecutive_failures: int = 0,
+    rate_limit: int = 5,
+) -> bool:
+    """Send a Discord embed for a service status transition.
+
+    Returns True if sent, False if rate-limited or failed.
+    """
+    if not webhook_url:
+        return False
+
+    now = time.time()
+    _last_sent[:] = [t for t in _last_sent if now - t < 60]
+    if len(_last_sent) >= rate_limit:
+        logger.warning("Discord rate limit reached (%d/min), skipping status alert", rate_limit)
+        return False
+
+    title = f"{STATUS_TITLES.get(new_status, 'STATUS CHANGE')}: {service_name}"
+    description = f"{old_status.upper()} \u2192 {new_status.upper()}"
+    if error_message:
+        description += f"\n{error_message[:200]}"
+
+    fields = [
+        {"name": "Service", "value": f"`{service_name}`", "inline": True},
+        {"name": "Transition", "value": f"{old_status} \u2192 {new_status}", "inline": True},
+    ]
+    if response_time_ms > 0:
+        fields.append({"name": "Response Time", "value": f"{response_time_ms}ms", "inline": True})
+    if consecutive_failures > 0:
+        fields.append(
+            {"name": "Consecutive Failures", "value": str(consecutive_failures), "inline": True}
+        )
+
+    embed = {
+        "title": title,
+        "description": description,
+        "color": STATUS_COLORS.get(new_status, 0x808080),
+        "fields": fields,
+        "footer": {"text": "MONOLITH \u2014 Service Health Monitor"},
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(webhook_url, json={"embeds": [embed]}, timeout=10)
+            if resp.status_code in (200, 204):
+                _last_sent.append(now)
+                logger.info("Discord status alert: %s %s->%s", service_name, old_status, new_status)
+                return True
+            logger.warning("Discord status webhook returned %d", resp.status_code)
+            return False
+    except (httpx.HTTPError, OSError):
+        logger.exception("Discord status alert failed")
+        return False
+
+
 def _truncate(val: str, max_len: int) -> str:
     if len(val) <= max_len:
         return val

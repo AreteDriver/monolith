@@ -18,8 +18,18 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 
-from backend.alerts.discord import send_alert
+from backend.alerts.discord import send_alert, send_status_alert
 from backend.alerts.github_issues import file_github_issue
+from backend.alerts.service_health import (
+    CheckResult,
+    check_detection_errors,
+    check_event_lag,
+    check_loop_health,
+    check_sui_rpc,
+    check_watchtower,
+    check_world_api,
+    record_check,
+)
 from backend.alerts.subscription_dispatch import dispatch_to_subscribers
 from backend.api.anomalies import router as anomalies_router
 from backend.api.error_tracker import capture_error
@@ -30,6 +40,7 @@ from backend.api.public import limiter
 from backend.api.public import router as public_router
 from backend.api.reports import router as reports_router
 from backend.api.stats import router as stats_router
+from backend.api.status import router as status_router
 from backend.api.submit import router as submit_router
 from backend.api.subscriptions import router as subscriptions_router
 from backend.api.systems import router as systems_router
@@ -62,9 +73,12 @@ async def chain_poll_loop(
     processor: EventProcessor,
     interval: int,
     client: httpx.AsyncClient | None = None,
+    heartbeats: dict | None = None,
 ) -> None:
     """Background task: poll chain events, then process into object state."""
     while True:
+        if heartbeats is not None:
+            heartbeats["chain_poll"] = time.time()
         try:
             stored = await reader.poll(client)
             if stored > 0:
@@ -78,9 +92,13 @@ async def chain_poll_loop(
         await asyncio.sleep(interval)
 
 
-async def snapshot_loop(snapshotter: StateSnapshotter, interval: int) -> None:
+async def snapshot_loop(
+    snapshotter: StateSnapshotter, interval: int, heartbeats: dict | None = None
+) -> None:
     """Background task: compute state deltas on interval."""
     while True:
+        if heartbeats is not None:
+            heartbeats["snapshot"] = time.time()
         try:
             deltas = snapshotter.process_all_objects()
             if deltas > 0:
@@ -95,6 +113,7 @@ async def detection_loop(
     interval: int,
     settings=None,
     conn=None,
+    heartbeats: dict | None = None,
 ) -> None:
     """Background task: run detection engine on interval."""
     # Wait for initial data ingestion before first detection run
@@ -104,6 +123,8 @@ async def detection_loop(
     github_repo = settings.github_repo if settings else ""
     github_token = settings.github_token if settings else ""
     while True:
+        if heartbeats is not None:
+            heartbeats["detection"] = time.time()
         try:
             new_anomalies = engine.run_cycle()
             if new_anomalies:
@@ -135,6 +156,7 @@ async def pod_check_loop(
     interval: int,
     settings=None,
     client: httpx.AsyncClient | None = None,
+    heartbeats: dict | None = None,
 ) -> None:
     """Background task: run async POD verification checks on interval."""
     from backend.detection.killmail_checker import KillmailChecker
@@ -148,6 +170,8 @@ async def pod_check_loop(
     github_token = settings.github_token if settings else ""
 
     while True:
+        if heartbeats is not None:
+            heartbeats["pod_check"] = time.time()
         try:
             checker = PodChecker(conn)
             anomalies = await checker.run_async(client)
@@ -212,11 +236,14 @@ async def graphql_enrichment_loop(
     name_resolver: NameResolver,
     interval: int,
     client: httpx.AsyncClient | None = None,
+    heartbeats: dict | None = None,
 ) -> None:
     """Background task: enrich locations + entity names via Sui GraphQL."""
     # Wait for initial chain data + static data to finish before enrichment
     await asyncio.sleep(120)
     while True:
+        if heartbeats is not None:
+            heartbeats["graphql_enrichment"] = time.time()
         try:
             updated = await gql_client.enrich_locations(client)
             if updated > 0:
@@ -250,11 +277,14 @@ async def warden_loop(
     warden: Warden,
     interval: int,
     client: httpx.AsyncClient | None = None,
+    heartbeats: dict | None = None,
 ) -> None:
     """Background task: run Warden autonomous verification on interval."""
     # Delay to let detection engine populate anomalies first
     await asyncio.sleep(120)
     while True:
+        if heartbeats is not None:
+            heartbeats["warden"] = time.time()
         try:
             results = await warden.run_cycle(client)
             if results.get("status") == "completed":
@@ -273,7 +303,9 @@ async def warden_loop(
         await asyncio.sleep(interval)
 
 
-async def table_prune_loop(conn: sqlite3.Connection, interval: int = 21600) -> None:
+async def table_prune_loop(
+    conn: sqlite3.Connection, interval: int = 21600, heartbeats: dict | None = None
+) -> None:
     """Background task: prune stale rows from world_states and state_transitions.
 
     Runs every 6 hours (default). Keeps the 2 most recent world_states per
@@ -283,6 +315,8 @@ async def table_prune_loop(conn: sqlite3.Connection, interval: int = 21600) -> N
     # Delay to avoid competing with startup I/O
     await asyncio.sleep(300)
     while True:
+        if heartbeats is not None:
+            heartbeats["table_prune"] = time.time()
         try:
             now = int(time.time())
 
@@ -316,6 +350,25 @@ async def table_prune_loop(conn: sqlite3.Connection, interval: int = 21600) -> N
             if st_pruned > 0:
                 conn.commit()
                 logger.info("Table pruning: deleted %d stale state_transitions rows", st_pruned)
+
+            # Prune service_checks older than 7 days, keeping last 500 per service
+            result = conn.execute(
+                """DELETE FROM service_checks
+                   WHERE checked_at < ?
+                     AND id NOT IN (
+                       SELECT id FROM (
+                         SELECT id, ROW_NUMBER() OVER (
+                           PARTITION BY service_name ORDER BY checked_at DESC
+                         ) as rn
+                         FROM service_checks
+                       ) WHERE rn <= 500
+                     )""",
+                (seven_days_ago,),
+            )
+            sc_pruned = result.rowcount
+            if sc_pruned > 0:
+                conn.commit()
+                logger.info("Table pruning: deleted %d stale service_checks rows", sc_pruned)
 
             if ws_pruned > 0 or st_pruned > 0:
                 logger.info(
@@ -360,6 +413,7 @@ async def static_data_loop(
     poller: WorldPoller,
     interval: int,
     client: httpx.AsyncClient | None = None,
+    heartbeats: dict | None = None,
 ) -> None:
     """Background task: refresh static reference data periodically.
 
@@ -376,11 +430,86 @@ async def static_data_loop(
 
     while True:
         await asyncio.sleep(interval)
+        if heartbeats is not None:
+            heartbeats["static_data"] = time.time()
         await asyncio.gather(
             _fetch_static(poller, client),
             _fetch_tribes(poller, client),
             _fetch_orbital_zones(poller, client),
         )
+
+
+async def service_health_loop(
+    conn: sqlite3.Connection,
+    settings,
+    heartbeats: dict[str, float],
+    expected_intervals: dict[str, int],
+    interval: int,
+    client: httpx.AsyncClient | None = None,
+) -> None:
+    """Background task: check external + internal service health on interval."""
+    # Let other loops start first
+    await asyncio.sleep(60)
+    while True:
+        if heartbeats is not None:
+            heartbeats["service_health"] = time.time()
+        try:
+            results: list[CheckResult] = []
+
+            # External checks (parallel)
+            ext_results = await asyncio.gather(
+                check_world_api(
+                    client,
+                    settings.world_api_url,
+                    settings.world_api_timeout,
+                    settings.service_degraded_threshold_ms,
+                ),
+                check_sui_rpc(
+                    client,
+                    settings.sui_rpc_url,
+                    settings.sui_rpc_timeout,
+                    settings.service_degraded_threshold_ms,
+                ),
+                check_watchtower(
+                    client,
+                    settings.watchtower_api_url,
+                    settings.watchtower_api_timeout,
+                    settings.service_degraded_threshold_ms,
+                ),
+            )
+            results.extend(ext_results)
+
+            # Internal checks (sync, fast DB reads)
+            results.extend(
+                check_loop_health(heartbeats, expected_intervals, settings.loop_stall_multiplier)
+            )
+            results.append(check_event_lag(conn))
+            results.append(check_detection_errors(conn))
+
+            # Record + alert on transitions
+            for result in results:
+                transition = record_check(conn, result)
+                if transition and settings.discord_webhook_url:
+                    old, new = transition.split("->")
+                    # Get consecutive_failures from DB for the alert
+                    state_row = conn.execute(
+                        "SELECT consecutive_failures FROM service_state WHERE service_name = ?",
+                        (result.service_name,),
+                    ).fetchone()
+                    failures = state_row["consecutive_failures"] if state_row else 0
+                    await send_status_alert(
+                        settings.discord_webhook_url,
+                        result.service_name,
+                        old,
+                        new,
+                        result.response_time_ms,
+                        result.error_message,
+                        failures,
+                        settings.discord_rate_limit,
+                    )
+        except Exception:
+            logger.exception("Service health check error")
+        await asyncio.sleep(interval)
 
 
 @asynccontextmanager
@@ -439,6 +568,7 @@ async def lifespan(app: FastAPI):
     conn_gql = get_connection(db_path)  # graphql_enrichment_loop
     conn_prune = get_connection(db_path)  # table_prune_loop
     conn_warden = get_connection(db_path)  # warden_loop
+    conn_health = get_connection(db_path)  # service_health_loop
     bg_conns = [
         conn_chain,
         conn_detection,
@@ -448,7 +578,23 @@ async def lifespan(app: FastAPI):
         conn_gql,
         conn_prune,
         conn_warden,
+        conn_health,
     ]
+
+    # Heartbeat tracking for background loop health monitoring
+    heartbeats: dict[str, float] = {}
+    app.state.loop_heartbeats = heartbeats
+    expected_intervals: dict[str, int] = {
+        "chain_poll": settings.chain_poll_interval,
+        "snapshot": settings.snapshot_interval,
+        "detection": settings.detection_interval,
+        "pod_check": settings.detection_interval,
+        "graphql_enrichment": settings.static_data_interval,
+        "static_data": settings.static_data_interval,
+        "table_prune": 21600,
+        "warden": settings.detection_interval,
+    }
+    app.state.loop_intervals = expected_intervals
 
     # Initialize components — each gets its own connection
     world_poller = WorldPoller(conn_world, settings.world_api_url, settings.world_api_timeout)
@@ -485,19 +631,40 @@ async def lifespan(app: FastAPI):
     app.state.background_tasks = [
         asyncio.create_task(
             chain_poll_loop(
-                chain_reader, event_processor, settings.chain_poll_interval, client=http_client
+                chain_reader,
+                event_processor,
+                settings.chain_poll_interval,
+                client=http_client,
+                heartbeats=heartbeats,
             )
         ),
-        asyncio.create_task(snapshot_loop(snapshotter, settings.snapshot_interval)),
         asyncio.create_task(
-            detection_loop(detection_engine, settings.detection_interval, settings, conn_detection)
+            snapshot_loop(snapshotter, settings.snapshot_interval, heartbeats=heartbeats)
         ),
         asyncio.create_task(
-            static_data_loop(world_poller, settings.static_data_interval, client=http_client)
+            detection_loop(
+                detection_engine,
+                settings.detection_interval,
+                settings,
+                conn_detection,
+                heartbeats=heartbeats,
+            )
+        ),
+        asyncio.create_task(
+            static_data_loop(
+                world_poller,
+                settings.static_data_interval,
+                client=http_client,
+                heartbeats=heartbeats,
+            )
         ),
         asyncio.create_task(
             graphql_enrichment_loop(
-                gql_client, name_resolver, settings.static_data_interval, client=http_client
+                gql_client,
+                name_resolver,
+                settings.static_data_interval,
+                client=http_client,
+                heartbeats=heartbeats,
             )
         ),
         asyncio.create_task(
@@ -508,10 +675,28 @@ async def lifespan(app: FastAPI):
                 settings.detection_interval,
                 settings,
                 client=http_client,
+                heartbeats=heartbeats,
             )
         ),
-        asyncio.create_task(table_prune_loop(conn_prune)),
-        asyncio.create_task(warden_loop(warden, settings.detection_interval, client=http_client)),
+        asyncio.create_task(table_prune_loop(conn_prune, heartbeats=heartbeats)),
+        asyncio.create_task(
+            warden_loop(
+                warden,
+                settings.detection_interval,
+                client=http_client,
+                heartbeats=heartbeats,
+            )
+        ),
+        asyncio.create_task(
+            service_health_loop(
+                conn_health,
+                settings,
+                heartbeats,
+                expected_intervals,
+                settings.service_check_interval,
+                client=http_client,
+            )
+        ),
     ]
 
     logger.info(
@@ -601,6 +786,7 @@ app.include_router(public_router)
 app.include_router(nexus_router, prefix="/api")
 app.include_router(orbital_zones_router)
 app.include_router(error_tracker_router, prefix="/api")
+app.include_router(status_router)
 
 
 async def _check_sui_rpc(rpc_url: str) -> str:

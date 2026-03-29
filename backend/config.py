@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     watchtower_api_url: str = "https://watchtower-evefrontier.fly.dev/api"
     watchtower_api_timeout: int = 10
 
+    # Service health monitoring
+    service_check_interval: int = 60  # seconds between external health checks
+    service_degraded_threshold_ms: int = 5000  # response time > this = degraded
+    service_history_limit: int = 500  # max checks stored per service
+    loop_stall_multiplier: float = 2.0  # alert if no heartbeat in N * expected_interval
+
     # Admin
     admin_key: str = ""  # Set MONOLITH_ADMIN_KEY for /api/admin/* endpoints
 
