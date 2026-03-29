@@ -18,6 +18,14 @@ const STATUS_DOT = {
   unknown: 'bg-gray-500',
 }
 
+const SERVICE_LABELS = {
+  world_api: 'Stillness (World API)',
+  sui_rpc: 'Sui Chain (Testnet)',
+  watchtower: 'WatchTower',
+  event_lag: 'Event Processing',
+  detection_health: 'Detection Engine',
+}
+
 function StatusDot({ status }) {
   const cls = STATUS_DOT[status] || STATUS_DOT.unknown
   const pulse = status === 'down' ? 'animate-pulse' : ''
@@ -34,12 +42,13 @@ function TimeAgo({ ts }) {
 }
 
 function ServiceCard({ svc }) {
+  const label = SERVICE_LABELS[svc.service_name] || svc.service_name.replace('loop:', '')
   return (
     <div className="border border-[#2a2a2a] bg-[#111111] p-4 rounded">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <StatusDot status={svc.status} />
-          <span className="text-sm font-mono text-white">{svc.service_name}</span>
+          <span className="text-sm font-mono text-white">{label}</span>
         </div>
         <span
           className="text-xs font-bold px-2 py-0.5 rounded"
@@ -131,7 +140,7 @@ function HistoryPanel({ serviceName }) {
   return (
     <div className="border border-[#2a2a2a] bg-[#111111] p-3 rounded">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-mono text-[#a3a3a3]">{serviceName}</span>
+        <span className="text-xs font-mono text-[#a3a3a3]">{SERVICE_LABELS[serviceName] || serviceName}</span>
         <span className="text-xs text-[#6b7280]">avg {avgMs}ms</span>
       </div>
       <Sparkline checks={data.checks} />
