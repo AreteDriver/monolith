@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState, useRef, useMemo, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Canvas, useFrame, extend } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { Points, PointMaterial, Html, OrbitControls, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
