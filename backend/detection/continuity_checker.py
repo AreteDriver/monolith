@@ -189,8 +189,11 @@ class ContinuityChecker(BaseChecker):
             new_state_data = self._parse_state(snapshots[0])
             old_state_data = self._parse_state(snapshots[1])
 
-            new_state = new_state_data.get("state", "")
-            old_state = old_state_data.get("state", "")
+            new_state_raw = new_state_data.get("state", "")
+            old_state_raw = old_state_data.get("state", "")
+            # Chain data may store state as dict (e.g. {"variant": "online"})
+            new_state = new_state_raw.get("variant", str(new_state_raw)) if isinstance(new_state_raw, dict) else str(new_state_raw)
+            old_state = old_state_raw.get("variant", str(old_state_raw)) if isinstance(old_state_raw, dict) else str(old_state_raw)
 
             if not new_state or not old_state or new_state == old_state:
                 continue
