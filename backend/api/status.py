@@ -49,13 +49,15 @@ def get_status(request: Request) -> dict:
     except sqlite3.OperationalError:
         pass
 
-    # Compute overall status
-    statuses = [s["status"] for s in services]
-    if "down" in statuses:
+    # Compute overall status — external dependency failures are "degraded",
+    # only internal loop failures are "down" (Monolith core is still serving).
+    internal = [s["status"] for s in services if s["service_name"].startswith("loop:")]
+    external = [s["status"] for s in services if not s["service_name"].startswith("loop:")]
+    if "down" in internal:
         overall = "down"
-    elif "degraded" in statuses:
+    elif "down" in external or "degraded" in internal or "degraded" in external:
         overall = "degraded"
-    elif statuses:
+    elif internal or external:
         overall = "up"
     else:
         overall = "unknown"

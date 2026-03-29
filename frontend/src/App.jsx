@@ -1,17 +1,16 @@
 import { Component, lazy, Suspense } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
-import AnomalyDetail from './pages/AnomalyDetail'
-import AnomalyFeed from './pages/AnomalyFeed'
-import Landing from './pages/Landing'
-import ObjectTracker from './pages/ObjectTracker'
-import ReportView from './pages/ReportView'
-import SubmitPage from './pages/SubmitPage'
 import Breadcrumbs from './components/Breadcrumbs'
 import CycleBanner from './components/CycleBanner'
 
+const Landing = lazy(() => import('./pages/Landing'))
+const AnomalyFeed = lazy(() => import('./pages/AnomalyFeed'))
+const AnomalyDetail = lazy(() => import('./pages/AnomalyDetail'))
+const ReportView = lazy(() => import('./pages/ReportView'))
+const ObjectTracker = lazy(() => import('./pages/ObjectTracker'))
+const SubmitPage = lazy(() => import('./pages/SubmitPage'))
 const ZonesPage = lazy(() => import('./pages/ZonesPage'))
-
 const StatsPanel = lazy(() => import('./pages/StatsPanel'))
 const MapView = lazy(() => import('./pages/MapView'))
 const MapView3D = lazy(() => import('./pages/MapView3D'))
@@ -31,7 +30,8 @@ function Nav() {
       <Link to="/stats" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Stats
       </Link>
-      <Link to="/map" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
+      <Link to="/map" className="text-[#a3a3a3] hover:text-white text-sm no-underline"
+        onMouseEnter={() => import('./pages/MapView3D')}>
         Map
       </Link>
       <Link to="/zones" className="text-[#a3a3a3] hover:text-white text-sm no-underline">

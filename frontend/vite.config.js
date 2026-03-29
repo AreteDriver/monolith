@@ -10,5 +10,15 @@ export default defineConfig({
       '/api': 'http://localhost:8000',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing'],
+          recharts: ['recharts'],
+        },
+      },
+    },
+  },
 })
 // build bust 1774688050

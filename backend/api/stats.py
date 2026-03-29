@@ -352,10 +352,13 @@ def get_background_systems(request: Request):
         if "nx" in s
     ]
 
+    # Don't cache empty responses — static data may still be loading
+    cache_control = "public, max-age=3600" if slim else "no-cache"
+
     return JSONResponse(
         content={"all_systems": slim},
         headers={
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": cache_control,
             "ETag": _bg_systems_etag or "",
         },
     )

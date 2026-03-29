@@ -151,7 +151,7 @@ function LiveFeed() {
   const anomalies = data?.data || []
 
   return (
-    <div className="absolute top-3 right-4 z-20 w-60">
+    <div className="absolute top-3 right-4 w-60 pointer-events-auto">
       <div className="bg-[#0a0a0a]/95 border border-[#f59e0b]/40 rounded backdrop-blur-sm">
         <button
           onClick={() => setCollapsed((c) => !c)}
@@ -227,7 +227,14 @@ export default function MapView3D() {
   }, [])
 
   const { data: mapData, loading: mapLoading } = useApi('/api/stats/map', { poll: 60000 })
-  const { data: bgData } = useApi('/api/stats/map/systems', { poll: 0 })
+  const { data: bgData, refetch: refetchBg } = useApi('/api/stats/map/systems', { poll: 0 })
+
+  // Retry until background systems load (empty on fresh deploy)
+  useEffect(() => {
+    if (bgData?.all_systems?.length > 0) return
+    const retry = setInterval(refetchBg, 10000)
+    return () => clearInterval(retry)
+  }, [bgData, refetchBg])
 
   // All 24K systems — galaxy disc with thickness
   useEffect(() => {
@@ -236,8 +243,9 @@ export default function MapView3D() {
 
     const positions = []
     for (const s of allSystems) {
+      if (s.nx == null || s.nz == null) continue
       const x = (s.nx - 0.5) * 70
-      const z = ((s.nz || 0) - 0.5) * 70
+      const z = (s.nz - 0.5) * 70
       // Disc thickness — thicker near center, thinner at edges
       const distFromCenter = Math.sqrt(x * x + z * z)
       const maxThickness = 3
@@ -256,7 +264,8 @@ export default function MapView3D() {
 
     const lookup = new Map()
     for (const s of allSystems) {
-      lookup.set(s.system_id, { nx: s.nx, nz: s.nz || 0, name: s.name })
+      if (s.nx == null || s.nz == null) continue
+      lookup.set(s.system_id, { nx: s.nx, nz: s.nz, name: s.name })
     }
 
     const raw = systems
@@ -350,8 +359,10 @@ export default function MapView3D() {
       </Canvas>
       </div>
 
-      {/* UI overlays — above Canvas */}
-      <div className="absolute top-3 left-4" style={{ zIndex: 10 }}>
+      {/* UI overlay layer — sits above Canvas with pointer-events passthrough */}
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
+
+      <div className="absolute top-3 left-4 pointer-events-auto">
         <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">
           Galaxy Map
         </div>
@@ -360,7 +371,7 @@ export default function MapView3D() {
         </div>
       </div>
 
-      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1" style={{ zIndex: 10 }}>
+      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1 pointer-events-auto">
         <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Severity</div>
         {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
           const active = visibleSeverities[level]
@@ -390,14 +401,14 @@ export default function MapView3D() {
         })}
       </div>
 
-      <div className="absolute bottom-3 right-4 text-[9px] text-[#6b7280]" style={{ zIndex: 10 }}>
+      <div className="absolute bottom-3 right-4 text-[9px] text-[#6b7280]">
         Drag to rotate · Scroll to zoom · Right-click to pan
       </div>
 
       <LiveFeed />
 
       {hovered && (
-        <div className="absolute top-[17rem] right-4 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5" style={{ zIndex: 10 }}>
+        <div className="absolute top-[17rem] right-4 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
           <div className="font-bold text-[#e5e5e5]">{hovered.name || hovered.system_id}</div>
           <div style={{ color: SEVERITY_COLORS[getMaxSeverity(hovered)] }}>
             {getMaxSeverity(hovered).toUpperCase()} — {hovered.count} anomalies
@@ -407,6 +418,8 @@ export default function MapView3D() {
           <div className="text-[9px] text-[#6b7280]">Click for anomaly feed</div>
         </div>
       )}
+
+      </div>{/* end overlay layer */}
     </div>
   )
 }

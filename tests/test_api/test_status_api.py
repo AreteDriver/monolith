@@ -89,10 +89,19 @@ def test_overall_status_degraded(setup):
     assert data["overall"] == "degraded"
 
 
-def test_overall_status_down(setup):
-    """Overall status is down when any service is down."""
+def test_overall_status_degraded_external_down(setup):
+    """Overall status is degraded (not down) when external service is down."""
     conn, request = setup
     now = int(time.time())
     record_check(conn, CheckResult("watchtower", "down", 0, "timeout", now))
+    data = get_status(request)
+    assert data["overall"] == "degraded"
+
+
+def test_overall_status_down_internal(setup):
+    """Overall status is down when internal loop is down."""
+    conn, request = setup
+    now = int(time.time())
+    record_check(conn, CheckResult("loop:chain_poll", "down", 0, "stalled", now))
     data = get_status(request)
     assert data["overall"] == "down"
