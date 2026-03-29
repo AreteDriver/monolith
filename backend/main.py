@@ -448,8 +448,8 @@ async def service_health_loop(
     client: httpx.AsyncClient | None = None,
 ) -> None:
     """Background task: check external + internal service health on interval."""
-    # Let other loops start first
-    await asyncio.sleep(60)
+    # Short delay — start monitoring quickly after boot
+    await asyncio.sleep(10)
     while True:
         if heartbeats is not None:
             heartbeats["service_health"] = time.time()
