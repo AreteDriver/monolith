@@ -126,7 +126,9 @@ async def detection_loop(
         if heartbeats is not None:
             heartbeats["detection"] = time.time()
         try:
-            new_anomalies = engine.run_cycle()
+            new_anomalies = await asyncio.get_event_loop().run_in_executor(
+                None, engine.run_cycle
+            )
             if new_anomalies:
                 for a in new_anomalies:
                     logger.warning(

@@ -55,13 +55,13 @@ TAB 7 — Discord (#demo-alerts channel)
          Bot online and visible in member list.
 
 TAB 8 — Monolith Anomaly Feed
-  URL: https://monolith-evefrontier.fly.dev/
+  URL: https://aegismonolith.xyz/
   Zoom: 125%
   State: Scroll to show anomaly feed with recent detections.
          Pre-pick MNLT-20260328-0026 (GHOST_ENGAGEMENT, CRITICAL).
 
 TAB 9 — Monolith Map (Command Center)
-  URL: https://monolith-evefrontier.fly.dev/map
+  URL: https://aegismonolith.xyz/map
   Zoom: 125%
   State: Map should show 24K systems with anomaly heatmap.
          Pre-zoom to a cluster with anomalies. Reset button visible.
@@ -380,7 +380,7 @@ SEG J — WatchTower landing -> deliver numbers -> hold on "///" -> end
 | Live deployments | 5 | "five" | Fly.io x2 + Vercel x3 |
 | Hackathon mode | Active | "expires May first" | /api/account/hackathon-status |
 
-**Verify before recording**: `curl -s https://monolith-evefrontier.fly.dev/api/health | python3 -m json.tool` and `curl -s https://watchtower-evefrontier.fly.dev/api/health | python3 -m json.tool` — numbers will have grown by recording time.
+**Verify before recording**: `curl -s https://aegismonolith.xyz/api/health | python3 -m json.tool` and `curl -s https://watchtower-evefrontier.fly.dev/api/health | python3 -m json.tool` — numbers will have grown by recording time.
 
 ## BACKUP: API DEMO (if frontend has issues)
 
@@ -394,9 +394,9 @@ curl -s https://watchtower-evefrontier.fly.dev/api/feed?limit=5 | python3 -m jso
 curl -s https://watchtower-evefrontier.fly.dev/api/account/hackathon-status | python3 -m json.tool
 
 # Monolith
-curl -s https://monolith-evefrontier.fly.dev/api/health | python3 -m json.tool
-curl -s 'https://monolith-evefrontier.fly.dev/api/anomalies?limit=5&severity=CRITICAL' | python3 -m json.tool
-curl -s https://monolith-evefrontier.fly.dev/api/stats | python3 -m json.tool
+curl -s https://aegismonolith.xyz/api/health | python3 -m json.tool
+curl -s 'https://aegismonolith.xyz/api/anomalies?limit=5&severity=CRITICAL' | python3 -m json.tool
+curl -s https://aegismonolith.xyz/api/stats | python3 -m json.tool
 
 # NEXUS webhook subscribe (use your Discord webhook URL)
 curl -X POST https://watchtower-evefrontier.fly.dev/api/nexus/subscribe \

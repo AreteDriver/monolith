@@ -475,8 +475,8 @@ Civilization needs an immune system. We built it.
 
 | Resource | URL |
 |----------|-----|
-| Monolith (Live) | https://monolith-evefrontier.vercel.app |
-| Monolith API | https://monolith-evefrontier.fly.dev |
+| Monolith (Live) | https://aegismonolith.xyz |
+| Monolith API | https://aegismonolith.xyz |
 | WatchTower (Live) | https://watchtower-evefrontier.vercel.app |
 | WatchTower API | https://watchtower-evefrontier.fly.dev |
 | Monolith Source | github.com/AreteDriver/monolith |

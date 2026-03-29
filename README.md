@@ -4,7 +4,7 @@
 
 Monolith ingests 13 Sui on-chain event types in real time, runs 39 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
 
-> **Live demo**: [monolith-evefrontier.fly.dev](https://monolith-evefrontier.fly.dev/)
+> **Live demo**: [aegismonolith.xyz](https://aegismonolith.xyz/)
 
 ---
 
@@ -223,7 +223,7 @@ Monolith is the detection layer of the **Aegis Stack** — a unified toolkit for
 **Combined**: 1,227+ tests | 3 live deployments | On-chain Sui Move contracts | 24,502 systems mapped | Dual payment rails (Sui + Stripe)
 
 - [WatchTower Live Demo](https://watchtower-evefrontier.vercel.app/)
-- [Monolith Live Demo](https://monolith-evefrontier.fly.dev/)
+- [Monolith Live Demo](https://aegismonolith.xyz/)
 - [Frontier Tribe OS Live Demo](https://frontend-ten-theta-80.vercel.app)
 
 ---

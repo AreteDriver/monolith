@@ -16,7 +16,7 @@ Both backends must be up. The live deployments already have real data — no see
 ```bash
 # Check both backends
 curl -s https://watchtower-evefrontier.fly.dev/api/health | python3 -m json.tool
-curl -s https://monolith-evefrontier.fly.dev/api/health | python3 -m json.tool
+curl -s https://aegismonolith.xyz/api/health | python3 -m json.tool
 
 # If either is down, restart on Fly.io
 /home/arete/.fly/bin/flyctl machine list -a watchtower-evefrontier
@@ -67,8 +67,8 @@ Or: open Chrome, press `Super+Left` to snap to left 1920x1080.
 | 4 | `watchtower-evefrontier.vercel.app/entity/Specter` | Tactical tab, kill graph rendered |
 | 5 | `watchtower-evefrontier.vercel.app/` | Feed & Rankings tab |
 | 6 | `watchtower-evefrontier.vercel.app/dossier/Specter` | Dossier card visible |
-| 7 | `monolith-evefrontier.fly.dev/` | Landing + anomaly feed |
-| 8 | `monolith-evefrontier.fly.dev/map` | Map with 24K systems rendered |
+| 7 | `aegismonolith.xyz/` | Landing + anomaly feed |
+| 8 | `aegismonolith.xyz/map` | Map with 24K systems rendered |
 | 9 | `watchtower-evefrontier.vercel.app/` | Landing (closing shot) |
 
 ### Pre-load Verification
@@ -87,7 +87,7 @@ Visit each tab once before recording so everything is cached and rendering:
 
 Before recording, find a good CRITICAL or HIGH anomaly on Monolith (Tab 7):
 
-1. Go to `monolith-evefrontier.fly.dev/anomalies`
+1. Go to `aegismonolith.xyz/anomalies`
 2. Filter by CRITICAL severity
 3. Click into one — verify it has:
    - Full evidence block (transaction hash, object ID)
