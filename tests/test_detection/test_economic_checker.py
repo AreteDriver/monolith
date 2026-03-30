@@ -24,9 +24,8 @@ def _insert_snapshot(conn, object_id, state, snapshot_time, obj_type="smartassem
     conn.commit()
 
 
-def test_e3_duplicate_mint(db_conn):
-    """E3: 4+ duplicate events for same object in same tx triggers DUPLICATE_MINT."""
-    # Threshold is >2 (i.e. 3+ events). Insert 4 to trigger.
+def test_e3_duplicate_mint_disabled(db_conn):
+    """E3: DUPLICATE_MINT rule is disabled (high FP rate from batch operations)."""
     for i in range(4):
         db_conn.execute(
             "INSERT INTO chain_events (event_id, event_type, object_id, block_number, "
@@ -46,7 +45,7 @@ def test_e3_duplicate_mint(db_conn):
     anomalies = checker.check()
 
     dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_MINT"]
-    assert len(dupes) >= 1
+    assert len(dupes) == 0
 
 
 def test_e3_batch_inventory_not_flagged(db_conn):

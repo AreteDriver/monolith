@@ -6,6 +6,8 @@ import time
 
 from fastapi import APIRouter, Query, Request
 
+from backend.alerts.service_health import get_health_state
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/status", tags=["status"])
@@ -21,33 +23,49 @@ def get_status(request: Request) -> dict:
     conn = _get_db(request)
     now = int(time.time())
 
-    # External + internal service states
+    # Prefer in-memory state (always up-to-date, survives DB locks).
+    # Fall back to DB if memory is empty (e.g. fresh boot before first check).
+    mem_state = get_health_state()
+
     services = []
-    try:
-        rows = conn.execute(
-            "SELECT service_name, current_status, last_change_at, "
-            "consecutive_failures, last_checked_at FROM service_state"
-        ).fetchall()
-        for row in rows:
-            # Get latest response time
-            latest = conn.execute(
-                "SELECT response_time_ms, error_message FROM service_checks "
-                "WHERE service_name = ? ORDER BY checked_at DESC LIMIT 1",
-                (row["service_name"],),
-            ).fetchone()
+    if mem_state:
+        for name, state in mem_state.items():
             services.append(
                 {
-                    "service_name": row["service_name"],
-                    "status": row["current_status"],
-                    "response_time_ms": latest["response_time_ms"] if latest else 0,
-                    "error_message": latest["error_message"] if latest else None,
-                    "last_checked_at": row["last_checked_at"],
-                    "last_change_at": row["last_change_at"],
-                    "consecutive_failures": row["consecutive_failures"],
+                    "service_name": name,
+                    "status": state["status"],
+                    "response_time_ms": state["response_time_ms"],
+                    "error_message": state["error_message"],
+                    "last_checked_at": state["last_checked_at"],
+                    "last_change_at": state["last_change_at"],
+                    "consecutive_failures": state["consecutive_failures"],
                 }
             )
-    except sqlite3.OperationalError:
-        pass
+    else:
+        try:
+            rows = conn.execute(
+                "SELECT service_name, current_status, last_change_at, "
+                "consecutive_failures, last_checked_at FROM service_state"
+            ).fetchall()
+            for row in rows:
+                latest = conn.execute(
+                    "SELECT response_time_ms, error_message FROM service_checks "
+                    "WHERE service_name = ? ORDER BY checked_at DESC LIMIT 1",
+                    (row["service_name"],),
+                ).fetchone()
+                services.append(
+                    {
+                        "service_name": row["service_name"],
+                        "status": row["current_status"],
+                        "response_time_ms": latest["response_time_ms"] if latest else 0,
+                        "error_message": latest["error_message"] if latest else None,
+                        "last_checked_at": row["last_checked_at"],
+                        "last_change_at": row["last_change_at"],
+                        "consecutive_failures": row["consecutive_failures"],
+                    }
+                )
+        except sqlite3.OperationalError:
+            pass
 
     # Compute overall status — external dependency failures are "degraded",
     # only internal loop failures are "down" (Monolith core is still serving).

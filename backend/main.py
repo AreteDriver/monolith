@@ -126,9 +126,7 @@ async def detection_loop(
         if heartbeats is not None:
             heartbeats["detection"] = time.time()
         try:
-            new_anomalies = await asyncio.get_event_loop().run_in_executor(
-                None, engine.run_cycle
-            )
+            new_anomalies = await asyncio.get_event_loop().run_in_executor(None, engine.run_cycle)
             if new_anomalies:
                 for a in new_anomalies:
                     logger.warning(
@@ -305,6 +303,43 @@ async def warden_loop(
         await asyncio.sleep(interval)
 
 
+PRUNE_BATCH_SIZE = 1000
+
+
+def _batched_delete(
+    conn: sqlite3.Connection,
+    table: str,
+    id_query: str,
+    params: tuple,
+    batch_size: int = PRUNE_BATCH_SIZE,
+) -> int:
+    """Delete rows in batches to avoid holding a write lock for too long.
+
+    Finds rowids to delete via id_query, then deletes in batches of batch_size
+    with a commit between each batch. This keeps write locks short (~50ms each)
+    so other writers (chain_poll, health_check) aren't blocked.
+    """
+    total = 0
+    while True:
+        ids = conn.execute(
+            f"SELECT rowid FROM ({id_query}) LIMIT ?",  # noqa: S608
+            (*params, batch_size),
+        ).fetchall()
+        if not ids:
+            break
+        rowids = [r[0] for r in ids]
+        placeholders = ",".join("?" * len(rowids))
+        conn.execute(
+            f"DELETE FROM {table} WHERE rowid IN ({placeholders})",  # noqa: S608
+            rowids,
+        )
+        conn.commit()
+        total += len(rowids)
+        if len(ids) < batch_size:
+            break
+    return total
+
+
 async def table_prune_loop(
     conn: sqlite3.Connection, interval: int = 21600, heartbeats: dict | None = None
 ) -> None:
@@ -312,7 +347,7 @@ async def table_prune_loop(
 
     Runs every 6 hours (default). Keeps the 2 most recent world_states per
     object_id, deletes anything older than 7 days. Prunes state_transitions
-    older than 30 days.
+    older than 30 days. Deletes in batches to avoid long write locks.
     """
     # Delay to avoid competing with startup I/O
     await asyncio.sleep(300)
@@ -324,8 +359,10 @@ async def table_prune_loop(
 
             # Prune world_states older than 7 days, keeping 2 most recent per object_id
             seven_days_ago = now - (7 * 86400)
-            result = conn.execute(
-                """DELETE FROM world_states
+            ws_pruned = _batched_delete(
+                conn,
+                "world_states",
+                """SELECT rowid FROM world_states
                    WHERE snapshot_time < ?
                      AND rowid NOT IN (
                        SELECT rowid FROM (
@@ -337,25 +374,25 @@ async def table_prune_loop(
                      )""",
                 (seven_days_ago,),
             )
-            ws_pruned = result.rowcount
             if ws_pruned > 0:
-                conn.commit()
                 logger.info("Table pruning: deleted %d stale world_states rows", ws_pruned)
 
             # Prune state_transitions older than 30 days
             thirty_days_ago = now - (30 * 86400)
-            result = conn.execute(
-                "DELETE FROM state_transitions WHERE timestamp < ?",
+            st_pruned = _batched_delete(
+                conn,
+                "state_transitions",
+                "SELECT rowid FROM state_transitions WHERE timestamp < ?",
                 (thirty_days_ago,),
             )
-            st_pruned = result.rowcount
             if st_pruned > 0:
-                conn.commit()
                 logger.info("Table pruning: deleted %d stale state_transitions rows", st_pruned)
 
             # Prune service_checks older than 7 days, keeping last 500 per service
-            result = conn.execute(
-                """DELETE FROM service_checks
+            sc_pruned = _batched_delete(
+                conn,
+                "service_checks",
+                """SELECT rowid FROM service_checks
                    WHERE checked_at < ?
                      AND id NOT IN (
                        SELECT id FROM (
@@ -367,9 +404,7 @@ async def table_prune_loop(
                      )""",
                 (seven_days_ago,),
             )
-            sc_pruned = result.rowcount
             if sc_pruned > 0:
-                conn.commit()
                 logger.info("Table pruning: deleted %d stale service_checks rows", sc_pruned)
 
             if ws_pruned > 0 or st_pruned > 0:
@@ -803,7 +838,7 @@ async def _check_sui_rpc(rpc_url: str) -> str:
                 json={
                     "jsonrpc": "2.0",
                     "id": 1,
-                    "method": "suix_getLatestCheckpointSequenceNumber",
+                    "method": "sui_getLatestCheckpointSequenceNumber",
                     "params": [],
                 },
                 timeout=10.0,

@@ -25,7 +25,9 @@ class SequenceChecker(BaseChecker):
     def check(self) -> list[Anomaly]:
         """Run all sequence rules."""
         anomalies: list[Anomaly] = []
-        anomalies.extend(self._check_s2_duplicate_transactions())
+        # S2 (DUPLICATE_TRANSACTION) disabled — high-event-count transactions
+        # are normal for batch operations (fleet movements, mass deployments).
+        # anomalies.extend(self._check_s2_duplicate_transactions())
         anomalies.extend(self._check_s4_block_gaps())
         # S1 (temporal violation) and S3 (missing prerequisite) require
         # a cross-event dependency graph — deferred until event volume

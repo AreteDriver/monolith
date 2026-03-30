@@ -104,12 +104,16 @@ def get_stats(request: Request) -> dict:
         ).fetchone()[0]
         hourly_rate.append({"hour": i, "timestamp": bucket_start, "count": count})
 
-    # False positive rate
-    total_all = conn.execute("SELECT COUNT(*) FROM anomalies").fetchone()[0]
-    false_positives = conn.execute(
-        "SELECT COUNT(*) FROM anomalies WHERE status = 'FALSE_POSITIVE'"
+    # False positive rate (7-day rolling window — reflects current detector quality)
+    fp_cutoff = now - (7 * 86400)
+    total_recent = conn.execute(
+        "SELECT COUNT(*) FROM anomalies WHERE detected_at >= ?", (fp_cutoff,)
     ).fetchone()[0]
-    fp_rate = false_positives / total_all if total_all > 0 else 0.0
+    fp_recent = conn.execute(
+        "SELECT COUNT(*) FROM anomalies WHERE status = 'FALSE_POSITIVE' AND detected_at >= ?",
+        (fp_cutoff,),
+    ).fetchone()[0]
+    fp_rate = fp_recent / total_recent if total_recent > 0 else 0.0
 
     # Events processed 24h
     events_24h = conn.execute(

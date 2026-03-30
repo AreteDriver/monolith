@@ -68,7 +68,7 @@ async def get_latest_checkpoint(
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "suix_getLatestCheckpointSequenceNumber",
+        "method": "sui_getLatestCheckpointSequenceNumber",
         "params": [],
     }
     result = await _rpc_call(rpc_url, payload, client)

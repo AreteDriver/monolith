@@ -319,7 +319,7 @@ class ChainReader:
             payload = {
                 "jsonrpc": "2.0",
                 "id": 1,
-                "method": "suix_getLatestCheckpointSequenceNumber",
+                "method": "sui_getLatestCheckpointSequenceNumber",
                 "params": [],
             }
             resp = await client.post(self.rpc_url, json=payload, timeout=self.timeout)

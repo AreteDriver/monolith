@@ -10,6 +10,13 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
+# In-memory health state — always reflects the latest check results,
+# even when SQLite is locked and record_check() can't write.
+# Key: service_name, Value: dict with status, response_time_ms, error_message,
+# last_checked_at, last_change_at, consecutive_failures.
+_health_state: dict[str, dict] = {}
+
+
 @dataclasses.dataclass
 class CheckResult:
     """Result of a single service health check."""
@@ -58,7 +65,7 @@ async def check_sui_rpc(
             json={
                 "jsonrpc": "2.0",
                 "id": 1,
-                "method": "suix_getLatestCheckpointSequenceNumber",
+                "method": "sui_getLatestCheckpointSequenceNumber",
                 "params": [],
             },
             timeout=float(timeout),
@@ -191,76 +198,116 @@ def check_detection_errors(conn: sqlite3.Connection) -> CheckResult:
         return CheckResult("detection_health", "down", 0, str(exc)[:200], now)
 
 
+def _update_memory_state(result: CheckResult) -> str | None:
+    """Update in-memory health state. Returns transition string if state changed."""
+    name = result.service_name
+    prev = _health_state.get(name)
+
+    if prev is None:
+        _health_state[name] = {
+            "status": result.status,
+            "response_time_ms": result.response_time_ms,
+            "error_message": result.error_message,
+            "last_checked_at": result.checked_at,
+            "last_change_at": result.checked_at,
+            "consecutive_failures": 0 if result.status == "up" else 1,
+        }
+        return None
+
+    old_status = prev["status"]
+    new_failures = 0 if result.status == "up" else prev["consecutive_failures"] + 1
+
+    prev["status"] = result.status
+    prev["response_time_ms"] = result.response_time_ms
+    prev["error_message"] = result.error_message
+    prev["last_checked_at"] = result.checked_at
+    prev["consecutive_failures"] = new_failures
+
+    if old_status != result.status:
+        prev["last_change_at"] = result.checked_at
+        return f"{old_status}->{result.status}"
+    return None
+
+
+def get_health_state() -> dict[str, dict]:
+    """Return the current in-memory health state for all services."""
+    return _health_state
+
+
 def record_check(conn: sqlite3.Connection, result: CheckResult) -> str | None:
     """Record a health check and detect state transitions.
 
+    Always updates in-memory state. DB write is best-effort — if SQLite is
+    locked, the in-memory state still reflects reality so /api/status stays
+    accurate.
+
     Returns transition string (e.g. "up->down") if state changed, None otherwise.
     """
-    # Insert check record
-    conn.execute(
-        "INSERT INTO service_checks "
-        "(service_name, status, response_time_ms, error_message, checked_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (
-            result.service_name,
-            result.status,
-            result.response_time_ms,
-            result.error_message,
-            result.checked_at,
-        ),
-    )
+    # Always update in-memory state first
+    transition = _update_memory_state(result)
 
-    # Get current state
-    row = conn.execute(
-        "SELECT current_status, consecutive_failures FROM service_state WHERE service_name = ?",
-        (result.service_name,),
-    ).fetchone()
-
-    if row is None:
-        # First check — initialize state
+    try:
+        # Insert check record
         conn.execute(
-            "INSERT INTO service_state "
-            "(service_name, current_status, last_change_at, "
-            "consecutive_failures, last_checked_at) "
+            "INSERT INTO service_checks "
+            "(service_name, status, response_time_ms, error_message, checked_at) "
             "VALUES (?, ?, ?, ?, ?)",
             (
                 result.service_name,
                 result.status,
-                result.checked_at,
-                0 if result.status == "up" else 1,
+                result.response_time_ms,
+                result.error_message,
                 result.checked_at,
             ),
         )
+
+        # Get current state from DB
+        row = conn.execute(
+            "SELECT current_status, consecutive_failures FROM service_state WHERE service_name = ?",
+            (result.service_name,),
+        ).fetchone()
+
+        mem = _health_state[result.service_name]
+
+        if row is None:
+            conn.execute(
+                "INSERT INTO service_state "
+                "(service_name, current_status, last_change_at, "
+                "consecutive_failures, last_checked_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    result.service_name,
+                    result.status,
+                    result.checked_at,
+                    mem["consecutive_failures"],
+                    result.checked_at,
+                ),
+            )
+        elif transition:
+            conn.execute(
+                "UPDATE service_state SET current_status = ?, last_change_at = ?, "
+                "consecutive_failures = ?, last_checked_at = ? WHERE service_name = ?",
+                (
+                    result.status,
+                    result.checked_at,
+                    mem["consecutive_failures"],
+                    result.checked_at,
+                    result.service_name,
+                ),
+            )
+        else:
+            conn.execute(
+                "UPDATE service_state "
+                "SET consecutive_failures = ?, last_checked_at = ? "
+                "WHERE service_name = ?",
+                (mem["consecutive_failures"], result.checked_at, result.service_name),
+            )
         conn.commit()
-        # Don't alert on initial state
-        return None
-
-    old_status = row["current_status"]
-    old_failures = row["consecutive_failures"]
-    new_failures = 0 if result.status == "up" else old_failures + 1
-
-    if old_status != result.status:
-        # State transition detected
-        conn.execute(
-            "UPDATE service_state SET current_status = ?, last_change_at = ?, "
-            "consecutive_failures = ?, last_checked_at = ? WHERE service_name = ?",
-            (
-                result.status,
-                result.checked_at,
-                new_failures,
-                result.checked_at,
-                result.service_name,
-            ),
+    except sqlite3.OperationalError:
+        logger.warning(
+            "DB locked — health state for %s updated in memory only (%s)",
+            result.service_name,
+            result.status,
         )
-        conn.commit()
-        return f"{old_status}->{result.status}"
 
-    # No transition — just update last_checked and failure count
-    conn.execute(
-        "UPDATE service_state "
-        "SET consecutive_failures = ?, last_checked_at = ? "
-        "WHERE service_name = ?",
-        (new_failures, result.checked_at, result.service_name),
-    )
-    conn.commit()
-    return None
+    return transition

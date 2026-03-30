@@ -27,8 +27,13 @@ class EconomicChecker(BaseChecker):
         anomalies: list[Anomaly] = []
         anomalies.extend(self._check_e1_supply_discrepancy())
         anomalies.extend(self._check_e1_item_supply())
-        anomalies.extend(self._check_e2_unexplained_destruction())
-        anomalies.extend(self._check_e3_duplicate_mint())
+        # E2 (UNEXPLAINED_DESTRUCTION) disabled — 35% FP rate from idle
+        # assemblies that drop off World API but aren't destroyed. Need
+        # positive destruction signal (killmail/destroy event) before flagging.
+        # anomalies.extend(self._check_e2_unexplained_destruction())
+        # E3 (DUPLICATE_MINT) disabled — legitimate multi-object transactions
+        # produce expected duplicate events per tx hash.
+        # anomalies.extend(self._check_e3_duplicate_mint())
         anomalies.extend(self._check_e4_negative_balance())
         return anomalies
 

@@ -14,8 +14,8 @@ def _insert_event(conn, event_id, tx_hash, block, event_type="test"):
     conn.commit()
 
 
-def test_s2_high_nonfuel_event_count(db_conn):
-    """S2: Transaction with >50 non-fuel events triggers DUPLICATE_TRANSACTION."""
+def test_s2_disabled(db_conn):
+    """S2: DUPLICATE_TRANSACTION rule is disabled (high FP rate from batch ops)."""
     for i in range(55):
         _insert_event(db_conn, f"tx-spam:0x{i:02x}", "tx-spam", 100)
 
@@ -23,8 +23,7 @@ def test_s2_high_nonfuel_event_count(db_conn):
     anomalies = checker.check()
 
     dupes = [a for a in anomalies if a.anomaly_type == "DUPLICATE_TRANSACTION"]
-    assert len(dupes) >= 1
-    assert dupes[0].evidence["event_count"] == 55
+    assert len(dupes) == 0
 
 
 def test_s2_fuel_events_excluded(db_conn):
