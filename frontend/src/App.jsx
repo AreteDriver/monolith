@@ -34,10 +34,7 @@ function Nav() {
         onMouseEnter={() => import('./pages/MapView3D')}>
         Map
       </Link>
-      <Link to="/zones" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
-        Zones
-      </Link>
-      <Link to="/status" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
+<Link to="/status" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
         Status
       </Link>
       <Link to="/submit" className="text-[#a3a3a3] hover:text-white text-sm no-underline">
