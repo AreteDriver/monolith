@@ -45,6 +45,14 @@ const ASSEMBLY_COLORS = {
   unknown: '#334155',
 }
 
+const GATE_COLOR = '#2dd4bf'
+const KILLER_COLOR = '#ef4444'
+const CONFLICT_COLOR = '#f472b6'
+const TERRITORY_COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f59e0b',
+  '#ec4899', '#06b6d4', '#84cc16',
+]
+
 const TYPE_COLORS = {
   // Continuity
   ORPHAN_OBJECT: '#6b7280',
@@ -137,10 +145,15 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
   const wtHotzonesRef = useRef([])
   const wtThreatRef = useRef([])
   const wtAssembliesRef = useRef([])
+  const wtGatesRef = useRef([])
+  const wtKillersRef = useRef([])
+  const wtTerritoryRef = useRef([])
+  const wtConflictsRef = useRef([])
   const nebulaCanvasRef = useRef(null) // offscreen canvas for nebula (rendered once)
   const [layers, setLayers] = useState({
     background: true, anomalies: true,
     hotzones: true, threat: true, assemblies: false,
+    gates: true, killers: true, territory: false, conflicts: true,
   })
   const layersRef = useRef(layers)
 
@@ -175,6 +188,10 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     wtHotzonesRef.current = wtData?.hotzones || []
     wtThreatRef.current = wtData?.threat_systems || []
     wtAssembliesRef.current = wtData?.assemblies || []
+    wtGatesRef.current = wtData?.gate_connections || []
+    wtKillersRef.current = wtData?.top_killers || []
+    wtTerritoryRef.current = wtData?.territory || []
+    wtConflictsRef.current = wtData?.conflict_zones || []
   }, [wtData])
 
   // Keep refs synced with state
@@ -460,6 +477,46 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       ctx.restore()
     }
 
+    // --- WATCHTOWER: TERRITORY SHADING (dominant actor per system) ---
+    if (layers.territory) {
+      const terr = wtTerritoryRef.current
+      if (terr.length) {
+        ctx.save()
+        ctx.globalCompositeOperation = 'lighter'
+        // Assign stable colors by hashing entity ID
+        const entityColorMap = {}
+        let colorIdx = 0
+        for (const t of terr) {
+          if (!entityColorMap[t.dominant_entity]) {
+            entityColorMap[t.dominant_entity] = TERRITORY_COLORS[colorIdx % TERRITORY_COLORS.length]
+            colorIdx++
+          }
+          const sx = pad + t.nx * drawW
+          const sy = pad + t.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -100 || px > w + 100 || py < -100 || py > h + 100) continue
+
+          const color = entityColorMap[t.dominant_entity]
+          const r = parseInt(color.slice(1, 3), 16)
+          const g = parseInt(color.slice(3, 5), 16)
+          const b = parseInt(color.slice(5, 7), 16)
+          const radius = (25 + Math.min(t.total_kills, 20) * 4) * transform.scale
+          const alpha = 0.04 + t.dominance * 0.06
+
+          const grad = ctx.createRadialGradient(px, py, 0, px, py, radius)
+          grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`)
+          grad.addColorStop(0.5, `rgba(${r},${g},${b},${alpha * 0.4})`)
+          grad.addColorStop(1, `rgba(${r},${g},${b},0)`)
+          ctx.fillStyle = grad
+          ctx.beginPath()
+          ctx.arc(px, py, radius, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+    }
+
     // --- WATCHTOWER: HOTZONE RINGS (kill density zones) ---
     if (layers.hotzones) {
       const hotzones = wtHotzonesRef.current
@@ -498,6 +555,47 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
           ctx.fill()
         }
         ctx.restore()
+      }
+    }
+
+    // --- WATCHTOWER: GATE CONNECTIONS (transit route lines) ---
+    if (layers.gates) {
+      const gates = wtGatesRef.current
+      if (gates.length) {
+        const maxTransits = Math.max(...gates.map(g => g.transits), 1)
+        for (const g of gates) {
+          const sx1 = (pad + g.source_nx * drawW) * transform.scale + transform.x
+          const sy1 = (pad + g.source_nz * drawH) * transform.scale + transform.y
+          const sx2 = (pad + g.dest_nx * drawW) * transform.scale + transform.x
+          const sy2 = (pad + g.dest_nz * drawH) * transform.scale + transform.y
+
+          // Cull if both endpoints off screen
+          if ((sx1 < -50 && sx2 < -50) || (sx1 > w + 50 && sx2 > w + 50)) continue
+          if ((sy1 < -50 && sy2 < -50) || (sy1 > h + 50 && sy2 > h + 50)) continue
+
+          const intensity = g.transits / maxTransits
+          const alpha = 0.15 + intensity * 0.45
+          const lineW = Math.max(0.5, Math.min(3, Math.log2(g.transits + 1) * 0.8))
+
+          ctx.beginPath()
+          ctx.moveTo(sx1, sy1)
+          ctx.lineTo(sx2, sy2)
+          ctx.strokeStyle = `rgba(45,212,191,${alpha})`  // teal
+          ctx.lineWidth = lineW
+          ctx.setLineDash([6, 4])
+          ctx.stroke()
+          ctx.setLineDash([])
+
+          // Label at midpoint at higher zoom
+          if (transform.scale > 2.0 && g.transits >= 3) {
+            const mx = (sx1 + sx2) / 2
+            const my = (sy1 + sy2) / 2
+            ctx.fillStyle = `rgba(45,212,191,${alpha})`
+            ctx.font = `${Math.min(9, 8 * transform.scale)}px -apple-system, sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillText(`${g.transits}`, mx, my - 4)
+          }
+        }
       }
     }
 
@@ -726,6 +824,108 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       }
     }
 
+    // --- WATCHTOWER: TOP KILLERS (threat entity markers) ---
+    if (layers.killers) {
+      const killers = wtKillersRef.current
+      if (killers.length) {
+        for (const k of killers) {
+          const sx = pad + k.nx * drawW
+          const sy = pad + k.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -20 || px > w + 20 || py < -20 || py > h + 20) continue
+
+          const size = Math.max(4, 5 * transform.scale)
+
+          // Danger aura
+          const auraR = size * 4
+          const auraGrad = ctx.createRadialGradient(px, py, 0, px, py, auraR)
+          auraGrad.addColorStop(0, 'rgba(239,68,68,0.15)')
+          auraGrad.addColorStop(1, 'rgba(239,68,68,0)')
+          ctx.fillStyle = auraGrad
+          ctx.beginPath()
+          ctx.arc(px, py, auraR, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Skull marker (filled circle with X)
+          ctx.beginPath()
+          ctx.arc(px, py, size, 0, Math.PI * 2)
+          ctx.fillStyle = '#ef4444'
+          ctx.fill()
+          ctx.strokeStyle = '#ffffff'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(px - size * 0.5, py - size * 0.5)
+          ctx.lineTo(px + size * 0.5, py + size * 0.5)
+          ctx.moveTo(px + size * 0.5, py - size * 0.5)
+          ctx.lineTo(px - size * 0.5, py + size * 0.5)
+          ctx.stroke()
+
+          // Label at zoom > 1.5
+          if (transform.scale > 1.5) {
+            ctx.fillStyle = '#ef4444'
+            ctx.font = `bold ${Math.min(11, 9 * transform.scale)}px -apple-system, sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillText(k.display_name, px, py - size - 5)
+            ctx.fillStyle = '#fca5a5'
+            ctx.font = `${Math.min(9, 8 * transform.scale)}px -apple-system, sans-serif`
+            ctx.fillText(`${k.score} kills`, px, py - size - 5 - 12)
+          }
+        }
+      }
+    }
+
+    // --- WATCHTOWER: CONFLICT ZONES (contested systems) ---
+    if (layers.conflicts) {
+      const conflicts = wtConflictsRef.current
+      if (conflicts.length) {
+        for (const cz of conflicts) {
+          const sx = pad + cz.nx * drawW
+          const sy = pad + cz.nz * drawH
+          const px = sx * transform.scale + transform.x
+          const py = sy * transform.scale + transform.y
+          if (px < -60 || px > w + 60 || py < -60 || py > h + 60) continue
+
+          const radius = (15 + Math.min(cz.total_kills, 15) * 2) * transform.scale
+          const phase = ((ts * 0.0006) % 1)
+
+          // Rotating dashed ring
+          ctx.save()
+          ctx.translate(px, py)
+          ctx.rotate(phase * Math.PI * 2)
+          ctx.beginPath()
+          ctx.arc(0, 0, radius, 0, Math.PI * 2)
+          ctx.strokeStyle = 'rgba(244,114,182,0.4)'
+          ctx.lineWidth = 1.5
+          ctx.setLineDash([4, 6])
+          ctx.stroke()
+          ctx.setLineDash([])
+
+          // Counter-rotating inner ring
+          ctx.rotate(-phase * Math.PI * 4)
+          ctx.beginPath()
+          ctx.arc(0, 0, radius * 0.7, 0, Math.PI * 2)
+          ctx.strokeStyle = 'rgba(244,114,182,0.25)'
+          ctx.lineWidth = 1
+          ctx.setLineDash([3, 5])
+          ctx.stroke()
+          ctx.setLineDash([])
+          ctx.restore()
+
+          // Label at zoom > 2.0
+          if (transform.scale > 2.0) {
+            ctx.fillStyle = '#f472b6'
+            ctx.font = `bold ${Math.min(9, 8 * transform.scale)}px -apple-system, sans-serif`
+            ctx.textAlign = 'center'
+            ctx.fillText('CONTESTED', px, py - radius - 4)
+            ctx.fillStyle = '#fda4af'
+            ctx.font = `${Math.min(8, 7 * transform.scale)}px -apple-system, sans-serif`
+            ctx.fillText(`${cz.attacker_count} factions \u00b7 ${cz.total_kills} kills`, px, py - radius - 4 - 10)
+          }
+        }
+      }
+    }
+
     // --- VIGNETTE (dark edges, draws focus to center) ---
     const vignetteGrad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75)
     vignetteGrad.addColorStop(0, 'rgba(5,5,8,0)')
@@ -835,6 +1035,41 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
       }
     }
 
+    // Hit test top killers
+    let hitKiller = null
+    if (!hit && !hitEvent && !hitAssembly && layersRef.current.killers) {
+      const killers = wtKillersRef.current
+      for (const k of killers) {
+        const sx = pad + k.nx * drawW
+        const sy = pad + k.nz * drawH
+        const px = sx * t.scale + t.x
+        const py = sy * t.scale + t.y
+        const dist = Math.sqrt((mx - px) ** 2 + (my - py) ** 2)
+        if (dist <= 12) {
+          hitKiller = k
+          break
+        }
+      }
+    }
+
+    // Hit test conflict zones
+    let hitConflict = null
+    if (!hit && !hitEvent && !hitAssembly && !hitKiller && layersRef.current.conflicts) {
+      const conflicts = wtConflictsRef.current
+      for (const cz of conflicts) {
+        const sx = pad + cz.nx * drawW
+        const sy = pad + cz.nz * drawH
+        const px = sx * t.scale + t.x
+        const py = sy * t.scale + t.y
+        const dist = Math.sqrt((mx - px) ** 2 + (my - py) ** 2)
+        const radius = (15 + Math.min(cz.total_kills, 15) * 2) * t.scale
+        if (dist <= radius) {
+          hitConflict = cz
+          break
+        }
+      }
+    }
+
     if (hit) {
       canvas.style.cursor = 'pointer'
       setTooltip({ x: mx, y: my, sys: hit })
@@ -844,6 +1079,12 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
     } else if (hitAssembly) {
       canvas.style.cursor = 'pointer'
       setTooltip({ x: mx, y: my, assembly: hitAssembly })
+    } else if (hitKiller) {
+      canvas.style.cursor = 'pointer'
+      setTooltip({ x: mx, y: my, killer: hitKiller })
+    } else if (hitConflict) {
+      canvas.style.cursor = 'pointer'
+      setTooltip({ x: mx, y: my, conflict: hitConflict })
     } else {
       canvas.style.cursor = 'grab'
       setTooltip(null)
@@ -1074,6 +1315,22 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
                 {tooltip.assembly.state.toUpperCase()}
               </div>
             </>
+          ) : tooltip.killer ? (
+            <>
+              <div className="text-white font-bold">{tooltip.killer.display_name}</div>
+              <div className="text-xs mt-1 text-red-400">THREAT ENTITY</div>
+              <div className="text-xs mt-1 text-[#a3a3a3]">
+                {tooltip.killer.score} kills &middot; Last seen: {tooltip.killer.system_name}
+              </div>
+            </>
+          ) : tooltip.conflict ? (
+            <>
+              <div className="text-white font-bold">{tooltip.conflict.system_name}</div>
+              <div className="text-xs mt-1 text-pink-400">ACTIVE CONFLICT</div>
+              <div className="text-xs mt-1 text-[#a3a3a3]">
+                {tooltip.conflict.attacker_count} factions &middot; {tooltip.conflict.total_kills} kills
+              </div>
+            </>
           ) : null}
         </div>
       )}
@@ -1155,6 +1412,10 @@ export function AnomalyMap({ onSystemSelect, height } = {}) {
           { key: 'anomalies', label: 'Anomalies' },
           { key: 'hotzones', label: 'Kills' },
           { key: 'threat', label: 'Threat' },
+          { key: 'gates', label: 'Gates' },
+          { key: 'killers', label: 'Killers' },
+          { key: 'conflicts', label: 'War' },
+          { key: 'territory', label: 'Terr' },
           { key: 'assemblies', label: 'Asm' },
         ].map(({ key, label }) => (
           <label key={key} className="flex items-center gap-1 cursor-pointer">

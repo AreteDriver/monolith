@@ -507,7 +507,15 @@ async def get_watchtower_overlay(request: Request) -> dict:
 
     if not coord_lookup:
         logger.warning("No reference_data for WatchTower coord resolution")
-        return _wt_cache or {"hotzones": [], "threat_systems": [], "assemblies": []}
+        return _wt_cache or {
+            "hotzones": [],
+            "threat_systems": [],
+            "assemblies": [],
+            "gate_connections": [],
+            "top_killers": [],
+            "territory": [],
+            "conflict_zones": [],
+        }
 
     # Fetch all 3 endpoints in parallel
     async with httpx.AsyncClient() as client:
@@ -520,7 +528,15 @@ async def get_watchtower_overlay(request: Request) -> dict:
     # If all three failed, serve stale cache
     if hz_raw is None and threat_raw is None and asm_raw is None:
         logger.warning("All WatchTower fetches failed, serving stale cache")
-        return _wt_cache or {"hotzones": [], "threat_systems": [], "assemblies": []}
+        return _wt_cache or {
+            "hotzones": [],
+            "threat_systems": [],
+            "assemblies": [],
+            "gate_connections": [],
+            "top_killers": [],
+            "territory": [],
+            "conflict_zones": [],
+        }
 
     # --- Hotzones: join with coords ---
     hotzones = []
@@ -580,12 +596,201 @@ async def get_watchtower_overlay(request: Request) -> dict:
             }
         )
 
+    # --- Additional WatchTower data ---
+    killers_raw = None
+    async with httpx.AsyncClient() as client2:
+        killers_raw = await _fetch_watchtower(client2, "/leaderboard/top_killers")
+
+    gate_connections = _build_movement_network(conn, coord_lookup)
+    top_killers = _build_top_killers(conn, coord_lookup, killers_raw)
+    # Derive territory + conflicts from WatchTower hotzones (already fetched)
+    # instead of parsing local killmail payloads (which caused DB locks)
+    territory = _build_territory_from_hotzones(hotzones)
+    conflict_zones = _build_conflict_zones_from_hotzones(hotzones)
+
     result = {
         "hotzones": hotzones,
         "threat_systems": threat_systems,
         "assemblies": assemblies,
+        "gate_connections": gate_connections,
+        "top_killers": top_killers,
+        "territory": territory,
+        "conflict_zones": conflict_zones,
         "fetched_at": int(now),
     }
     _wt_cache = result
     _wt_cache_time = now
     return result
+
+
+def _build_movement_network(
+    conn: sqlite3.Connection,
+    coord_lookup: dict[str, dict],
+) -> list[dict]:
+    """Build movement network from killmail data — connect systems where the
+    same attacker appears in kills across different systems.
+
+    This gives the operational movement topology without needing gate positions.
+    """
+    rows = conn.execute(
+        "SELECT solar_system_id, payload FROM nexus_events "
+        "WHERE event_type = 'killmail' AND solar_system_id != '' "
+        "ORDER BY received_at"
+    ).fetchall()
+
+    if not rows:
+        return []
+
+    # Build attacker → list of systems (in order)
+    attacker_systems: dict[str, list[str]] = {}
+    for row in rows:
+        try:
+            payload = json.loads(row["payload"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        sid = row["solar_system_id"]
+        attackers_raw = payload.get("attacker_character_ids", "[]")
+        if isinstance(attackers_raw, str):
+            try:
+                attackers = json.loads(attackers_raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+        else:
+            attackers = attackers_raw if isinstance(attackers_raw, list) else []
+        for a in attackers:
+            kid = a.get("characterId", "") if isinstance(a, dict) else str(a)
+            if kid:
+                attacker_systems.setdefault(kid, []).append(sid)
+
+    # Build edges: consecutive distinct systems for each attacker
+    from collections import Counter
+
+    edge_counts: Counter = Counter()
+    for systems in attacker_systems.values():
+        for i in range(len(systems) - 1):
+            if systems[i] != systems[i + 1]:
+                edge = tuple(sorted([systems[i], systems[i + 1]]))
+                edge_counts[edge] += 1
+
+    result = []
+    for (src_sys, dst_sys), transits in edge_counts.most_common(30):
+        src_coord = coord_lookup.get(src_sys)
+        dst_coord = coord_lookup.get(dst_sys)
+        if not src_coord or not dst_coord:
+            continue
+        result.append(
+            {
+                "source_system": src_sys,
+                "dest_system": dst_sys,
+                "source_name": src_coord["name"],
+                "dest_name": dst_coord["name"],
+                "source_nx": src_coord["nx"],
+                "source_nz": src_coord["nz"],
+                "dest_nx": dst_coord["nx"],
+                "dest_nz": dst_coord["nz"],
+                "transits": transits,
+            }
+        )
+
+    return result
+
+
+def _build_top_killers(
+    conn: sqlite3.Connection,
+    coord_lookup: dict[str, dict],
+    killers_raw: dict | None,
+) -> list[dict]:
+    """Position top killers on the map by last known killmail location."""
+    if not killers_raw:
+        return []
+
+    entries = killers_raw.get("entries", [])
+    if not entries:
+        return []
+
+    result = []
+    for entry in entries[:20]:  # Cap at 20
+        eid = entry.get("entity_id", "")
+        if not eid:
+            continue
+
+        # Find last known system from nexus killmails
+        row = conn.execute(
+            "SELECT solar_system_id FROM nexus_events "
+            "WHERE event_type = 'killmail' AND payload LIKE ? "
+            "ORDER BY received_at DESC LIMIT 1",
+            (f"%{eid}%",),
+        ).fetchone()
+
+        system_id = row["solar_system_id"] if row else ""
+
+        # Fallback: check objects table
+        if not system_id:
+            obj_row = conn.execute(
+                "SELECT system_id FROM objects WHERE object_id = ?", (eid,)
+            ).fetchone()
+            system_id = obj_row["system_id"] if obj_row else ""
+
+        if not system_id:
+            continue
+
+        coord = coord_lookup.get(system_id)
+        if not coord:
+            continue
+
+        result.append(
+            {
+                "entity_id": eid,
+                "display_name": entry.get("display_name", eid[:12]),
+                "score": entry.get("score", 0),
+                "system_id": system_id,
+                "system_name": coord["name"],
+                "nx": coord["nx"],
+                "nz": coord["nz"],
+            }
+        )
+
+    return result
+
+
+def _build_territory_from_hotzones(hotzones: list[dict]) -> list[dict]:
+    """Derive territory markers from hotzone data (systems with high kill activity).
+
+    Uses hotzones (already fetched from WatchTower) instead of parsing local
+    killmail payloads, which avoids heavy JSON parsing + DB lock contention.
+    Systems with kills >= 3 are considered "controlled territory".
+    """
+    return [
+        {
+            "system_id": hz["system_id"],
+            "system_name": hz["name"],
+            "nx": hz["nx"],
+            "nz": hz["nz"],
+            "dominant_name": hz["name"],
+            "dominant_entity": hz["system_id"],
+            "kill_count": hz["kills"],
+            "total_kills": hz["kills"],
+            "dominance": min(1.0, hz["kills"] / max(hz.get("unique_attackers", 1), 1)),
+        }
+        for hz in hotzones
+        if hz.get("kills", 0) >= 3
+    ]
+
+
+def _build_conflict_zones_from_hotzones(hotzones: list[dict]) -> list[dict]:
+    """Find contested systems from hotzone data (multiple unique attackers).
+
+    Systems with 2+ unique attackers and 3+ kills are considered conflict zones.
+    """
+    return [
+        {
+            "system_id": hz["system_id"],
+            "system_name": hz["name"],
+            "nx": hz["nx"],
+            "nz": hz["nz"],
+            "attacker_count": hz.get("unique_attackers", 0),
+            "total_kills": hz["kills"],
+        }
+        for hz in hotzones
+        if hz.get("unique_attackers", 0) >= 2 and hz.get("kills", 0) >= 3
+    ]
