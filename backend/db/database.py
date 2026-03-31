@@ -375,14 +375,10 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
 
 
 def _fix_dict_system_ids(conn: sqlite3.Connection) -> None:
-    """Fix system_id fields stored as Python dict repr strings.
-
-    Some chain events stored system_id as "{'item_id': '30013131', 'tenant': 'utopia'}"
-    instead of just "30013131". This cleans them up across all affected tables.
-    """
+    """Fix system_id fields stored as Python dict repr strings."""
     import re
 
-    pattern = re.compile(r"\{'item_id':\s*'(\d+)'")
+    pattern = re.compile(r"'item_id':\s*'(\d+)'")
     fixed = 0
     for table in ("chain_events", "anomalies", "objects"):
         try:
@@ -390,16 +386,18 @@ def _fix_dict_system_ids(conn: sqlite3.Connection) -> None:
                 f"SELECT rowid, system_id FROM {table} WHERE system_id LIKE '%item_id%'"  # noqa: S608
             ).fetchall()
             for row in rows:
-                match = pattern.search(row["system_id"])
+                sid = row[1]  # use index, not key — row_factory may vary
+                match = pattern.search(str(sid))
                 if match:
                     conn.execute(
                         f"UPDATE {table} SET system_id = ? WHERE rowid = ?",  # noqa: S608
-                        (match.group(1), row["rowid"]),
+                        (match.group(1), row[0]),
                     )
                     fixed += 1
         except sqlite3.OperationalError:
             continue
     if fixed:
+        conn.commit()
         logger.info("Fixed %d dict-format system_id values", fixed)
 
 
