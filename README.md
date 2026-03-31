@@ -4,7 +4,7 @@
 
 Monolith ingests 13 Sui on-chain event types in real time, runs 39 deterministic detection rules against them, and surfaces bugs with full chain evidence — so CCP and Sui engineers can fix issues before players lose assets.
 
-> **Live demo**: [aegismonolith.xyz](https://aegismonolith.xyz/)
+> **Live demo**: [aegismonolith.xyz](https://aegismonolith.xyz/) | **[Demo Video](https://youtu.be/zkG1CbeHaLg)**
 
 ---
 

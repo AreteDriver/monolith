@@ -33,7 +33,12 @@ EVENT_HANDLERS: dict[str, str] = {
     "GateCreatedEvent": "_handle_assembly_created",
     "GateLinkedEvent": "_handle_gate_link",
     "GateUnlinkedEvent": "_handle_gate_link",
+    # FTA (Frontier Transit Authority) synthesized events
+    "FTA_JumpPermit": "_handle_fta_jump",
+    "FTA_StateMutation": "_handle_fta_state_mutation",
 }
+# TODO: TurretEvent handler needed when turret extension merges
+# (world-contracts feature branch, 2026-03-30)
 
 
 class EventProcessor:
@@ -425,6 +430,63 @@ class EventProcessor:
                     "UPDATE objects SET last_seen = ? WHERE object_id = ?",
                     (event["timestamp"], gate_id),
                 )
+
+    # -- FTA (Frontier Transit Authority) handlers --
+
+    def _handle_fta_jump(self, event: dict, parsed: dict) -> None:
+        """FTA_JumpPermit → track FTA gate network jump permits.
+
+        FTA jumps go through the community-managed gate network. We track
+        the source/dest gates, character, and fees for traffic analysis.
+        """
+        source_gate = parsed.get("source_gate_id", "")
+        dest_gate = parsed.get("destination_gate_id", "")
+        character_id = parsed.get("character_id", "")
+
+        # Update gate last-seen timestamps
+        for gate_id in (source_gate, dest_gate):
+            if gate_id:
+                self.conn.execute(
+                    "UPDATE objects SET last_seen = ? WHERE object_id = ?",
+                    (event["timestamp"], gate_id),
+                )
+
+        # Track the FTA object itself
+        self._upsert_object(
+            object_id=source_gate or "fta-jump",
+            object_type="fta_gate",
+            state={
+                "last_jump_character": character_id,
+                "last_jump_dest": dest_gate,
+                "last_jump_time": event["timestamp"],
+            },
+            timestamp=event["timestamp"],
+        )
+
+    def _handle_fta_state_mutation(self, event: dict, parsed: dict) -> None:
+        """FTA_StateMutation → track changes to FTA shared object.
+
+        Captures when the FTA object is mutated (gate registrations,
+        blacklist changes, bounty events, fee updates). Object creation
+        and deletion within the transaction indicate structural changes.
+        """
+        created = parsed.get("created_objects", [])
+        deleted = parsed.get("deleted_objects", [])
+
+        # Store the mutation as a world state snapshot for detection
+        from backend.ingestion.fta_poller import FTA_OBJECT_ID
+
+        self._upsert_object(
+            object_id=FTA_OBJECT_ID,
+            object_type="fta",
+            state={
+                "last_mutation": event["timestamp"],
+                "created_count": len(created),
+                "deleted_count": len(deleted),
+                "sender": parsed.get("sender", ""),
+            },
+            timestamp=event["timestamp"],
+        )
 
     # -- Unknown type tracking --
 

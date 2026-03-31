@@ -70,6 +70,10 @@ RULE_DISPLAY: dict[str, tuple[str, str]] = {
     "MM1": ("Wash Cycle", "Circular item flow between related wallets — no net economic purpose"),
     "MM2": ("Price Cartel", "Multiple assemblies set identical prices in coordinated window"),
     "MM3": ("Supply Corner", "Single wallet hoarding majority of an item type"),
+    # Governance
+    "GV1": ("Power Consolidation", "Multiple OwnerCaps converging on single address — org forming"),
+    "GV2": ("War Chest", "Diverse wallets pooling resources into shared treasury"),
+    "GV3": ("Highway Seizure", "Single operator restructuring gate network — corridor control"),
 }
 
 ANOMALY_CATEGORIES: dict[str, str] = {
@@ -145,6 +149,10 @@ RULE_CLASSIFICATION: dict[str, tuple[str, str]] = {
     "MM1": ("HIGH", "BEHAVIORAL"),
     "MM2": ("HIGH", "BEHAVIORAL"),
     "MM3": ("MEDIUM", "BEHAVIORAL"),
+    # Governance checker
+    "GV1": ("HIGH", "BEHAVIORAL"),
+    "GV2": ("MEDIUM", "BEHAVIORAL"),
+    "GV3": ("HIGH", "BEHAVIORAL"),
 }
 
 

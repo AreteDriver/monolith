@@ -128,6 +128,24 @@ TEMPLATES: dict[str, str] = {
         "routine but unusual. Review who filed the report and flag if the pattern "
         "recurs."
     ),
+    "COORDINATED_DELEGATION": (
+        "High priority — power consolidation. Multiple OwnerCaps converging on a "
+        "single address. This signals org formation, DAO bootstrap, or hostile "
+        "takeover. Cross-reference with tribe membership to distinguish friendly "
+        "restructuring from aggressive consolidation."
+    ),
+    "TREASURY_FORMATION": (
+        "Moderate concern — war chest forming. Diverse wallets pooling resources "
+        "into a shared assembly. Collective treasury pattern consistent with DAO "
+        "formation or coordinated operation funding. Track deposit velocity and "
+        "withdrawal patterns for intent signals."
+    ),
+    "GATE_NETWORK_CONSOLIDATION": (
+        "High priority — highway seizure. Single operator restructuring multiple "
+        "gates in rapid succession. Infrastructure power play — someone is building "
+        "or taking over a trade corridor. Monitor for toll changes and access "
+        "restrictions that follow."
+    ),
 }
 
 

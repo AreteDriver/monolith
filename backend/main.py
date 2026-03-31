@@ -50,6 +50,7 @@ from backend.detection.engine import DetectionEngine
 from backend.ingestion.chain_config import fetch_chain_config
 from backend.ingestion.chain_reader import ChainReader
 from backend.ingestion.event_processor import EventProcessor
+from backend.ingestion.fta_poller import FTAPoller
 from backend.ingestion.graphql_client import SuiGraphQLClient
 from backend.ingestion.name_resolver import NameResolver
 from backend.ingestion.nexus_consumer import configure as configure_nexus
@@ -483,6 +484,38 @@ async def static_data_loop(
         )
 
 
+async def fta_poll_loop(
+    fta_poller: FTAPoller,
+    interval: int,
+    client: httpx.AsyncClient | None = None,
+    heartbeats: dict | None = None,
+) -> None:
+    """Background task: poll FTA (Frontier Transit Authority) transactions.
+
+    The FTA is a community-managed gate network. Since it doesn't emit custom
+    Move events, we poll transactions affecting its shared object via GraphQL
+    and synthesize chain_events from the results.
+    """
+    # Delay to let chain reader populate initial state
+    await asyncio.sleep(90)
+    while True:
+        if heartbeats is not None:
+            heartbeats["fta_poll"] = time.time()
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                http = client or c
+                events = await fta_poller.poll(http)
+                if events:
+                    logger.info("FTA poll: %d events ingested", events)
+                # Snapshot FTA object state every cycle for diff detection
+                changed = await fta_poller.snapshot_fta_object(http)
+                if changed:
+                    logger.info("FTA snapshot: state changed")
+        except Exception:
+            logger.exception("FTA poll loop error")
+        await asyncio.sleep(interval)
+
+
 async def service_health_loop(
     conn: sqlite3.Connection,
     settings,
@@ -613,6 +646,7 @@ async def lifespan(app: FastAPI):
     conn_prune = get_connection(db_path)  # table_prune_loop
     conn_warden = get_connection(db_path)  # warden_loop
     conn_health = get_connection(db_path)  # service_health_loop
+    conn_fta = get_connection(db_path)  # fta_poll_loop
     bg_conns = [
         conn_chain,
         conn_detection,
@@ -623,6 +657,7 @@ async def lifespan(app: FastAPI):
         conn_prune,
         conn_warden,
         conn_health,
+        conn_fta,
     ]
 
     # Heartbeat tracking for background loop health monitoring
@@ -637,6 +672,7 @@ async def lifespan(app: FastAPI):
         "static_data": settings.static_data_interval,
         "table_prune": 21600,
         "warden": settings.detection_interval,
+        "fta_poll": 300,
     }
     app.state.loop_intervals = expected_intervals
 
@@ -657,6 +693,8 @@ async def lifespan(app: FastAPI):
     app.state.gql_client = gql_client
     app.state.name_resolver = name_resolver
     app.state.warden = warden
+    fta_poller = FTAPoller(conn_fta)
+    app.state.fta_poller = fta_poller
     app.state.world_poller = world_poller
     app.state.chain_reader = chain_reader
     app.state.event_processor = event_processor
@@ -727,6 +765,14 @@ async def lifespan(app: FastAPI):
             warden_loop(
                 warden,
                 settings.detection_interval,
+                client=http_client,
+                heartbeats=heartbeats,
+            )
+        ),
+        asyncio.create_task(
+            fta_poll_loop(
+                fta_poller,
+                300,  # 5 minute interval
                 client=http_client,
                 heartbeats=heartbeats,
             )

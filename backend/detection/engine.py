@@ -15,6 +15,7 @@ from backend.detection.dead_assembly_checker import DeadAssemblyChecker
 from backend.detection.economic_checker import EconomicChecker
 from backend.detection.engagement_checker import EngagementChecker
 from backend.detection.feral_ai_checker import FeralAIChecker
+from backend.detection.governance_checker import GovernanceChecker
 from backend.detection.inventory_audit_checker import InventoryAuditChecker
 from backend.detection.killmail_checker import KillmailChecker
 from backend.detection.market_manipulation_checker import MarketManipulationChecker
@@ -85,6 +86,7 @@ class DetectionEngine:
             OwnershipChecker(self.conn),
             OrbitalZoneChecker(self.conn),
             FeralAIChecker(self.conn),
+            GovernanceChecker(self.conn),
         ]
         for checker in self._checkers:
             logger.info("Registered checker: %s", checker.name)
