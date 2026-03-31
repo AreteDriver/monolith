@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useState, useRef, useMemo, Suspense } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Points, PointMaterial, Html, OrbitControls, Stars } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
@@ -108,6 +108,36 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
       )}
     </group>
   )
+}
+
+// Smooth camera fly-to animation
+function CameraFlyTo({ target }) {
+  const { camera } = useThree()
+  const targetRef = useRef(null)
+  const lookAtRef = useRef(new THREE.Vector3())
+
+  useEffect(() => {
+    if (target) {
+      targetRef.current = new THREE.Vector3(target[0], target[1], target[2])
+      lookAtRef.current.set(target[0], 0, target[2])
+    }
+  }, [target])
+
+  useFrame(() => {
+    if (!targetRef.current) return
+    // Fly camera toward a position offset above and in front of the target
+    const dest = targetRef.current.clone()
+    dest.y += 8
+    dest.z += 12
+
+    camera.position.lerp(dest, 0.03)
+    const dist = camera.position.distanceTo(dest)
+    if (dist < 0.5) {
+      targetRef.current = null
+    }
+  })
+
+  return null
 }
 
 // Ambient dust
@@ -322,7 +352,7 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
   )
 }
 
-function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems }) {
+function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems, onFlyTo }) {
   const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
   const [collapsed, setCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('killers')
@@ -375,7 +405,7 @@ function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems }) {
                 killers.length === 0 ? (
                   <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No threat data</div>
                 ) : killers.map((k) => (
-                  <div key={k.entity_id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                  <div key={k.entity_id} onClick={() => onFlyTo && onFlyTo(k.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[10px] text-red-400 font-bold truncate">{k.display_name}</div>
@@ -388,7 +418,7 @@ function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems }) {
                 conflicts.length === 0 ? (
                   <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No active conflicts</div>
                 ) : conflicts.map((cz) => (
-                  <div key={cz.system_id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                  <div key={cz.system_id} onClick={() => onFlyTo && onFlyTo(cz.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
                     <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[10px] text-pink-400 font-bold truncate">{cz.system_name}</div>
@@ -414,7 +444,7 @@ function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems }) {
                 hotzones.length === 0 ? (
                   <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No kill data</div>
                 ) : hotzones.slice(0, 10).map((hz) => (
-                  <div key={hz.system_id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                  <div key={hz.system_id} onClick={() => onFlyTo && onFlyTo(hz.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{
                       backgroundColor: hz.danger_level === 'extreme' ? '#ff4444' : hz.danger_level === 'high' ? '#ff8800' : '#f59e0b'
                     }} />
@@ -470,6 +500,7 @@ export default function MapView3D() {
   const [anomalySystems, setAnomalySystems] = useState([])
   const [hovered, setHovered] = useState(null)
   const [selectedSystem, setSelectedSystem] = useState(null)
+  const [flyTarget, setFlyTarget] = useState(null)
   const [visibleSeverities, setVisibleSeverities] = useState({
     critical: true, high: true, medium: true, low: true,
   })
@@ -535,7 +566,21 @@ export default function MapView3D() {
 
   const handleClick = useCallback((system) => {
     setSelectedSystem(prev => prev?.system_id === system.system_id ? null : system)
+    if (system.nx != null && system.nz != null) {
+      setFlyTarget([(system.nx - 0.5) * 70, 0, (system.nz - 0.5) * 70])
+    }
   }, [])
+
+  // Fly to a system by ID — used by Intel panel items
+  const flyToSystem = useCallback((systemId) => {
+    const allSystems = bgData?.all_systems || []
+    const sys = allSystems.find(s => s.system_id === systemId)
+    if (!sys || sys.nx == null) return
+    setFlyTarget([(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70])
+    // Find matching anomaly system for the Intel Card
+    const anomaly = anomalySystems.find(a => a.system_id === systemId)
+    if (anomaly) setSelectedSystem(anomaly)
+  }, [bgData, anomalySystems])
 
   const totalAnomalies = anomalySystems.reduce((sum, s) => sum + s.count, 0)
 
@@ -577,6 +622,7 @@ export default function MapView3D() {
           {/* Deep space background */}
           <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0} />
 
+          <CameraFlyTo target={flyTarget} />
           <SpaceDust />
 
           {/* Galaxy disc */}
@@ -639,7 +685,7 @@ export default function MapView3D() {
       </div>
 
       <LiveFeed />
-      <IntelPanel visibleSeverities={visibleSeverities} toggleSeverity={toggleSeverity} anomalySystems={anomalySystems} />
+      <IntelPanel visibleSeverities={visibleSeverities} toggleSeverity={toggleSeverity} anomalySystems={anomalySystems} onFlyTo={flyToSystem} />
 
       {/* Hover tooltip */}
       {hovered && !selectedSystem && (
