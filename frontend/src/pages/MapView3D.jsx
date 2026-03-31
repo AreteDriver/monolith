@@ -41,21 +41,21 @@ function getMaxSeverity(sys) {
 function GalaxyField({ positions, systems, onSystemClick }) {
   const ref = useRef()
 
-  // Click on invisible galactic plane → find nearest system
+  // Click on invisible galactic plane → find nearest star in 3D
   const handlePlaneClick = useCallback((e) => {
     if (!systems || systems.length === 0) return
     e.stopPropagation()
-    const point = e.point // THREE.Vector3 intersection on the plane
-    const clickX = point.x
-    const clickZ = point.z
+    const clickX = e.point.x
+    const clickZ = e.point.z
 
-    // Find nearest system within 2 units
+    // Find nearest system within ~2 units on x/z plane
     let nearest = null
-    let nearestDist = 4 // max click distance squared
+    let nearestDist = 6 // max click distance squared
     for (const sys of systems) {
-      const sx = (sys.nx - 0.5) * 70
-      const sz = (sys.nz - 0.5) * 70
-      const d = (clickX - sx) ** 2 + (clickZ - sz) ** 2
+      if (!sys._3d) continue
+      const dx = clickX - sys._3d[0]
+      const dz = clickZ - sys._3d[2]
+      const d = dx * dx + dz * dz
       if (d < nearestDist) {
         nearestDist = d
         nearest = sys
@@ -1016,7 +1016,8 @@ export default function MapView3D() {
       const thickness = maxThickness * Math.exp(-distFromCenter * distFromCenter / 800)
       const y = (Math.random() - 0.5) * 2 * thickness
       positions.push(x, y, z)
-      orderedSystems.push(s)
+      // Store 3D position with system data for click snapping
+      orderedSystems.push({ ...s, _3d: [x, y, z] })
     }
     setBgPositions(new Float32Array(positions))
     setBgSystemsList(orderedSystems)
@@ -1053,10 +1054,11 @@ export default function MapView3D() {
     }
   }, [])
 
-  // Handle click on any background system dot
+  // Handle click on any background system dot — snap to actual star position
   const handleBgSystemClick = useCallback((sys) => {
     if (!sys) return
-    setFlyTarget([(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70])
+    const pos = sys._3d || [(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70]
+    setFlyTarget(pos)
     const anomaly = anomalySystems.find(a => a.system_id === sys.system_id)
     setSelectedSystem(anomaly || {
       system_id: sys.system_id,
@@ -1068,20 +1070,33 @@ export default function MapView3D() {
 
   // Fly to a system by ID — used by Intel panel items
   const flyToSystem = useCallback((systemId) => {
+    // Check bgSystemsList first (has _3d positions)
+    const sysWith3d = bgSystemsList.find(s => s.system_id === systemId)
+    if (sysWith3d) {
+      const pos = sysWith3d._3d || [(sysWith3d.nx - 0.5) * 70, 0, (sysWith3d.nz - 0.5) * 70]
+      setFlyTarget(pos)
+      const anomaly = anomalySystems.find(a => a.system_id === systemId)
+      setSelectedSystem(anomaly || {
+        system_id: systemId,
+        name: sysWith3d.name || systemId,
+        nx: sysWith3d.nx, nz: sysWith3d.nz,
+        count: 0, critical: 0, high: 0, medium: 0, low: 0,
+      })
+      return
+    }
+    // Fallback to bgData
     const allSystems = bgData?.all_systems || []
     const sys = allSystems.find(s => s.system_id === systemId)
     if (!sys || sys.nx == null) return
     setFlyTarget([(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70])
-    // Find matching anomaly system for the Intel Card, or create a minimal one
     const anomaly = anomalySystems.find(a => a.system_id === systemId)
     setSelectedSystem(anomaly || {
       system_id: systemId,
       name: sys.name || systemId,
-      nx: sys.nx,
-      nz: sys.nz,
+      nx: sys.nx, nz: sys.nz,
       count: 0, critical: 0, high: 0, medium: 0, low: 0,
     })
-  }, [bgData, anomalySystems])
+  }, [bgData, bgSystemsList, anomalySystems])
 
   // Search systems by name
   const handleSearch = useCallback((query) => {
