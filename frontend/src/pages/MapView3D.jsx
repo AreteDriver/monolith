@@ -97,78 +97,36 @@ function GalaxyField({ positions, systems, onSystemClick }) {
   )
 }
 
-// Anomaly marker — emissive sphere with danger rings and halo
+// Anomaly marker — clean emissive dot, the only color on the map
 function AnomalyMarker({ position, system, onHover, onClick }) {
-  const groupRef = useRef()
-  const ringRef = useRef()
+  const ref = useRef()
   const severity = getMaxSeverity(system)
   const color = SEVERITY_COLORS[severity]
-  const radius = Math.max(0.4, Math.min(1.8, Math.sqrt(system.count) * 0.45))
+  const radius = Math.max(0.3, Math.min(1.2, Math.sqrt(system.count) * 0.35))
   const isHot = severity === 'critical' || severity === 'high'
 
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime
-    if (groupRef.current && isHot) {
-      const pulse = 1 + Math.sin(t * 2 + system.count) * 0.25
-      groupRef.current.scale.setScalar(pulse)
-    }
-    if (ringRef.current) {
-      ringRef.current.rotation.z = t * 0.5
+    if (ref.current && isHot) {
+      const pulse = 1 + Math.sin(clock.elapsedTime * 2 + system.count) * 0.15
+      ref.current.scale.setScalar(pulse)
     }
   })
 
-  const name = system.name || system.system_id?.slice(0, 10)
-
   return (
     <group position={position}>
-      {/* Bloom-triggering emissive core */}
-      <mesh ref={groupRef}
+      <mesh ref={ref}
         onPointerOver={(e) => { e.stopPropagation(); onHover(system) }}
         onPointerOut={() => onHover(null)}
         onClick={(e) => { e.stopPropagation(); onClick(system) }}
       >
-        <sphereGeometry args={[radius, 16, 16]} />
+        <sphereGeometry args={[radius, 12, 12]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isHot ? 4 : 2}
+          emissiveIntensity={isHot ? 3 : 1.5}
           toneMapped={false}
         />
       </mesh>
-
-      {/* Subtle halo */}
-      <mesh>
-        <sphereGeometry args={[radius * 2, 12, 12]} />
-        <meshBasicMaterial color={color} transparent opacity={0.03} side={THREE.BackSide} />
-      </mesh>
-
-      {/* Thin danger ring for critical/high */}
-      {isHot && (
-        <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-          <ringGeometry args={[radius * 1.6, radius * 1.7, 24]} />
-          <meshBasicMaterial color={color} transparent opacity={0.2} side={THREE.DoubleSide} />
-        </mesh>
-      )}
-
-      {/* Label — only for 2+ anomalies or critical */}
-      {(system.count >= 2 || severity === 'critical') && (
-        <Html
-          position={[radius + 0.4, 0.3, 0]}
-          style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
-          distanceFactor={30}
-        >
-          <div style={{
-            fontFamily: 'monospace',
-            fontSize: 9,
-            color: color,
-            textShadow: `0 0 6px ${color}, 0 0 10px rgba(0,0,0,0.95)`,
-            opacity: 0.8,
-          }}>
-            {name}
-            <span style={{ color: '#999', marginLeft: 3, fontSize: 8 }}>{system.count}</span>
-          </div>
-        </Html>
-      )}
     </group>
   )
 }
@@ -363,24 +321,14 @@ function CameraFlyTo({ target }) {
   return null
 }
 
-// 3D route lines — smooth arcs between connected systems
+// Gate connections — thin solid lines between connected systems
 function RouteLines({ connections }) {
   const lines = useMemo(() => {
     if (!connections || connections.length === 0) return []
     return connections.map((c) => {
-      const sx = (c.source_nx - 0.5) * WORLD_SCALE, sz = (c.source_nz - 0.5) * WORLD_SCALE
-      const dx = (c.dest_nx - 0.5) * WORLD_SCALE, dz = (c.dest_nz - 0.5) * WORLD_SCALE
-      const dist = Math.sqrt((dx - sx) ** 2 + (dz - sz) ** 2)
-      const arcHeight = 1.5 + Math.min(dist * 0.08, 4)
-      // Smooth arc with 12 points
-      const points = []
-      for (let t = 0; t <= 1; t += 1 / 12) {
-        const x = sx + (dx - sx) * t
-        const z = sz + (dz - sz) * t
-        const y = Math.sin(t * Math.PI) * arcHeight + 0.2
-        points.push([x, y, z])
-      }
-      return { points, transits: c.transits }
+      const src = [(c.source_nx - 0.5) * WORLD_SCALE, 0.1, (c.source_nz - 0.5) * WORLD_SCALE]
+      const dst = [(c.dest_nx - 0.5) * WORLD_SCALE, 0.1, (c.dest_nz - 0.5) * WORLD_SCALE]
+      return { points: [src, dst] }
     })
   }, [connections])
 
@@ -392,10 +340,10 @@ function RouteLines({ connections }) {
         <Line
           key={i}
           points={line.points}
-          color="#2dd4bf"
-          lineWidth={Math.max(1.5, Math.min(4, line.transits * 1.5))}
+          color="#4a5568"
+          lineWidth={1}
           transparent
-          opacity={Math.min(0.8, 0.4 + (line.transits / 5) * 0.3)}
+          opacity={0.35}
         />
       ))}
     </group>
@@ -1095,9 +1043,8 @@ export default function MapView3D() {
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
         >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.3} />
-          <pointLight position={[0, 30, 0]} intensity={0.6} color="#6688ff" />
-          <pointLight position={[0, -10, 0]} intensity={0.2} color="#223344" />
+          <ambientLight intensity={0.25} />
+          <pointLight position={[0, 30, 0]} intensity={0.4} color="#6688ff" />
 
           <OrbitControls
             autoRotate
@@ -1115,17 +1062,18 @@ export default function MapView3D() {
           />
 
           {/* Deep space background */}
-          <Stars radius={250} depth={100} count={5000} factor={4} saturation={0.15} fade speed={0.3} />
+          <Stars radius={250} depth={100} count={2000} factor={3} saturation={0.05} fade speed={0} />
 
           <CameraFlyTo target={flyTarget} />
           <SelectionBeacon position={flyTarget} name={selectedSystem?.name} />
-          <RadarSweep />
-          <SpaceDust />
 
-          {/* Galaxy disc */}
+          {/* Galaxy disc — 24K systems */}
           {bgPositions && <GalaxyField positions={bgPositions} systems={bgSystemsList} onSystemClick={handleBgSystemClick} />}
 
-          {/* Anomaly markers */}
+          {/* Gate connections — real stargate topology */}
+          <RouteLines connections={wtData?.gate_connections} />
+
+          {/* Anomaly markers — the ONLY colored elements */}
           {anomalySystems
             .filter((sys) => visibleSeverities[getMaxSeverity(sys)])
             .map((sys) => (
@@ -1142,28 +1090,13 @@ export default function MapView3D() {
               />
             ))}
 
-          {/* Heat map gradient */}
-          <HeatMap hotzones={wtData?.hotzones} />
-
-          {/* 3D route lines */}
-          <RouteLines connections={wtData?.gate_connections} />
-
-          {/* Animated route particles */}
-          <RouteParticles connections={wtData?.gate_connections} />
-
-          {/* Territory discs */}
-          <TerritoryMarkers territory={wtData?.territory} />
-
-          {/* Kill flash markers */}
-          <KillFlashes hotzones={wtData?.hotzones} />
-
           {/* Bloom post-processing */}
           <EffectComposer>
             <Bloom
-              luminanceThreshold={0.6}
-              luminanceSmoothing={0.4}
-              intensity={2.0}
-              radius={0.9}
+              luminanceThreshold={0.7}
+              luminanceSmoothing={0.3}
+              intensity={1.2}
+              radius={0.6}
             />
           </EffectComposer>
         </Suspense>
@@ -1217,16 +1150,8 @@ export default function MapView3D() {
           ))}
           <span className="text-[#1a1a1a]">|</span>
           <div className="flex items-center gap-1">
-            <span className="w-2 h-0.5 bg-[#2dd4bf] rounded" />
-            <span className="text-[7px] text-[#2dd4bf]/70">Route</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 border border-[#3b82f6]/50 rounded-full" />
-            <span className="text-[7px] text-[#3b82f6]/70">Territory</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-0.5 h-2 bg-[#f97316]/50 rounded" />
-            <span className="text-[7px] text-[#f97316]/70">Kills</span>
+            <span className="w-2.5 h-px bg-[#4a5568]" />
+            <span className="text-[7px] text-[#6b7280]">Gate</span>
           </div>
         </div>
       </div>
