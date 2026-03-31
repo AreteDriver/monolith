@@ -363,6 +363,8 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
     _migrate_add_column(conn, "anomalies", "cycle", "INTEGER DEFAULT 5")
     # Provenance chains: auditable derivation trail per anomaly
     _migrate_add_column(conn, "anomalies", "provenance_json", "TEXT")
+    # Enriched intel context: who/what/when/where behind the anomaly
+    _migrate_add_column(conn, "anomalies", "context_json", "TEXT")
     # Enforce 1 bug report per anomaly — upgrade non-unique index to unique
     _migrate_unique_index(conn, "bug_reports", "anomaly_id", "idx_bug_reports_anomaly")
     conn.commit()

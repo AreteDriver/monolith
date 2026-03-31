@@ -194,4 +194,11 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
             d["provenance"] = []
     else:
         d["provenance"] = []
+    if d.get("context_json"):
+        try:
+            d["context"] = json.loads(d["context_json"])
+        except json.JSONDecodeError:
+            d["context"] = {}
+    else:
+        d["context"] = {}
     return d

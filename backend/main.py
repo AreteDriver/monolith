@@ -127,6 +127,10 @@ async def detection_loop(
             heartbeats["detection"] = time.time()
         try:
             new_anomalies = await asyncio.get_event_loop().run_in_executor(None, engine.run_cycle)
+            # Enrich anomalies with who/what/when/where context
+            from backend.detection.enrichment import enrich_anomalies
+
+            await asyncio.get_event_loop().run_in_executor(None, enrich_anomalies, conn)
             if new_anomalies:
                 for a in new_anomalies:
                     logger.warning(
