@@ -597,11 +597,14 @@ async def get_watchtower_overlay(request: Request) -> dict:
         )
 
     # --- Additional WatchTower data ---
-    killers_raw = None
+    killers_raw, topology_raw = None, None
     async with httpx.AsyncClient() as client2:
-        killers_raw = await _fetch_watchtower(client2, "/leaderboard/top_killers")
+        killers_raw, topology_raw = await asyncio.gather(
+            _fetch_watchtower(client2, "/leaderboard/top_killers"),
+            _fetch_watchtower(client2, "/topology"),
+        )
 
-    gate_connections = _build_movement_network(conn, coord_lookup)
+    gate_connections = _build_gate_topology(coord_lookup, topology_raw)
     top_killers = _build_top_killers(conn, coord_lookup, killers_raw)
     # Derive territory + conflicts from WatchTower hotzones (already fetched)
     # instead of parsing local killmail payloads (which caused DB locks)
@@ -623,61 +626,37 @@ async def get_watchtower_overlay(request: Request) -> dict:
     return result
 
 
-def _build_movement_network(
-    conn: sqlite3.Connection,
+def _build_gate_topology(
     coord_lookup: dict[str, dict],
+    topology_raw: dict | None,
 ) -> list[dict]:
-    """Build movement network from killmail data — connect systems where the
-    same attacker appears in kills across different systems.
-
-    This gives the operational movement topology without needing gate positions.
-    """
-    rows = conn.execute(
-        "SELECT solar_system_id, payload FROM nexus_events "
-        "WHERE event_type = 'killmail' AND solar_system_id != '' "
-        "ORDER BY received_at"
-    ).fetchall()
-
-    if not rows:
+    """Build gate connections from WatchTower /topology — real stargate links."""
+    if not topology_raw:
         return []
 
-    # Build attacker → list of systems (in order)
-    attacker_systems: dict[str, list[str]] = {}
-    for row in rows:
-        try:
-            payload = json.loads(row["payload"])
-        except (json.JSONDecodeError, TypeError):
-            continue
-        sid = row["solar_system_id"]
-        attackers_raw = payload.get("attacker_character_ids", "[]")
-        if isinstance(attackers_raw, str):
-            try:
-                attackers = json.loads(attackers_raw)
-            except (json.JSONDecodeError, TypeError):
-                continue
-        else:
-            attackers = attackers_raw if isinstance(attackers_raw, list) else []
-        for a in attackers:
-            kid = a.get("characterId", "") if isinstance(a, dict) else str(a)
-            if kid:
-                attacker_systems.setdefault(kid, []).append(sid)
-
-    # Build edges: consecutive distinct systems for each attacker
-    from collections import Counter
-
-    edge_counts: Counter = Counter()
-    for systems in attacker_systems.values():
-        for i in range(len(systems) - 1):
-            if systems[i] != systems[i + 1]:
-                edge = tuple(sorted([systems[i], systems[i + 1]]))
-                edge_counts[edge] += 1
+    links = topology_raw.get("links", [])
+    if not links:
+        return []
 
     result = []
-    for (src_sys, dst_sys), transits in edge_counts.most_common(30):
+    seen = set()
+    for link in links:
+        src_sys = str(link.get("source_system_id", ""))
+        dst_sys = str(link.get("destination_system_id", ""))
+        if not src_sys or not dst_sys or src_sys == dst_sys:
+            continue
+
+        # Dedupe bidirectional gates
+        edge_key = tuple(sorted([src_sys, dst_sys]))
+        if edge_key in seen:
+            continue
+        seen.add(edge_key)
+
         src_coord = coord_lookup.get(src_sys)
         dst_coord = coord_lookup.get(dst_sys)
         if not src_coord or not dst_coord:
             continue
+
         result.append(
             {
                 "source_system": src_sys,
@@ -688,7 +667,8 @@ def _build_movement_network(
                 "source_nz": src_coord["nz"],
                 "dest_nx": dst_coord["nx"],
                 "dest_nz": dst_coord["nz"],
-                "transits": transits,
+                "gate_name": link.get("gate_name", "Stargate"),
+                "transits": 1,
             }
         )
 
