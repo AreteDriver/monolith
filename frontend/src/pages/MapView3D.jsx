@@ -29,45 +29,86 @@ function getMaxSeverity(sys) {
   return 'low'
 }
 
-// Galaxy disc — all 24K systems with realistic disc thickness + core glow
-function GalaxyField({ positions }) {
+// Galaxy disc — systems + nebula clouds + core glow
+function GalaxyField({ positions, systems, onSystemClick }) {
   const ref = useRef()
+
+  // Handle click on background systems via raycasting
+  const handleClick = useCallback((e) => {
+    if (!systems || !e.index) return
+    e.stopPropagation()
+    const idx = e.index
+    if (idx >= 0 && idx < systems.length) {
+      onSystemClick(systems[idx])
+    }
+  }, [systems, onSystemClick])
 
   if (!positions || positions.length === 0) return null
 
   return (
     <group>
-      <Points ref={ref} positions={positions} stride={3}>
+      <Points ref={ref} positions={positions} stride={3} onClick={handleClick}>
         <PointMaterial
           transparent
-          color="#99aabb"
-          size={0.14}
+          color="#aabbcc"
+          size={0.16}
           sizeAttenuation
           depthWrite={false}
-          opacity={0.5}
+          opacity={0.55}
         />
       </Points>
-      {/* Galactic core glow */}
-      <mesh position={[0, -0.5, 0]}>
-        <sphereGeometry args={[6, 16, 16]} />
-        <meshBasicMaterial color="#334466" transparent opacity={0.08} />
+
+      {/* Galactic core — bright center */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[4, 24, 24]} />
+        <meshBasicMaterial color="#4466aa" transparent opacity={0.12} />
       </mesh>
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[8, 16, 16]} />
+        <meshBasicMaterial color="#223355" transparent opacity={0.06} />
+      </mesh>
+
+      {/* Nebula clouds — colored gas regions */}
+      <mesh position={[12, 0.5, -8]}>
+        <sphereGeometry args={[7, 12, 12]} />
+        <meshBasicMaterial color="#ff4466" transparent opacity={0.025} />
+      </mesh>
+      <mesh position={[-15, 0.3, 10]}>
+        <sphereGeometry args={[9, 12, 12]} />
+        <meshBasicMaterial color="#4488ff" transparent opacity={0.02} />
+      </mesh>
+      <mesh position={[8, -0.2, 15]}>
+        <sphereGeometry args={[6, 12, 12]} />
+        <meshBasicMaterial color="#aa44ff" transparent opacity={0.02} />
+      </mesh>
+      <mesh position={[-10, 0.4, -12]}>
+        <sphereGeometry args={[8, 12, 12]} />
+        <meshBasicMaterial color="#44ffaa" transparent opacity={0.015} />
+      </mesh>
+
+      {/* Galactic plane grid — subtle reference */}
+      <gridHelper args={[80, 40, '#1a2233', '#0d1118']} position={[0, -0.1, 0]} />
     </group>
   )
 }
 
-// Anomaly marker — emissive sphere that triggers bloom
+// Anomaly marker — emissive sphere with danger rings and halo
 function AnomalyMarker({ position, system, onHover, onClick }) {
-  const glowRef = useRef()
+  const groupRef = useRef()
+  const ringRef = useRef()
   const severity = getMaxSeverity(system)
   const color = SEVERITY_COLORS[severity]
-  const radius = Math.max(0.3, Math.min(1.5, Math.sqrt(system.count) * 0.35))
+  const radius = Math.max(0.4, Math.min(1.8, Math.sqrt(system.count) * 0.45))
   const isHot = severity === 'critical' || severity === 'high'
 
   useFrame(({ clock }) => {
-    if (glowRef.current && isHot) {
-      const pulse = 1 + Math.sin(clock.elapsedTime * 2 + system.count) * 0.2
-      glowRef.current.scale.setScalar(pulse)
+    const t = clock.elapsedTime
+    if (groupRef.current && isHot) {
+      const pulse = 1 + Math.sin(t * 2 + system.count) * 0.25
+      groupRef.current.scale.setScalar(pulse)
+    }
+    if (ringRef.current) {
+      ringRef.current.rotation.z = t * 0.5
     }
   })
 
@@ -76,7 +117,7 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
   return (
     <group position={position}>
       {/* Bloom-triggering emissive core */}
-      <mesh ref={glowRef}
+      <mesh ref={groupRef}
         onPointerOver={(e) => { e.stopPropagation(); onHover(system) }}
         onPointerOut={() => onHover(null)}
         onClick={(e) => { e.stopPropagation(); onClick(system) }}
@@ -85,34 +126,50 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={isHot ? 3 : 1.5}
+          emissiveIntensity={isHot ? 4 : 2}
           toneMapped={false}
         />
       </mesh>
-      {/* Soft outer halo */}
+
+      {/* Wide glow halo */}
       <mesh>
-        <sphereGeometry args={[radius * 2.5, 16, 16]} />
-        <meshBasicMaterial color={color} transparent opacity={0.04} side={THREE.BackSide} />
+        <sphereGeometry args={[radius * 3, 16, 16]} />
+        <meshBasicMaterial color={color} transparent opacity={0.06} side={THREE.BackSide} />
       </mesh>
-      {/* Label */}
-      {(system.count >= 2 || severity === 'critical') && (
-        <Html
-          position={[radius + 0.5, 0.3, 0]}
-          style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
-          distanceFactor={25}
-        >
-          <div style={{
-            fontFamily: 'monospace',
-            fontSize: 10,
-            color: color,
-            textShadow: `0 0 6px ${color}, 0 0 12px rgba(0,0,0,0.9)`,
-            opacity: 0.9,
-          }}>
-            {name}
-            <span style={{ color: '#999', marginLeft: 4, fontSize: 9 }}>{system.count}</span>
-          </div>
-        </Html>
+
+      {/* Danger ring on the plane */}
+      {isHot && (
+        <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+          <ringGeometry args={[radius * 2, radius * 2.3, 32]} />
+          <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} />
+        </mesh>
       )}
+
+      {/* Vertical threat indicator for critical */}
+      {severity === 'critical' && (
+        <mesh position={[0, radius + 1.5, 0]}>
+          <cylinderGeometry args={[0.02, 0.08, 3, 6]} />
+          <meshBasicMaterial color={color} transparent opacity={0.5} />
+        </mesh>
+      )}
+
+      {/* Label — always show */}
+      <Html
+        position={[radius + 0.6, 0.4, 0]}
+        style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
+        distanceFactor={25}
+      >
+        <div style={{
+          fontFamily: 'monospace',
+          fontSize: 10,
+          color: color,
+          textShadow: `0 0 8px ${color}, 0 0 16px rgba(0,0,0,0.95)`,
+          opacity: 0.95,
+        }}>
+          {name}
+          <span style={{ color: '#bbb', marginLeft: 4, fontSize: 9, fontWeight: 'bold' }}>{system.count}</span>
+        </div>
+      </Html>
     </group>
   )
 }
@@ -322,6 +379,36 @@ function KillFlashes({ hotzones }) {
         )
       })}
     </group>
+  )
+}
+
+// Radar sweep — rotating scan line on the galactic plane
+function RadarSweep() {
+  const meshRef = useRef()
+
+  useFrame(({ clock }) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y = clock.elapsedTime * 0.3
+    }
+  })
+
+  // Create a thin wedge shape
+  const shape = useMemo(() => {
+    const s = new THREE.Shape()
+    const sweepAngle = Math.PI / 12 // 15 degree sweep
+    const r = 40
+    s.moveTo(0, 0)
+    s.lineTo(Math.cos(-sweepAngle / 2) * r, Math.sin(-sweepAngle / 2) * r)
+    s.absarc(0, 0, r, -sweepAngle / 2, sweepAngle / 2, false)
+    s.lineTo(0, 0)
+    return s
+  }, [])
+
+  return (
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+      <shapeGeometry args={[shape]} />
+      <meshBasicMaterial color="#22c55e" transparent opacity={0.04} side={THREE.DoubleSide} />
+    </mesh>
   )
 }
 
@@ -721,6 +808,7 @@ function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems, onFlyTo
 export default function MapView3D() {
   const navigate = useNavigate()
   const [bgPositions, setBgPositions] = useState(null)
+  const [bgSystemsList, setBgSystemsList] = useState([])
   const [anomalySystems, setAnomalySystems] = useState([])
   const [hovered, setHovered] = useState(null)
   const [selectedSystem, setSelectedSystem] = useState(null)
@@ -752,18 +840,20 @@ export default function MapView3D() {
     if (allSystems.length === 0) return
 
     const positions = []
+    const orderedSystems = []
     for (const s of allSystems) {
       if (s.nx == null || s.nz == null) continue
       const x = (s.nx - 0.5) * 70
       const z = (s.nz - 0.5) * 70
-      // Disc thickness — thicker near center, thinner at edges
       const distFromCenter = Math.sqrt(x * x + z * z)
       const maxThickness = 3
       const thickness = maxThickness * Math.exp(-distFromCenter * distFromCenter / 800)
       const y = (Math.random() - 0.5) * 2 * thickness
       positions.push(x, y, z)
+      orderedSystems.push(s)
     }
     setBgPositions(new Float32Array(positions))
+    setBgSystemsList(orderedSystems)
   }, [bgData])
 
   // Anomaly markers with auto-normalized positions
@@ -796,6 +886,19 @@ export default function MapView3D() {
       setFlyTarget([(system.nx - 0.5) * 70, 0, (system.nz - 0.5) * 70])
     }
   }, [])
+
+  // Handle click on any background system dot
+  const handleBgSystemClick = useCallback((sys) => {
+    if (!sys) return
+    setFlyTarget([(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70])
+    const anomaly = anomalySystems.find(a => a.system_id === sys.system_id)
+    setSelectedSystem(anomaly || {
+      system_id: sys.system_id,
+      name: sys.name || sys.system_id,
+      nx: sys.nx, nz: sys.nz,
+      count: 0, critical: 0, high: 0, medium: 0, low: 0,
+    })
+  }, [anomalySystems])
 
   // Fly to a system by ID — used by Intel panel items
   const flyToSystem = useCallback((systemId) => {
@@ -858,11 +961,13 @@ export default function MapView3D() {
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
         >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.2} />
-          <pointLight position={[0, 30, 0]} intensity={0.5} color="#6688ff" />
+          <ambientLight intensity={0.3} />
+          <pointLight position={[0, 30, 0]} intensity={0.6} color="#6688ff" />
+          <pointLight position={[0, -10, 0]} intensity={0.2} color="#223344" />
 
           <OrbitControls
-            autoRotate={false}
+            autoRotate
+            autoRotateSpeed={0.15}
             enableDamping
             dampingFactor={0.05}
             minDistance={10}
@@ -873,14 +978,15 @@ export default function MapView3D() {
           />
 
           {/* Deep space background */}
-          <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0} />
+          <Stars radius={150} depth={80} count={5000} factor={4} saturation={0.15} fade speed={0.3} />
 
           <CameraFlyTo target={flyTarget} />
           <SelectionBeacon position={flyTarget} />
+          <RadarSweep />
           <SpaceDust />
 
           {/* Galaxy disc */}
-          {bgPositions && <GalaxyField positions={bgPositions} />}
+          {bgPositions && <GalaxyField positions={bgPositions} systems={bgSystemsList} onSystemClick={handleBgSystemClick} />}
 
           {/* Anomaly markers */}
           {anomalySystems
