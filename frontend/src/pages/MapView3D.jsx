@@ -283,8 +283,8 @@ function HeatMap({ hotzones }) {
   )
 }
 
-// Selection beacon — animated ring + vertical beam at selected system
-function SelectionBeacon({ position }) {
+// Selection beacon — ring + pin + label at selected system
+function SelectionBeacon({ position, name }) {
   const ringRef = useRef()
   const beamRef = useRef()
 
@@ -295,7 +295,7 @@ function SelectionBeacon({ position }) {
       ringRef.current.scale.setScalar(pulse)
     }
     if (beamRef.current) {
-      const flicker = 0.3 + Math.sin(clock.elapsedTime * 5) * 0.1
+      const flicker = 0.35 + Math.sin(clock.elapsedTime * 5) * 0.15
       beamRef.current.material.opacity = flicker
     }
   })
@@ -304,16 +304,37 @@ function SelectionBeacon({ position }) {
 
   return (
     <group position={position}>
-      {/* Single clean ring */}
+      {/* Bright ring */}
       <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.15, 0]}>
-        <ringGeometry args={[1.0, 1.15, 32]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.5} side={THREE.DoubleSide} />
+        <ringGeometry args={[0.8, 1.0, 32]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.6} side={THREE.DoubleSide} />
       </mesh>
-      {/* Thin vertical pin */}
-      <mesh ref={beamRef} position={[0, 2.5, 0]}>
-        <cylinderGeometry args={[0.015, 0.04, 5, 4]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.25} />
+      {/* Vertical pin */}
+      <mesh ref={beamRef} position={[0, 3, 0]}>
+        <cylinderGeometry args={[0.015, 0.05, 6, 4]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.35} />
       </mesh>
+      {/* Bright dot at base */}
+      <mesh position={[0, 0.2, 0]}>
+        <sphereGeometry args={[0.15, 8, 8]} />
+        <meshBasicMaterial color="#f59e0b" />
+      </mesh>
+      {/* System name label floating above the pin */}
+      {name && (
+        <Html position={[0, 6.5, 0]} style={{ pointerEvents: 'none' }} distanceFactor={20}>
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: 11,
+            fontWeight: 'bold',
+            color: '#f59e0b',
+            textShadow: '0 0 8px #f59e0b, 0 0 20px rgba(0,0,0,0.95)',
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+          }}>
+            {name}
+          </div>
+        </Html>
+      )}
     </group>
   )
 }
@@ -683,7 +704,7 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
   const severity = getMaxSeverity(system)
 
   return (
-    <div className="absolute top-3 left-4 w-64 pointer-events-auto" style={{ maxWidth: 'calc(100vw - 300px)' }}>
+    <div className="absolute top-16 left-4 w-64 pointer-events-auto" style={{ maxWidth: 'calc(100vw - 300px)' }}>
       <div className="bg-[#0a0a0a]/95 border border-[#f59e0b]/40 rounded backdrop-blur-sm">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-[#2a2a2a]">
@@ -1122,7 +1143,7 @@ export default function MapView3D() {
           <Stars radius={150} depth={80} count={5000} factor={4} saturation={0.15} fade speed={0.3} />
 
           <CameraFlyTo target={flyTarget} />
-          <SelectionBeacon position={flyTarget} />
+          <SelectionBeacon position={flyTarget} name={selectedSystem?.name} />
           <RadarSweep />
           <SpaceDust />
 
