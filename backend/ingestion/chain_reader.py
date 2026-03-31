@@ -136,13 +136,20 @@ class ChainReader:
         parsed = event.get("parsedJson", {})
         for key in ("solar_system_id", "solarSystemId", "system_id", "systemId"):
             if key in parsed:
-                return str(parsed[key])
+                val = parsed[key]
+                # Handle dict format: {'item_id': '30013131', 'tenant': 'utopia'}
+                if isinstance(val, dict):
+                    return str(val.get("item_id", val.get("id", "")))
+                return str(val)
         # LocationRevealedEvent carries location as nested object
         location = parsed.get("location", {})
         if isinstance(location, dict):
             for key in ("solar_system_id", "solarSystemId"):
                 if key in location:
-                    return str(location[key])
+                    val = location[key]
+                    if isinstance(val, dict):
+                        return str(val.get("item_id", val.get("id", "")))
+                    return str(val)
         return ""
 
     def store_event(self, event: dict) -> bool:

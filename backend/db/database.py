@@ -367,9 +367,40 @@ def init_db(db_path: str = "monolith.db") -> sqlite3.Connection:
     _migrate_add_column(conn, "anomalies", "context_json", "TEXT")
     # Enforce 1 bug report per anomaly — upgrade non-unique index to unique
     _migrate_unique_index(conn, "bug_reports", "anomaly_id", "idx_bug_reports_anomaly")
+    # Fix system_id stored as Python dict repr: "{'item_id': '30013131', ...}" → "30013131"
+    _fix_dict_system_ids(conn)
     conn.commit()
     logger.info("Database initialized: %s", db_path)
     return conn
+
+
+def _fix_dict_system_ids(conn: sqlite3.Connection) -> None:
+    """Fix system_id fields stored as Python dict repr strings.
+
+    Some chain events stored system_id as "{'item_id': '30013131', 'tenant': 'utopia'}"
+    instead of just "30013131". This cleans them up across all affected tables.
+    """
+    import re
+
+    pattern = re.compile(r"\{'item_id':\s*'(\d+)'")
+    fixed = 0
+    for table in ("chain_events", "anomalies", "objects"):
+        try:
+            rows = conn.execute(
+                f"SELECT rowid, system_id FROM {table} WHERE system_id LIKE '%item_id%'"  # noqa: S608
+            ).fetchall()
+            for row in rows:
+                match = pattern.search(row["system_id"])
+                if match:
+                    conn.execute(
+                        f"UPDATE {table} SET system_id = ? WHERE rowid = ?",  # noqa: S608
+                        (match.group(1), row["rowid"]),
+                    )
+                    fixed += 1
+        except sqlite3.OperationalError:
+            continue
+    if fixed:
+        logger.info("Fixed %d dict-format system_id values", fixed)
 
 
 def _migrate_add_column(conn: sqlite3.Connection, table: str, column: str, col_type: str) -> None:
