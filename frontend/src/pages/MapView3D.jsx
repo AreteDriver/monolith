@@ -213,6 +213,115 @@ function LiveFeed() {
   )
 }
 
+const DANGER_BADGE = {
+  extreme: { color: '#ef4444', bg: '#ef444420', label: 'EXTREME' },
+  high: { color: '#f97316', bg: '#f9731620', label: 'HIGH' },
+  moderate: { color: '#eab308', bg: '#eab30820', label: 'MODERATE' },
+  minimal: { color: '#22c55e', bg: '#22c55e20', label: 'LOW' },
+}
+
+function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
+  const hotzones = wtData?.hotzones || []
+  const killers = wtData?.top_killers || []
+  const conflicts = wtData?.conflict_zones || []
+  const territory = wtData?.territory || []
+  const threats = wtData?.threat_systems || []
+
+  // Find matching intel for this system
+  const hotzone = hotzones.find(h => h.system_id === system.system_id)
+  const threat = threats.find(t => t.system_id === system.system_id)
+  const conflict = conflicts.find(c => c.system_id === system.system_id)
+  const terr = territory.find(t => t.system_id === system.system_id)
+  const nearbyKillers = killers.filter(k => k.system_id === system.system_id)
+
+  const dangerLevel = hotzone?.danger_level || threat?.threat_level || 'minimal'
+  const badge = DANGER_BADGE[dangerLevel] || DANGER_BADGE.minimal
+  const severity = getMaxSeverity(system)
+
+  return (
+    <div className="absolute top-3 left-4 w-64 pointer-events-auto" style={{ maxWidth: 'calc(100vw - 300px)' }}>
+      <div className="bg-[#0a0a0a]/95 border border-[#f59e0b]/40 rounded backdrop-blur-sm">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-[#2a2a2a]">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SEVERITY_COLORS[severity] }} />
+            <span className="text-[11px] font-bold text-white truncate">{system.name || system.system_id}</span>
+          </div>
+          <button onClick={onClose} className="text-[#6b7280] hover:text-white text-sm bg-transparent border-none cursor-pointer ml-2">&times;</button>
+        </div>
+
+        {/* Threat badge */}
+        <div className="px-3 py-1.5 flex items-center gap-2 border-b border-[#1a1a1a]">
+          <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
+            {badge.label}
+          </span>
+          {threat && <span className="text-[9px] text-[#6b7280]">Score: {Math.round(threat.threat_score)}</span>}
+          {conflict && <span className="text-[8px] text-pink-400 font-bold">CONTESTED</span>}
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-px bg-[#1a1a1a] border-b border-[#1a1a1a]">
+          <div className="bg-[#0a0a0a] px-2 py-1.5 text-center">
+            <div className="text-[11px] font-bold text-[#f59e0b]">{system.count}</div>
+            <div className="text-[7px] text-[#6b7280] uppercase">Anomalies</div>
+          </div>
+          <div className="bg-[#0a0a0a] px-2 py-1.5 text-center">
+            <div className="text-[11px] font-bold text-red-400">{hotzone?.kills || 0}</div>
+            <div className="text-[7px] text-[#6b7280] uppercase">Kills (7d)</div>
+          </div>
+          <div className="bg-[#0a0a0a] px-2 py-1.5 text-center">
+            <div className="text-[11px] font-bold text-[#2dd4bf]">{hotzone?.unique_attackers || 0}</div>
+            <div className="text-[7px] text-[#6b7280] uppercase">Attackers</div>
+          </div>
+        </div>
+
+        {/* Severity breakdown */}
+        {(system.critical > 0 || system.high > 0) && (
+          <div className="px-3 py-1.5 flex gap-3 text-[9px] border-b border-[#1a1a1a]">
+            {system.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>CRIT: {system.critical}</span>}
+            {system.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>HIGH: {system.high}</span>}
+            {system.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>MED: {system.medium}</span>}
+            {system.low > 0 && <span className="text-[#6b7280]">LOW: {system.low}</span>}
+          </div>
+        )}
+
+        {/* Territory control */}
+        {terr && (
+          <div className="px-3 py-1.5 border-b border-[#1a1a1a]">
+            <div className="text-[8px] text-[#6b7280] uppercase tracking-wider mb-0.5">Dominant Force</div>
+            <div className="text-[10px] text-[#e5e5e5] font-bold">{terr.dominant_name}</div>
+            <div className="text-[8px] text-[#6b7280]">{terr.kill_count} kills · {Math.round(terr.dominance * 100)}% control</div>
+          </div>
+        )}
+
+        {/* Nearby threats */}
+        {nearbyKillers.length > 0 && (
+          <div className="px-3 py-1.5 border-b border-[#1a1a1a]">
+            <div className="text-[8px] text-[#6b7280] uppercase tracking-wider mb-1">Active Threats</div>
+            {nearbyKillers.map(k => (
+              <div key={k.entity_id} className="flex items-center gap-1.5 py-0.5">
+                <span className="w-1 h-1 rounded-full bg-red-500" />
+                <span className="text-[9px] text-red-400 font-bold">{k.display_name}</span>
+                <span className="text-[8px] text-[#6b7280] ml-auto">{k.score} kills</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex border-t border-[#2a2a2a]">
+          <button
+            onClick={onViewAnomalies}
+            className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] bg-transparent border-none cursor-pointer uppercase tracking-wider transition-colors"
+          >
+            View Anomalies &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function IntelPanel() {
   const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
   const [collapsed, setCollapsed] = useState(false)
@@ -328,6 +437,8 @@ export default function MapView3D() {
   const [bgPositions, setBgPositions] = useState(null)
   const [anomalySystems, setAnomalySystems] = useState([])
   const [hovered, setHovered] = useState(null)
+  const [selectedSystem, setSelectedSystem] = useState(null)
+  const [showLiveFeed, setShowLiveFeed] = useState(true)
   const [visibleSeverities, setVisibleSeverities] = useState({
     critical: true, high: true, medium: true, low: true,
   })
@@ -338,6 +449,7 @@ export default function MapView3D() {
 
   const { data: mapData, loading: mapLoading } = useApi('/api/stats/map', { poll: 60000 })
   const { data: bgData, refetch: refetchBg } = useApi('/api/stats/map/systems', { poll: 0 })
+  const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
 
   // Retry until background systems load (empty on fresh deploy)
   useEffect(() => {
@@ -391,8 +503,8 @@ export default function MapView3D() {
   }, [mapData, bgData])
 
   const handleClick = useCallback((system) => {
-    navigate(`/anomalies?system_id=${system.system_id}`)
-  }, [navigate])
+    setSelectedSystem(prev => prev?.system_id === system.system_id ? null : system)
+  }, [])
 
   const totalAnomalies = anomalySystems.reduce((sum, s) => sum + s.count, 0)
 
@@ -515,19 +627,39 @@ export default function MapView3D() {
         Drag to rotate · Scroll to zoom · Right-click to pan
       </div>
 
-      <LiveFeed />
+      {showLiveFeed && <LiveFeed />}
       <IntelPanel />
 
-      {hovered && (
-        <div className="absolute top-[17rem] right-4 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
+      {/* Toggle Live Feed */}
+      <button
+        onClick={() => setShowLiveFeed(p => !p)}
+        className="absolute top-3 right-[17rem] bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-2 py-1 text-[8px] uppercase tracking-wider font-bold cursor-pointer pointer-events-auto transition-colors"
+        style={{ color: showLiveFeed ? '#22c55e' : '#ef4444' }}
+      >
+        Feed {showLiveFeed ? 'ON' : 'OFF'}
+      </button>
+
+      {/* Hover tooltip */}
+      {hovered && !selectedSystem && (
+        <div className="absolute top-[17rem] right-4 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5 pointer-events-auto">
           <div className="font-bold text-[#e5e5e5]">{hovered.name || hovered.system_id}</div>
           <div style={{ color: SEVERITY_COLORS[getMaxSeverity(hovered)] }}>
             {getMaxSeverity(hovered).toUpperCase()} — {hovered.count} anomalies
           </div>
           {hovered.critical > 0 && <div className="text-[#ef4444]">{hovered.critical} critical</div>}
           {hovered.high > 0 && <div className="text-[#f97316]">{hovered.high} high</div>}
-          <div className="text-[9px] text-[#6b7280]">Click for anomaly feed</div>
+          <div className="text-[9px] text-[#6b7280]">Click for intel</div>
         </div>
+      )}
+
+      {/* System Intel Card — fused WatchTower data */}
+      {selectedSystem && (
+        <SystemIntelCard
+          system={selectedSystem}
+          wtData={wtData}
+          onClose={() => setSelectedSystem(null)}
+          onViewAnomalies={() => navigate(`/anomalies?system_id=${selectedSystem.system_id}`)}
+        />
       )}
 
       </div>{/* end overlay layer */}
