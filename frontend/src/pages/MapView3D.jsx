@@ -339,29 +339,33 @@ function SelectionBeacon({ position, name }) {
   )
 }
 
-// Smooth camera fly-to animation
+// Smooth camera fly-to animation with ease-out
 function CameraFlyTo({ target }) {
   const { camera } = useThree()
   const targetRef = useRef(null)
-  const lookAtRef = useRef(new THREE.Vector3())
+  const progressRef = useRef(0)
 
   useEffect(() => {
     if (target) {
       targetRef.current = new THREE.Vector3(target[0], target[1], target[2])
-      lookAtRef.current.set(target[0], 0, target[2])
+      progressRef.current = 0
     }
   }, [target])
 
   useFrame(() => {
     if (!targetRef.current) return
-    // Fly camera toward a position offset above and in front of the target
-    const dest = targetRef.current.clone()
-    dest.y += 8
-    dest.z += 12
 
-    camera.position.lerp(dest, 0.03)
-    const dist = camera.position.distanceTo(dest)
-    if (dist < 0.5) {
+    progressRef.current = Math.min(progressRef.current + 0.008, 1)
+    // Ease-out cubic for smooth deceleration
+    const t = 1 - Math.pow(1 - progressRef.current, 3)
+
+    const dest = targetRef.current.clone()
+    dest.y += 10
+    dest.z += 15
+
+    camera.position.lerp(dest, t * 0.06)
+
+    if (progressRef.current >= 1) {
       targetRef.current = null
     }
   })
@@ -1129,14 +1133,17 @@ export default function MapView3D() {
 
           <OrbitControls
             autoRotate
-            autoRotateSpeed={0.15}
+            autoRotateSpeed={0.1}
             enableDamping
-            dampingFactor={0.05}
-            minDistance={10}
-            maxDistance={100}
+            dampingFactor={0.12}
+            rotateSpeed={0.5}
+            panSpeed={0.8}
+            zoomSpeed={0.6}
+            minDistance={5}
+            maxDistance={120}
             enablePan
             maxPolarAngle={Math.PI * 0.85}
-            minPolarAngle={Math.PI * 0.15}
+            minPolarAngle={Math.PI * 0.1}
           />
 
           {/* Deep space background */}
@@ -1231,17 +1238,32 @@ export default function MapView3D() {
         </div>
       </div>
 
-      {/* Severity legend — compact, bottom-left */}
-      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/60 rounded px-2 py-1 flex gap-3 pointer-events-none">
-        {Object.entries(SEVERITY_COLORS).map(([level, color]) => (
-          <div key={level} className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, opacity: visibleSeverities[level] ? 1 : 0.2 }} />
-            <span className="text-[8px] uppercase" style={{ color, opacity: visibleSeverities[level] ? 0.8 : 0.2 }}>{level}</span>
+      {/* Map legend — bottom-left */}
+      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/80 border border-[#1a1a1a] rounded px-2.5 py-1.5 pointer-events-none">
+        <div className="flex gap-4 items-center">
+          {Object.entries(SEVERITY_COLORS).map(([level, color]) => (
+            <div key={level} className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, opacity: visibleSeverities[level] ? 1 : 0.2 }} />
+              <span className="text-[7px] uppercase" style={{ color, opacity: visibleSeverities[level] ? 0.7 : 0.2 }}>{level}</span>
+            </div>
+          ))}
+          <span className="text-[#1a1a1a]">|</span>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-0.5 bg-[#2dd4bf] rounded" />
+            <span className="text-[7px] text-[#2dd4bf]/70">Route</span>
           </div>
-        ))}
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 border border-[#3b82f6]/50 rounded-full" />
+            <span className="text-[7px] text-[#3b82f6]/70">Territory</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-0.5 h-2 bg-[#f97316]/50 rounded" />
+            <span className="text-[7px] text-[#f97316]/70">Kills</span>
+          </div>
+        </div>
       </div>
 
-      <div className="absolute bottom-3 right-4 text-[9px] text-[#6b7280]">
+      <div className="absolute bottom-3 right-4 text-[8px] text-[#4a5568] pointer-events-none">
         Drag to rotate · Scroll to zoom · Right-click to pan
       </div>
 
