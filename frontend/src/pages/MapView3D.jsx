@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState, useRef, useMemo, Suspense } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Points, PointMaterial, Html, OrbitControls, Stars } from '@react-three/drei'
+import { Points, PointMaterial, Html, OrbitControls, Stars, Line } from '@react-three/drei'
 import { EffectComposer, Bloom } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { useApi } from '../hooks/useApi'
@@ -140,6 +140,107 @@ function CameraFlyTo({ target }) {
   return null
 }
 
+// 3D route lines between connected systems
+function RouteLines({ connections }) {
+  if (!connections || connections.length === 0) return null
+
+  return (
+    <group>
+      {connections.map((c, i) => {
+        const src = [(c.source_nx - 0.5) * 70, 0.2, (c.source_nz - 0.5) * 70]
+        const dst = [(c.dest_nx - 0.5) * 70, 0.2, (c.dest_nz - 0.5) * 70]
+        // Arc through a midpoint above the plane for visibility
+        const mid = [(src[0] + dst[0]) / 2, 1.5 + Math.min(c.transits, 5) * 0.5, (src[2] + dst[2]) / 2]
+        const alpha = Math.min(1, 0.3 + (c.transits / 5) * 0.4)
+
+        return (
+          <Line
+            key={i}
+            points={[src, mid, dst]}
+            color="#2dd4bf"
+            lineWidth={Math.max(1, Math.min(3, c.transits))}
+            transparent
+            opacity={alpha}
+            dashed
+            dashSize={0.8}
+            gapSize={0.4}
+          />
+        )
+      })}
+    </group>
+  )
+}
+
+// Territory markers — glowing discs on the galactic plane
+function TerritoryMarkers({ territory }) {
+  if (!territory || territory.length === 0) return null
+
+  const TERR_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#f59e0b', '#ec4899', '#06b6d4', '#84cc16']
+  const entityColorMap = {}
+  let colorIdx = 0
+
+  return (
+    <group>
+      {territory.map((t) => {
+        if (!entityColorMap[t.dominant_entity]) {
+          entityColorMap[t.dominant_entity] = TERR_COLORS[colorIdx % TERR_COLORS.length]
+          colorIdx++
+        }
+        const color = entityColorMap[t.dominant_entity]
+        const x = (t.nx - 0.5) * 70
+        const z = (t.nz - 0.5) * 70
+        const radius = 1.5 + Math.min(t.total_kills, 15) * 0.3
+
+        return (
+          <mesh key={t.system_id} position={[x, -0.05, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[radius, 24]} />
+            <meshBasicMaterial color={color} transparent opacity={0.12 + t.dominance * 0.08} side={THREE.DoubleSide} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
+// Kill flash markers — animated spheres that pulse and fade at recent kill locations
+function KillFlashes({ hotzones }) {
+  const meshRefs = useRef([])
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    meshRefs.current.forEach((mesh, i) => {
+      if (!mesh) return
+      const pulse = 1 + Math.sin(t * 3 + i * 1.5) * 0.3
+      mesh.scale.setScalar(pulse)
+    })
+  })
+
+  if (!hotzones || hotzones.length === 0) return null
+
+  return (
+    <group>
+      {hotzones.slice(0, 15).map((hz, i) => {
+        const x = (hz.nx - 0.5) * 70
+        const z = (hz.nz - 0.5) * 70
+        const dangerColor = hz.danger_level === 'extreme' ? '#ff2222'
+          : hz.danger_level === 'high' ? '#ff6600' : '#ffaa00'
+        const size = 0.15 + Math.min(hz.kills, 20) * 0.02
+
+        return (
+          <mesh
+            key={hz.system_id}
+            ref={(el) => { meshRefs.current[i] = el }}
+            position={[x, 0.5, z]}
+          >
+            <sphereGeometry args={[size, 8, 8]} />
+            <meshBasicMaterial color={dangerColor} transparent opacity={0.6} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+
 // Ambient dust
 function SpaceDust() {
   const positions = useMemo(() => {
@@ -263,6 +364,7 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
   const conflict = conflicts.find(c => c.system_id === system.system_id)
   const terr = territory.find(t => t.system_id === system.system_id)
   const nearbyKillers = killers.filter(k => k.system_id === system.system_id)
+  const allKillers = killers
 
   const dangerLevel = hotzone?.danger_level || threat?.threat_level || 'minimal'
   const badge = DANGER_BADGE[dangerLevel] || DANGER_BADGE.minimal
@@ -331,8 +433,36 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
             {nearbyKillers.map(k => (
               <div key={k.entity_id} className="flex items-center gap-1.5 py-0.5">
                 <span className="w-1 h-1 rounded-full bg-red-500" />
-                <span className="text-[9px] text-red-400 font-bold">{k.display_name}</span>
+                <a
+                  href={`https://watchtower-evefrontier.vercel.app/entity/${k.entity_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[9px] text-red-400 font-bold hover:underline no-underline"
+                >
+                  {k.display_name}
+                </a>
                 <span className="text-[8px] text-[#6b7280] ml-auto">{k.score} kills</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* All killers — show even if not "nearby" */}
+        {nearbyKillers.length === 0 && allKillers.length > 0 && (
+          <div className="px-3 py-1.5 border-b border-[#1a1a1a]">
+            <div className="text-[8px] text-[#6b7280] uppercase tracking-wider mb-1">Top Threats (all systems)</div>
+            {allKillers.slice(0, 3).map(k => (
+              <div key={k.entity_id} className="flex items-center gap-1.5 py-0.5">
+                <span className="w-1 h-1 rounded-full bg-red-500/50" />
+                <a
+                  href={`https://watchtower-evefrontier.vercel.app/entity/${k.entity_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[9px] text-red-400/70 hover:underline no-underline"
+                >
+                  {k.display_name}
+                </a>
+                <span className="text-[8px] text-[#6b7280] ml-auto">{k.system_name}</span>
               </div>
             ))}
           </div>
@@ -342,10 +472,20 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
         <div className="flex border-t border-[#2a2a2a]">
           <button
             onClick={onViewAnomalies}
-            className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] bg-transparent border-none cursor-pointer uppercase tracking-wider transition-colors"
+            className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] bg-transparent border-none cursor-pointer uppercase tracking-wider transition-colors border-r border-[#2a2a2a]"
           >
-            View Anomalies &rarr;
+            Anomalies &rarr;
           </button>
+          {hotzone && (
+            <a
+              href={`https://watchtower-evefrontier.vercel.app/system/${system.system_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#2dd4bf] hover:text-[#5eead4] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider transition-colors"
+            >
+              WatchTower &rarr;
+            </a>
+          )}
         </div>
       </div>
     </div>
@@ -501,6 +641,8 @@ export default function MapView3D() {
   const [hovered, setHovered] = useState(null)
   const [selectedSystem, setSelectedSystem] = useState(null)
   const [flyTarget, setFlyTarget] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
   const [visibleSeverities, setVisibleSeverities] = useState({
     critical: true, high: true, medium: true, low: true,
   })
@@ -588,6 +730,27 @@ export default function MapView3D() {
     })
   }, [bgData, anomalySystems])
 
+  // Search systems by name
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query)
+    if (!query || query.length < 2) {
+      setSearchResults([])
+      return
+    }
+    const allSystems = bgData?.all_systems || []
+    const q = query.toLowerCase()
+    const matches = allSystems
+      .filter(s => s.name && s.name.toLowerCase().includes(q))
+      .slice(0, 8)
+    setSearchResults(matches)
+  }, [bgData])
+
+  const handleSearchSelect = useCallback((sys) => {
+    setSearchQuery('')
+    setSearchResults([])
+    flyToSystem(sys.system_id)
+  }, [flyToSystem])
+
   const totalAnomalies = anomalySystems.reduce((sum, s) => sum + s.count, 0)
 
   if (mapLoading && !bgPositions) {
@@ -651,6 +814,15 @@ export default function MapView3D() {
               />
             ))}
 
+          {/* 3D route lines */}
+          <RouteLines connections={wtData?.gate_connections} />
+
+          {/* Territory discs */}
+          <TerritoryMarkers territory={wtData?.territory} />
+
+          {/* Kill flash markers */}
+          <KillFlashes hotzones={wtData?.hotzones} />
+
           {/* Bloom post-processing */}
           <EffectComposer>
             <Bloom
@@ -668,11 +840,35 @@ export default function MapView3D() {
       <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 50 }}>
 
       <div className="absolute top-3 left-4 pointer-events-auto">
-        <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">
-          Galaxy Map
-        </div>
-        <div className="text-[9px] text-[#6b7280]">
-          {bgPositions ? (bgPositions.length / 3).toLocaleString() : 0} systems · {totalAnomalies} anomalies
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wider">Galaxy Map</div>
+            <div className="text-[9px] text-[#6b7280]">
+              {bgPositions ? (bgPositions.length / 3).toLocaleString() : 0} systems · {totalAnomalies} anomalies
+            </div>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search system..."
+              className="bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-2 py-1 text-[10px] text-white w-36 focus:border-[#f59e0b] focus:outline-none placeholder-[#6b7280]"
+            />
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-[#0a0a0a]/95 border border-[#2a2a2a] rounded max-h-[200px] overflow-y-auto z-50">
+                {searchResults.map((sys) => (
+                  <button
+                    key={sys.system_id}
+                    onClick={() => handleSearchSelect(sys)}
+                    className="w-full text-left px-2 py-1.5 text-[10px] text-[#e5e5e5] hover:bg-[#1a1a1a] bg-transparent border-none cursor-pointer border-b border-[#1a1a1a] last:border-0 transition-colors"
+                  >
+                    {sys.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
