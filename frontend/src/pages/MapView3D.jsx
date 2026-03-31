@@ -30,6 +30,10 @@ const SEVERITY_COLORS = {
   low: '#64748b',
 }
 
+// World scale — multiplier for normalized [0,1] coords to 3D world units
+// Higher = more spread out, easier to read when zoomed in
+const WORLD_SCALE = 140
+
 function getMaxSeverity(sys) {
   if (sys.critical > 0) return 'critical'
   if (sys.high > 0) return 'high'
@@ -70,7 +74,7 @@ function GalaxyField({ positions, systems, onSystemClick }) {
     <group>
       {/* Invisible click plane on galactic disc */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} onClick={handlePlaneClick} visible={false}>
-        <planeGeometry args={[80, 80]} />
+        <planeGeometry args={[160, 160]} />
         <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
       </mesh>
 
@@ -102,7 +106,7 @@ function GalaxyField({ positions, systems, onSystemClick }) {
       </mesh>
 
       {/* Galactic plane grid — subtle reference */}
-      <gridHelper args={[80, 40, '#1a2233', '#0d1118']} position={[0, -0.1, 0]} />
+      <gridHelper args={[160, 40, '#1a2233', '#0d1118']} position={[0, -0.1, 0]} />
     </group>
   )
 }
@@ -194,8 +198,8 @@ function HeatMap({ hotzones }) {
     }
     const maxKills = Math.max(...hotzones.map(h => h.kills), 1)
     const heatData = hotzones.slice(0, 32).map(hz => ({
-      x: (hz.nx - 0.5) * 70,
-      z: (hz.nz - 0.5) * 70,
+      x: (hz.nx - 0.5) * WORLD_SCALE,
+      z: (hz.nz - 0.5) * WORLD_SCALE,
       intensity: hz.kills / maxKills,
     }))
 
@@ -229,7 +233,7 @@ function HeatMap({ hotzones }) {
 
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-      <planeGeometry args={[80, 80, 1, 1]} />
+      <planeGeometry args={[160, 160, 1, 1]} />
       <shaderMaterial
         ref={materialRef}
         transparent
@@ -250,7 +254,7 @@ function HeatMap({ hotzones }) {
           varying vec2 vUv;
 
           void main() {
-            vec2 worldPos = (vUv - 0.5) * 80.0;
+            vec2 worldPos = (vUv - 0.5) * 160.0;
             float heat = 0.0;
 
             for (int i = 0; i < 32; i++) {
@@ -378,8 +382,8 @@ function RouteLines({ connections }) {
   const lines = useMemo(() => {
     if (!connections || connections.length === 0) return []
     return connections.map((c) => {
-      const sx = (c.source_nx - 0.5) * 70, sz = (c.source_nz - 0.5) * 70
-      const dx = (c.dest_nx - 0.5) * 70, dz = (c.dest_nz - 0.5) * 70
+      const sx = (c.source_nx - 0.5) * WORLD_SCALE, sz = (c.source_nz - 0.5) * WORLD_SCALE
+      const dx = (c.dest_nx - 0.5) * WORLD_SCALE, dz = (c.dest_nz - 0.5) * WORLD_SCALE
       const dist = Math.sqrt((dx - sx) ** 2 + (dz - sz) ** 2)
       const arcHeight = 1.5 + Math.min(dist * 0.08, 4)
       // Smooth arc with 12 points
@@ -428,8 +432,8 @@ function TerritoryMarkers({ territory }) {
           colorIdx++
         }
         const color = entityColorMap[t.dominant_entity]
-        const x = (t.nx - 0.5) * 70
-        const z = (t.nz - 0.5) * 70
+        const x = (t.nx - 0.5) * WORLD_SCALE
+        const z = (t.nz - 0.5) * WORLD_SCALE
         const radius = 1.0 + Math.min(t.total_kills, 15) * 0.15
 
         return (
@@ -464,8 +468,8 @@ function KillFlashes({ hotzones }) {
   return (
     <group>
       {hotzones.slice(0, 20).map((hz, i) => {
-        const x = (hz.nx - 0.5) * 70
-        const z = (hz.nz - 0.5) * 70
+        const x = (hz.nx - 0.5) * WORLD_SCALE
+        const z = (hz.nz - 0.5) * WORLD_SCALE
         const dangerColor = hz.danger_level === 'extreme' ? '#ef4444'
           : hz.danger_level === 'high' ? '#f97316' : '#eab308'
         const height = 0.3 + Math.min(hz.kills, 20) * 0.08
@@ -499,7 +503,7 @@ function RadarSweep() {
   const shape = useMemo(() => {
     const s = new THREE.Shape()
     const sweepAngle = Math.PI / 12 // 15 degree sweep
-    const r = 40
+    const r = 80
     s.moveTo(0, 0)
     s.lineTo(Math.cos(-sweepAngle / 2) * r, Math.sin(-sweepAngle / 2) * r)
     s.absarc(0, 0, r, -sweepAngle / 2, sweepAngle / 2, false)
@@ -525,8 +529,8 @@ function RouteParticles({ connections }) {
     const PARTICLES_PER_ROUTE = 4
 
     connections.forEach((c, routeIdx) => {
-      const sx = (c.source_nx - 0.5) * 70, sz = (c.source_nz - 0.5) * 70
-      const dx = (c.dest_nx - 0.5) * 70, dz = (c.dest_nz - 0.5) * 70
+      const sx = (c.source_nx - 0.5) * WORLD_SCALE, sz = (c.source_nz - 0.5) * WORLD_SCALE
+      const dx = (c.dest_nx - 0.5) * WORLD_SCALE, dz = (c.dest_nz - 0.5) * WORLD_SCALE
       for (let p = 0; p < PARTICLES_PER_ROUTE; p++) {
         positions.push(sx, 0.5, sz)
         meta.push({ routeIdx, sx, sz, dx, dz, offset: p / PARTICLES_PER_ROUTE })
@@ -583,9 +587,9 @@ function SpaceDust() {
   const positions = useMemo(() => {
     const p = new Float32Array(400 * 3)
     for (let i = 0; i < 400; i++) {
-      p[i * 3] = (Math.random() - 0.5) * 100
-      p[i * 3 + 1] = (Math.random() - 0.5) * 50
-      p[i * 3 + 2] = (Math.random() - 0.5) * 100
+      p[i * 3] = (Math.random() - 0.5) * 200
+      p[i * 3 + 1] = (Math.random() - 0.5) * 80
+      p[i * 3 + 2] = (Math.random() - 0.5) * 200
     }
     return p
   }, [])
@@ -613,66 +617,169 @@ function timeAgo(ts) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-function LiveFeed() {
-  const { data, loading } = useApi('/api/anomalies?limit=8', { poll: 30000 })
+// Unified map panel — Feed + Intel + Layers in one tabbed dropdown
+function MapPanel({ visibleSeverities, toggleSeverity, anomalySystems, onFlyTo }) {
+  const { data: feedData } = useApi('/api/anomalies?limit=8', { poll: 30000 })
+  const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
   const [collapsed, setCollapsed] = useState(false)
-  const anomalies = data?.data || []
+  const [activeTab, setActiveTab] = useState('feed')
+
+  const anomalies = feedData?.data || []
+  const killers = wtData?.top_killers || []
+  const conflicts = wtData?.conflict_zones || []
+  const routes = wtData?.gate_connections || []
+  const hotzones = wtData?.hotzones || []
+
+  const tabs = [
+    { key: 'feed', label: 'Feed', dot: '#ef4444' },
+    { key: 'threats', label: 'Threats' },
+    { key: 'war', label: 'War' },
+    { key: 'routes', label: 'Routes' },
+    { key: 'kills', label: 'Kills' },
+    { key: 'layers', label: 'Layers' },
+  ]
 
   return (
-    <div className="absolute top-3 right-4 w-60 pointer-events-auto">
-      <div className="bg-[#0a0a0a]/95 border border-[#f59e0b]/40 rounded backdrop-blur-sm">
+    <div className="absolute top-3 right-4 w-60 pointer-events-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+      <div className="bg-[#0a0a0a]/95 border border-[#2a2a2a] rounded backdrop-blur-sm">
+        {/* Header */}
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="w-full flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] bg-transparent cursor-pointer"
         >
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">Live Feed</span>
-            {anomalies.length > 0 && (
-              <span className="text-[8px] text-[#6b7280]">({anomalies.length})</span>
-            )}
+            <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+            <span className="text-[9px] font-bold text-[#f59e0b] uppercase tracking-wider">Intel Panel</span>
           </div>
           <span className="text-[#6b7280] text-[9px]">{collapsed ? '\u25bc' : '\u25b2'}</span>
         </button>
+
         {!collapsed && (
           <>
-            <div className="max-h-[300px] overflow-y-auto">
-              {loading && anomalies.length === 0 ? (
-                <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">Scanning...</div>
-              ) : anomalies.length === 0 ? (
-                <div className="px-2.5 py-3 text-[9px] text-[#22c55e] text-center">All clear</div>
-              ) : (
-                anomalies.map((a) => (
-                  <Link
-                    key={a.anomaly_id}
-                    to={`/anomalies/${a.anomaly_id}`}
-                    className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-[#1a1a1a] no-underline border-b border-[#1a1a1a] last:border-0 transition-colors"
-                  >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ backgroundColor: SEVERITY_LABEL_COLORS[a.severity] || '#6b7280' }}
-                    />
-                    <span className="text-[10px] text-[#e5e5e5] truncate flex-1">
-                      {getDisplayName(a)}
-                    </span>
-                    <span className="text-[8px] text-[#6b7280] shrink-0">{timeAgo(a.detected_at)}</span>
-                  </Link>
+            {/* Tabs */}
+            <div className="flex border-b border-[#2a2a2a] overflow-x-auto">
+              {tabs.map(({ key, label, dot }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 px-1 py-1 text-[7px] font-bold uppercase tracking-wider bg-transparent border-none cursor-pointer transition-colors whitespace-nowrap ${
+                    activeTab === key ? 'text-[#f59e0b]' : 'text-[#6b7280] hover:text-[#a3a3a3]'
+                  }`}
+                  style={activeTab === key ? { borderBottom: '1px solid #f59e0b' } : {}}
+                >
+                  {dot && <span className="inline-block w-1 h-1 rounded-full mr-0.5 animate-pulse" style={{ backgroundColor: dot }} />}
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="max-h-[280px] overflow-y-auto">
+              {/* Feed tab */}
+              {activeTab === 'feed' && (
+                anomalies.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#22c55e] text-center">All clear</div>
+                ) : (
+                  <>
+                    {anomalies.map((a) => (
+                      <Link
+                        key={a.anomaly_id}
+                        to={`/anomalies/${a.anomaly_id}`}
+                        className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-[#1a1a1a] no-underline border-b border-[#1a1a1a] last:border-0 transition-colors"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: SEVERITY_LABEL_COLORS[a.severity] || '#6b7280' }} />
+                        <span className="text-[10px] text-[#e5e5e5] truncate flex-1">{getDisplayName(a)}</span>
+                        <span className="text-[8px] text-[#6b7280] shrink-0">{timeAgo(a.detected_at)}</span>
+                      </Link>
+                    ))}
+                    <div className="flex border-t border-[#2a2a2a]">
+                      <Link to="/anomalies" className="flex-1 text-center px-2 py-1 text-[8px] font-bold text-[#f59e0b] hover:bg-[#1a1a1a] no-underline uppercase transition-colors">All</Link>
+                      <Link to="/submit" className="flex-1 text-center px-2 py-1 text-[8px] font-bold text-[#f59e0b] hover:bg-[#1a1a1a] no-underline uppercase border-l border-[#2a2a2a] transition-colors">Report</Link>
+                    </div>
+                  </>
+                )
+              )}
+
+              {/* Threats tab */}
+              {activeTab === 'threats' && (
+                killers.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No threats</div>
+                ) : killers.map((k) => (
+                  <div key={k.entity_id} onClick={() => onFlyTo && onFlyTo(k.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-red-400 font-bold truncate">{k.display_name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{k.score} kills &middot; {k.system_name}</div>
+                    </div>
+                  </div>
                 ))
               )}
-            </div>
-            <div className="flex border-t border-[#2a2a2a]">
-              <Link
-                to="/anomalies"
-                className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider border-r border-[#2a2a2a] transition-colors"
-              >
-                View All
-              </Link>
-              <Link
-                to="/submit"
-                className="flex-1 text-center px-2.5 py-1.5 text-[9px] font-bold text-[#f59e0b] hover:text-[#fbbf24] hover:bg-[#1a1a1a] no-underline uppercase tracking-wider transition-colors"
-              >
-                Report
-              </Link>
+
+              {/* War tab */}
+              {activeTab === 'war' && (
+                conflicts.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No conflicts</div>
+                ) : conflicts.map((cz) => (
+                  <div key={cz.system_id} onClick={() => onFlyTo && onFlyTo(cz.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-pink-400 font-bold truncate">{cz.system_name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{cz.attacker_count} factions &middot; {cz.total_kills} kills</div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Routes tab */}
+              {activeTab === 'routes' && (
+                routes.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No routes</div>
+                ) : routes.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-[#2dd4bf] truncate">{r.source_name} &rarr; {r.dest_name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{r.transits} transits</div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Kills tab */}
+              {activeTab === 'kills' && (
+                hotzones.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No kills</div>
+                ) : hotzones.slice(0, 12).map((hz) => (
+                  <div key={hz.system_id} onClick={() => onFlyTo && onFlyTo(hz.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: hz.danger_level === 'extreme' ? '#ef4444' : hz.danger_level === 'high' ? '#f97316' : '#eab308' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-[#e5e5e5] font-bold truncate">{hz.name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{hz.kills} kills &middot; {hz.unique_attackers} attackers</div>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Layers tab */}
+              {activeTab === 'layers' && visibleSeverities && (
+                <div className="px-2.5 py-2 space-y-1">
+                  {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
+                    const active = visibleSeverities[level]
+                    const count = (anomalySystems || []).filter((s) => getMaxSeverity(s) === level).length
+                    return (
+                      <button
+                        key={level}
+                        onClick={() => toggleSeverity(level)}
+                        className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
+                      >
+                        <span className="w-2.5 h-2.5 rounded-sm border" style={{ backgroundColor: active ? color : 'transparent', borderColor: color, opacity: active ? 1 : 0.4 }} />
+                        <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>{level} ({count})</span>
+                        <span className="text-[9px] ml-auto" style={{ color: active ? '#22c55e' : '#ef4444' }}>{active ? 'ON' : 'OFF'}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -829,147 +936,6 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
   )
 }
 
-function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems, onFlyTo }) {
-  const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
-  const [collapsed, setCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState('killers')
-
-  const killers = wtData?.top_killers || []
-  const conflicts = wtData?.conflict_zones || []
-  const routes = wtData?.gate_connections || []
-  const territory = wtData?.territory || []
-  const hotzones = wtData?.hotzones || []
-
-  const tabs = [
-    { key: 'killers', label: 'Threats', count: killers.length },
-    { key: 'conflicts', label: 'War', count: conflicts.length },
-    { key: 'routes', label: 'Routes', count: routes.length },
-    { key: 'hotzones', label: 'Kills', count: hotzones.length },
-    { key: 'layers', label: 'Layers', count: null },
-  ]
-
-  return (
-    <div className="absolute top-[22rem] right-4 w-60 pointer-events-auto" style={{ maxHeight: 'calc(100vh - 24rem)' }}>
-      <div className="bg-[#0a0a0a]/95 border border-[#2dd4bf]/40 rounded backdrop-blur-sm">
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] bg-transparent cursor-pointer"
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]" />
-            <span className="text-[9px] font-bold text-[#2dd4bf] uppercase tracking-wider">Intel</span>
-          </div>
-          <span className="text-[#6b7280] text-[9px]">{collapsed ? '\u25bc' : '\u25b2'}</span>
-        </button>
-        {!collapsed && (
-          <>
-            <div className="flex border-b border-[#2a2a2a]">
-              {tabs.map(({ key, label, count }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key)}
-                  className={`flex-1 px-1 py-1 text-[8px] font-bold uppercase tracking-wider bg-transparent border-none cursor-pointer transition-colors ${
-                    activeTab === key ? 'text-[#2dd4bf] border-b border-[#2dd4bf]' : 'text-[#6b7280] hover:text-[#a3a3a3]'
-                  }`}
-                  style={activeTab === key ? { borderBottom: '1px solid #2dd4bf' } : {}}
-                >
-                  {label}{count > 0 ? ` (${count})` : ''}
-                </button>
-              ))}
-            </div>
-            <div className="max-h-[200px] overflow-y-auto">
-              {activeTab === 'killers' && (
-                killers.length === 0 ? (
-                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No threat data</div>
-                ) : killers.map((k) => (
-                  <div key={k.entity_id} onClick={() => onFlyTo && onFlyTo(k.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-red-400 font-bold truncate">{k.display_name}</div>
-                      <div className="text-[8px] text-[#6b7280]">{k.score} kills · {k.system_name}</div>
-                    </div>
-                  </div>
-                ))
-              )}
-              {activeTab === 'conflicts' && (
-                conflicts.length === 0 ? (
-                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No active conflicts</div>
-                ) : conflicts.map((cz) => (
-                  <div key={cz.system_id} onClick={() => onFlyTo && onFlyTo(cz.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
-                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-pink-400 font-bold truncate">{cz.system_name}</div>
-                      <div className="text-[8px] text-[#6b7280]">{cz.attacker_count} factions · {cz.total_kills} kills</div>
-                    </div>
-                  </div>
-                ))
-              )}
-              {activeTab === 'routes' && (
-                routes.length === 0 ? (
-                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No movement data</div>
-                ) : routes.map((r, i) => (
-                  <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-[#2dd4bf] truncate">{r.source_name} → {r.dest_name}</div>
-                      <div className="text-[8px] text-[#6b7280]">{r.transits} transits</div>
-                    </div>
-                  </div>
-                ))
-              )}
-              {activeTab === 'hotzones' && (
-                hotzones.length === 0 ? (
-                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No kill data</div>
-                ) : hotzones.slice(0, 10).map((hz) => (
-                  <div key={hz.system_id} onClick={() => onFlyTo && onFlyTo(hz.system_id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0 cursor-pointer hover:bg-[#1a1a1a] transition-colors">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{
-                      backgroundColor: hz.danger_level === 'extreme' ? '#ff4444' : hz.danger_level === 'high' ? '#ff8800' : '#f59e0b'
-                    }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-[#e5e5e5] font-bold truncate">{hz.name}</div>
-                      <div className="text-[8px] text-[#6b7280]">{hz.kills} kills · {hz.unique_attackers} attackers</div>
-                    </div>
-                  </div>
-                ))
-              )}
-              {activeTab === 'layers' && visibleSeverities && (
-                <div className="px-2.5 py-2 space-y-1">
-                  <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Map Layers</div>
-                  {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
-                    const active = visibleSeverities[level]
-                    const count = (anomalySystems || []).filter((s) => getMaxSeverity(s) === level).length
-                    return (
-                      <button
-                        key={level}
-                        onClick={() => toggleSeverity(level)}
-                        className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-sm border"
-                          style={{
-                            backgroundColor: active ? color : 'transparent',
-                            borderColor: color,
-                            opacity: active ? 1 : 0.4,
-                          }}
-                        />
-                        <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>
-                          {level} ({count})
-                        </span>
-                        <span className="text-[9px] ml-auto" style={{ color: active ? '#22c55e' : '#ef4444' }}>
-                          {active ? 'ON' : 'OFF'}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function MapView3D() {
   const navigate = useNavigate()
@@ -992,6 +958,7 @@ export default function MapView3D() {
   const { data: mapData, loading: mapLoading } = useApi('/api/stats/map', { poll: 60000 })
   const { data: bgData, refetch: refetchBg } = useApi('/api/stats/map/systems', { poll: 0 })
   const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
+  // wtData used by both 3D layers and SystemIntelCard
 
   // Retry until background systems load (empty on fresh deploy)
   useEffect(() => {
@@ -1009,8 +976,8 @@ export default function MapView3D() {
     const orderedSystems = []
     for (const s of allSystems) {
       if (s.nx == null || s.nz == null) continue
-      const x = (s.nx - 0.5) * 70
-      const z = (s.nz - 0.5) * 70
+      const x = (s.nx - 0.5) * WORLD_SCALE
+      const z = (s.nz - 0.5) * WORLD_SCALE
       const distFromCenter = Math.sqrt(x * x + z * z)
       const maxThickness = 3
       const thickness = maxThickness * Math.exp(-distFromCenter * distFromCenter / 800)
@@ -1050,14 +1017,14 @@ export default function MapView3D() {
   const handleClick = useCallback((system) => {
     setSelectedSystem(prev => prev?.system_id === system.system_id ? null : system)
     if (system.nx != null && system.nz != null) {
-      setFlyTarget([(system.nx - 0.5) * 70, 0, (system.nz - 0.5) * 70])
+      setFlyTarget([(system.nx - 0.5) * WORLD_SCALE, 0, (system.nz - 0.5) * WORLD_SCALE])
     }
   }, [])
 
   // Handle click on any background system dot — snap to actual star position
   const handleBgSystemClick = useCallback((sys) => {
     if (!sys) return
-    const pos = sys._3d || [(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70]
+    const pos = sys._3d || [(sys.nx - 0.5) * WORLD_SCALE, 0, (sys.nz - 0.5) * WORLD_SCALE]
     setFlyTarget(pos)
     const anomaly = anomalySystems.find(a => a.system_id === sys.system_id)
     setSelectedSystem(anomaly || {
@@ -1073,7 +1040,7 @@ export default function MapView3D() {
     // Check bgSystemsList first (has _3d positions)
     const sysWith3d = bgSystemsList.find(s => s.system_id === systemId)
     if (sysWith3d) {
-      const pos = sysWith3d._3d || [(sysWith3d.nx - 0.5) * 70, 0, (sysWith3d.nz - 0.5) * 70]
+      const pos = sysWith3d._3d || [(sysWith3d.nx - 0.5) * WORLD_SCALE, 0, (sysWith3d.nz - 0.5) * WORLD_SCALE]
       setFlyTarget(pos)
       const anomaly = anomalySystems.find(a => a.system_id === systemId)
       setSelectedSystem(anomaly || {
@@ -1088,7 +1055,7 @@ export default function MapView3D() {
     const allSystems = bgData?.all_systems || []
     const sys = allSystems.find(s => s.system_id === systemId)
     if (!sys || sys.nx == null) return
-    setFlyTarget([(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70])
+    setFlyTarget([(sys.nx - 0.5) * WORLD_SCALE, 0, (sys.nz - 0.5) * WORLD_SCALE])
     const anomaly = anomalySystems.find(a => a.system_id === systemId)
     setSelectedSystem(anomaly || {
       system_id: systemId,
@@ -1137,7 +1104,7 @@ export default function MapView3D() {
       {/* Canvas layer — pinned behind overlays */}
       <div className="absolute inset-0" style={{ zIndex: 0 }}>
         <Canvas
-          camera={{ position: [40, 25, 40], fov: 50, near: 0.1, far: 300 }}
+          camera={{ position: [80, 50, 80], fov: 50, near: 0.1, far: 500 }}
           style={{ background: '#030308' }}
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
         >
@@ -1155,14 +1122,14 @@ export default function MapView3D() {
             panSpeed={0.8}
             zoomSpeed={0.6}
             minDistance={5}
-            maxDistance={120}
+            maxDistance={200}
             enablePan
             maxPolarAngle={Math.PI * 0.85}
             minPolarAngle={Math.PI * 0.1}
           />
 
           {/* Deep space background */}
-          <Stars radius={150} depth={80} count={5000} factor={4} saturation={0.15} fade speed={0.3} />
+          <Stars radius={250} depth={100} count={5000} factor={4} saturation={0.15} fade speed={0.3} />
 
           <CameraFlyTo target={flyTarget} />
           <SelectionBeacon position={flyTarget} name={selectedSystem?.name} />
@@ -1179,9 +1146,9 @@ export default function MapView3D() {
               <AnomalyMarker
                 key={sys.system_id}
                 position={[
-                  (sys.nx - 0.5) * 70,
+                  (sys.nx - 0.5) * WORLD_SCALE,
                   0,
-                  ((sys.nz || 0) - 0.5) * 70,
+                  ((sys.nz || 0) - 0.5) * WORLD_SCALE,
                 ]}
                 system={sys}
                 onHover={setHovered}
@@ -1282,8 +1249,7 @@ export default function MapView3D() {
         Drag to rotate · Scroll to zoom · Right-click to pan
       </div>
 
-      <LiveFeed />
-      <IntelPanel visibleSeverities={visibleSeverities} toggleSeverity={toggleSeverity} anomalySystems={anomalySystems} onFlyTo={flyToSystem} />
+      <MapPanel visibleSeverities={visibleSeverities} toggleSeverity={toggleSeverity} anomalySystems={anomalySystems} onFlyTo={flyToSystem} />
 
       {/* Hover tooltip */}
       {hovered && !selectedSystem && (
