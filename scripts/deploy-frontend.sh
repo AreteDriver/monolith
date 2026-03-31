@@ -10,7 +10,7 @@ echo "▶ Building frontend..."
 npm run build
 
 echo "▶ Syncing dist → .vercel/output/static..."
-rm -rf .vercel/output/static
+/usr/bin/rm -rf .vercel/output/static
 cp -r dist/ .vercel/output/static
 
 echo "▶ Deploying to Vercel..."

@@ -213,6 +213,116 @@ function LiveFeed() {
   )
 }
 
+function IntelPanel() {
+  const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
+  const [collapsed, setCollapsed] = useState(false)
+  const [activeTab, setActiveTab] = useState('killers')
+
+  const killers = wtData?.top_killers || []
+  const conflicts = wtData?.conflict_zones || []
+  const routes = wtData?.gate_connections || []
+  const territory = wtData?.territory || []
+  const hotzones = wtData?.hotzones || []
+
+  const tabs = [
+    { key: 'killers', label: 'Threats', count: killers.length },
+    { key: 'conflicts', label: 'War', count: conflicts.length },
+    { key: 'routes', label: 'Routes', count: routes.length },
+    { key: 'hotzones', label: 'Kills', count: hotzones.length },
+  ]
+
+  return (
+    <div className="absolute top-[22rem] right-4 w-60 pointer-events-auto" style={{ maxHeight: 'calc(100vh - 24rem)' }}>
+      <div className="bg-[#0a0a0a]/95 border border-[#2dd4bf]/40 rounded backdrop-blur-sm">
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 border-b border-[#2a2a2a] bg-transparent cursor-pointer"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]" />
+            <span className="text-[9px] font-bold text-[#2dd4bf] uppercase tracking-wider">Intel</span>
+          </div>
+          <span className="text-[#6b7280] text-[9px]">{collapsed ? '\u25bc' : '\u25b2'}</span>
+        </button>
+        {!collapsed && (
+          <>
+            <div className="flex border-b border-[#2a2a2a]">
+              {tabs.map(({ key, label, count }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 px-1 py-1 text-[8px] font-bold uppercase tracking-wider bg-transparent border-none cursor-pointer transition-colors ${
+                    activeTab === key ? 'text-[#2dd4bf] border-b border-[#2dd4bf]' : 'text-[#6b7280] hover:text-[#a3a3a3]'
+                  }`}
+                  style={activeTab === key ? { borderBottom: '1px solid #2dd4bf' } : {}}
+                >
+                  {label}{count > 0 ? ` (${count})` : ''}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {activeTab === 'killers' && (
+                killers.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No threat data</div>
+                ) : killers.map((k) => (
+                  <div key={k.entity_id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-red-400 font-bold truncate">{k.display_name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{k.score} kills · {k.system_name}</div>
+                    </div>
+                  </div>
+                ))
+              )}
+              {activeTab === 'conflicts' && (
+                conflicts.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No active conflicts</div>
+                ) : conflicts.map((cz) => (
+                  <div key={cz.system_id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-pink-400 font-bold truncate">{cz.system_name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{cz.attacker_count} factions · {cz.total_kills} kills</div>
+                    </div>
+                  </div>
+                ))
+              )}
+              {activeTab === 'routes' && (
+                routes.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No movement data</div>
+                ) : routes.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-[#2dd4bf] truncate">{r.source_name} → {r.dest_name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{r.transits} transits</div>
+                    </div>
+                  </div>
+                ))
+              )}
+              {activeTab === 'hotzones' && (
+                hotzones.length === 0 ? (
+                  <div className="px-2.5 py-3 text-[9px] text-[#6b7280] text-center">No kill data</div>
+                ) : hotzones.slice(0, 10).map((hz) => (
+                  <div key={hz.system_id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[#1a1a1a] last:border-0">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{
+                      backgroundColor: hz.danger_level === 'extreme' ? '#ff4444' : hz.danger_level === 'high' ? '#ff8800' : '#f59e0b'
+                    }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] text-[#e5e5e5] font-bold truncate">{hz.name}</div>
+                      <div className="text-[8px] text-[#6b7280]">{hz.kills} kills · {hz.unique_attackers} attackers</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function MapView3D() {
   const navigate = useNavigate()
   const [bgPositions, setBgPositions] = useState(null)
@@ -406,6 +516,7 @@ export default function MapView3D() {
       </div>
 
       <LiveFeed />
+      <IntelPanel />
 
       {hovered && (
         <div className="absolute top-[17rem] right-4 bg-[#0a0a0a]/90 border border-[#2a2a2a] rounded px-3 py-2 text-xs space-y-0.5">
