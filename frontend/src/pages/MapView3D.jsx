@@ -322,7 +322,7 @@ function SystemIntelCard({ system, wtData, onClose, onViewAnomalies }) {
   )
 }
 
-function IntelPanel() {
+function IntelPanel({ visibleSeverities, toggleSeverity, anomalySystems }) {
   const { data: wtData } = useApi('/api/stats/map/watchtower', { poll: 60000 })
   const [collapsed, setCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('killers')
@@ -338,6 +338,7 @@ function IntelPanel() {
     { key: 'conflicts', label: 'War', count: conflicts.length },
     { key: 'routes', label: 'Routes', count: routes.length },
     { key: 'hotzones', label: 'Kills', count: hotzones.length },
+    { key: 'layers', label: 'Layers', count: null },
   ]
 
   return (
@@ -424,6 +425,37 @@ function IntelPanel() {
                   </div>
                 ))
               )}
+              {activeTab === 'layers' && visibleSeverities && (
+                <div className="px-2.5 py-2 space-y-1">
+                  <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Map Layers</div>
+                  {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
+                    const active = visibleSeverities[level]
+                    const count = (anomalySystems || []).filter((s) => getMaxSeverity(s) === level).length
+                    return (
+                      <button
+                        key={level}
+                        onClick={() => toggleSeverity(level)}
+                        className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-sm border"
+                          style={{
+                            backgroundColor: active ? color : 'transparent',
+                            borderColor: color,
+                            opacity: active ? 1 : 0.4,
+                          }}
+                        />
+                        <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>
+                          {level} ({count})
+                        </span>
+                        <span className="text-[9px] ml-auto" style={{ color: active ? '#22c55e' : '#ef4444' }}>
+                          {active ? 'ON' : 'OFF'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -438,7 +470,6 @@ export default function MapView3D() {
   const [anomalySystems, setAnomalySystems] = useState([])
   const [hovered, setHovered] = useState(null)
   const [selectedSystem, setSelectedSystem] = useState(null)
-  const [showLiveFeed, setShowLiveFeed] = useState(true)
   const [visibleSeverities, setVisibleSeverities] = useState({
     critical: true, high: true, medium: true, low: true,
   })
@@ -593,51 +624,22 @@ export default function MapView3D() {
         </div>
       </div>
 
-      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-3 py-2 space-y-1 pointer-events-auto">
-        <div className="text-[8px] text-[#6b7280] uppercase tracking-wider font-bold mb-1">Severity</div>
-        {Object.entries(SEVERITY_COLORS).map(([level, color]) => {
-          const active = visibleSeverities[level]
-          const count = anomalySystems.filter((s) => getMaxSeverity(s) === level).length
-          return (
-            <button
-              key={level}
-              onClick={() => toggleSeverity(level)}
-              className="flex items-center gap-2 w-full bg-transparent border-none cursor-pointer p-0 py-0.5"
-            >
-              <span
-                className="w-2.5 h-2.5 rounded-sm border"
-                style={{
-                  backgroundColor: active ? color : 'transparent',
-                  borderColor: color,
-                  opacity: active ? 1 : 0.4,
-                }}
-              />
-              <span className="text-[10px] uppercase font-bold" style={{ color, opacity: active ? 1 : 0.3 }}>
-                {level}
-              </span>
-              <span className="text-[9px] ml-auto" style={{ color: active ? '#22c55e' : '#ef4444', opacity: active ? 1 : 0.6 }}>
-                {active ? 'ON' : 'OFF'}
-              </span>
-            </button>
-          )
-        })}
+      {/* Severity legend — compact, bottom-left */}
+      <div className="absolute bottom-3 left-4 bg-[#0a0a0a]/60 rounded px-2 py-1 flex gap-3 pointer-events-none">
+        {Object.entries(SEVERITY_COLORS).map(([level, color]) => (
+          <div key={level} className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color, opacity: visibleSeverities[level] ? 1 : 0.2 }} />
+            <span className="text-[8px] uppercase" style={{ color, opacity: visibleSeverities[level] ? 0.8 : 0.2 }}>{level}</span>
+          </div>
+        ))}
       </div>
 
       <div className="absolute bottom-3 right-4 text-[9px] text-[#6b7280]">
         Drag to rotate · Scroll to zoom · Right-click to pan
       </div>
 
-      {showLiveFeed && <LiveFeed />}
-      <IntelPanel />
-
-      {/* Toggle Live Feed */}
-      <button
-        onClick={() => setShowLiveFeed(p => !p)}
-        className="absolute top-3 right-[17rem] bg-[#0a0a0a]/80 border border-[#2a2a2a] rounded px-2 py-1 text-[8px] uppercase tracking-wider font-bold cursor-pointer pointer-events-auto transition-colors"
-        style={{ color: showLiveFeed ? '#22c55e' : '#ef4444' }}
-      >
-        Feed {showLiveFeed ? 'ON' : 'OFF'}
-      </button>
+      <LiveFeed />
+      <IntelPanel visibleSeverities={visibleSeverities} toggleSeverity={toggleSeverity} anomalySystems={anomalySystems} />
 
       {/* Hover tooltip */}
       {hovered && !selectedSystem && (
