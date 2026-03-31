@@ -1047,8 +1047,7 @@ export default function MapView3D() {
           <pointLight position={[0, 30, 0]} intensity={0.4} color="#6688ff" />
 
           <OrbitControls
-            autoRotate
-            autoRotateSpeed={0.1}
+            autoRotate={false}
             enableDamping
             dampingFactor={0.12}
             rotateSpeed={0.5}
