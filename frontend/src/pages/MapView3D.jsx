@@ -85,14 +85,10 @@ function GalaxyField({ positions, systems, onSystemClick }) {
         />
       </Points>
 
-      {/* Galactic core — bright center */}
+      {/* Galactic core — subtle glow */}
       <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[4, 24, 24]} />
-        <meshBasicMaterial color="#4466aa" transparent opacity={0.12} />
-      </mesh>
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[8, 16, 16]} />
-        <meshBasicMaterial color="#223355" transparent opacity={0.06} />
+        <sphereGeometry args={[3, 16, 16]} />
+        <meshBasicMaterial color="#334466" transparent opacity={0.06} />
       </mesh>
 
       {/* Nebula clouds — subtle, monochrome-ish */}
@@ -150,45 +146,39 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
         />
       </mesh>
 
-      {/* Wide glow halo */}
+      {/* Subtle halo */}
       <mesh>
-        <sphereGeometry args={[radius * 3, 16, 16]} />
-        <meshBasicMaterial color={color} transparent opacity={0.06} side={THREE.BackSide} />
+        <sphereGeometry args={[radius * 2, 12, 12]} />
+        <meshBasicMaterial color={color} transparent opacity={0.03} side={THREE.BackSide} />
       </mesh>
 
-      {/* Danger ring on the plane */}
+      {/* Thin danger ring for critical/high */}
       {isHot && (
         <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-          <ringGeometry args={[radius * 2, radius * 2.3, 32]} />
-          <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} />
+          <ringGeometry args={[radius * 1.6, radius * 1.7, 24]} />
+          <meshBasicMaterial color={color} transparent opacity={0.2} side={THREE.DoubleSide} />
         </mesh>
       )}
 
-      {/* Vertical threat indicator for critical */}
-      {severity === 'critical' && (
-        <mesh position={[0, radius + 1.5, 0]}>
-          <cylinderGeometry args={[0.02, 0.08, 3, 6]} />
-          <meshBasicMaterial color={color} transparent opacity={0.5} />
-        </mesh>
+      {/* Label — only for 2+ anomalies or critical */}
+      {(system.count >= 2 || severity === 'critical') && (
+        <Html
+          position={[radius + 0.4, 0.3, 0]}
+          style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
+          distanceFactor={30}
+        >
+          <div style={{
+            fontFamily: 'monospace',
+            fontSize: 9,
+            color: color,
+            textShadow: `0 0 6px ${color}, 0 0 10px rgba(0,0,0,0.95)`,
+            opacity: 0.8,
+          }}>
+            {name}
+            <span style={{ color: '#999', marginLeft: 3, fontSize: 8 }}>{system.count}</span>
+          </div>
+        </Html>
       )}
-
-      {/* Label — always show */}
-      <Html
-        position={[radius + 0.6, 0.4, 0]}
-        style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }}
-        distanceFactor={25}
-      >
-        <div style={{
-          fontFamily: 'monospace',
-          fontSize: 10,
-          color: color,
-          textShadow: `0 0 8px ${color}, 0 0 16px rgba(0,0,0,0.95)`,
-          opacity: 0.95,
-        }}>
-          {name}
-          <span style={{ color: '#bbb', marginLeft: 4, fontSize: 9, fontWeight: 'bold' }}>{system.count}</span>
-        </div>
-      </Html>
     </group>
   )
 }
@@ -267,7 +257,7 @@ function HeatMap({ hotzones }) {
               float active = step(float(i) + 0.5, float(uCount));
               vec2 hPos = vec2(uHeatPos[i * 2], uHeatPos[i * 2 + 1]);
               float dist = length(worldPos - hPos);
-              float falloff = uHeatInt[i] * exp(-dist * dist / 50.0);
+              float falloff = uHeatInt[i] * exp(-dist * dist / 120.0);
               heat += falloff * active;
             }
 
@@ -282,7 +272,7 @@ function HeatMap({ hotzones }) {
               ? mix(cold, warm, heat * 2.0)
               : mix(warm, hot, (heat - 0.5) * 2.0);
 
-            float alpha = heat * 0.15;
+            float alpha = heat * 0.08;
             if (alpha < 0.003) discard;
 
             gl_FragColor = vec4(color, alpha);
@@ -314,25 +304,15 @@ function SelectionBeacon({ position }) {
 
   return (
     <group position={position}>
-      {/* Rotating ring on the plane */}
-      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
-        <ringGeometry args={[2.0, 2.4, 32]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.6} side={THREE.DoubleSide} />
+      {/* Single clean ring */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.15, 0]}>
+        <ringGeometry args={[1.0, 1.15, 32]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.5} side={THREE.DoubleSide} />
       </mesh>
-      {/* Inner ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
-        <ringGeometry args={[1.2, 1.4, 32]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.3} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Vertical beam */}
-      <mesh ref={beamRef} position={[0, 4, 0]}>
-        <cylinderGeometry args={[0.03, 0.15, 8, 8]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.3} />
-      </mesh>
-      {/* Ground glow disc */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
-        <circleGeometry args={[3.5, 32]} />
-        <meshBasicMaterial color="#f59e0b" transparent opacity={0.06} side={THREE.DoubleSide} />
+      {/* Thin vertical pin */}
+      <mesh ref={beamRef} position={[0, 2.5, 0]}>
+        <cylinderGeometry args={[0.015, 0.04, 5, 4]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.25} />
       </mesh>
     </group>
   )
@@ -425,31 +405,15 @@ function TerritoryMarkers({ territory }) {
         const color = entityColorMap[t.dominant_entity]
         const x = (t.nx - 0.5) * 70
         const z = (t.nz - 0.5) * 70
-        const radius = 2 + Math.min(t.total_kills, 15) * 0.4
+        const radius = 1.0 + Math.min(t.total_kills, 15) * 0.15
 
         return (
           <group key={t.system_id} position={[x, 0, z]}>
-            {/* Territory fill disc */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-              <circleGeometry args={[radius, 32]} />
-              <meshBasicMaterial color={color} transparent opacity={0.15 + t.dominance * 0.1} side={THREE.DoubleSide} />
+            {/* Subtle border ring only — no fill disc */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+              <ringGeometry args={[radius, radius + 0.08, 24]} />
+              <meshBasicMaterial color={color} transparent opacity={0.2} side={THREE.DoubleSide} />
             </mesh>
-            {/* Border ring */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-              <ringGeometry args={[radius - 0.1, radius, 32]} />
-              <meshBasicMaterial color={color} transparent opacity={0.4} side={THREE.DoubleSide} />
-            </mesh>
-            {/* Territory label */}
-            <Html position={[0, 0.3, 0]} style={{ pointerEvents: 'none' }} distanceFactor={30}>
-              <div style={{
-                fontFamily: 'monospace', fontSize: 8, color,
-                textShadow: `0 0 4px ${color}, 0 0 8px rgba(0,0,0,0.9)`,
-                opacity: 0.7, whiteSpace: 'nowrap', textAlign: 'center',
-              }}>
-                {t.system_name}
-                <div style={{ fontSize: 7, color: '#888' }}>{t.total_kills} kills</div>
-              </div>
-            </Html>
           </group>
         )
       })}
@@ -477,22 +441,17 @@ function KillFlashes({ hotzones }) {
       {hotzones.slice(0, 20).map((hz, i) => {
         const x = (hz.nx - 0.5) * 70
         const z = (hz.nz - 0.5) * 70
-        const dangerColor = hz.danger_level === 'extreme' ? '#ff2222'
-          : hz.danger_level === 'high' ? '#ff6600' : '#ffaa00'
-        const height = 0.5 + Math.min(hz.kills, 20) * 0.15
+        const dangerColor = hz.danger_level === 'extreme' ? '#ef4444'
+          : hz.danger_level === 'high' ? '#f97316' : '#eab308'
+        const height = 0.3 + Math.min(hz.kills, 20) * 0.08
         const intensity = Math.min(hz.kills, 20) / 20
 
         return (
           <group key={hz.system_id} ref={(el) => { groupRefs.current[i] = el }}>
-            {/* Vertical kill beam */}
+            {/* Thin vertical pin */}
             <mesh position={[x, height / 2 + 0.1, z]}>
-              <cylinderGeometry args={[0.06, 0.12, height, 6]} />
-              <meshBasicMaterial color={dangerColor} transparent opacity={0.4 + intensity * 0.3} />
-            </mesh>
-            {/* Ground impact disc */}
-            <mesh position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[0.4 + intensity * 0.6, 16]} />
-              <meshBasicMaterial color={dangerColor} transparent opacity={0.15 + intensity * 0.1} side={THREE.DoubleSide} />
+              <cylinderGeometry args={[0.02, 0.04, height, 4]} />
+              <meshBasicMaterial color={dangerColor} transparent opacity={0.3 + intensity * 0.2} />
             </mesh>
           </group>
         )
