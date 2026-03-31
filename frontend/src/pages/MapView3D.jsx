@@ -29,23 +29,30 @@ function getMaxSeverity(sys) {
   return 'low'
 }
 
-// Galaxy disc — all 24K systems with realistic disc thickness
+// Galaxy disc — all 24K systems with realistic disc thickness + core glow
 function GalaxyField({ positions }) {
   const ref = useRef()
 
   if (!positions || positions.length === 0) return null
 
   return (
-    <Points ref={ref} positions={positions} stride={3}>
-      <PointMaterial
-        transparent
-        color="#8899aa"
-        size={0.12}
-        sizeAttenuation
-        depthWrite={false}
-        opacity={0.4}
-      />
-    </Points>
+    <group>
+      <Points ref={ref} positions={positions} stride={3}>
+        <PointMaterial
+          transparent
+          color="#99aabb"
+          size={0.14}
+          sizeAttenuation
+          depthWrite={false}
+          opacity={0.5}
+        />
+      </Points>
+      {/* Galactic core glow */}
+      <mesh position={[0, -0.5, 0]}>
+        <sphereGeometry args={[6, 16, 16]} />
+        <meshBasicMaterial color="#334466" transparent opacity={0.08} />
+      </mesh>
+    </group>
   )
 }
 
@@ -110,6 +117,51 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
   )
 }
 
+// Selection beacon — animated ring + vertical beam at selected system
+function SelectionBeacon({ position }) {
+  const ringRef = useRef()
+  const beamRef = useRef()
+
+  useFrame(({ clock }) => {
+    if (ringRef.current) {
+      ringRef.current.rotation.z = clock.elapsedTime * 0.8
+      const pulse = 1 + Math.sin(clock.elapsedTime * 3) * 0.15
+      ringRef.current.scale.setScalar(pulse)
+    }
+    if (beamRef.current) {
+      const flicker = 0.3 + Math.sin(clock.elapsedTime * 5) * 0.1
+      beamRef.current.material.opacity = flicker
+    }
+  })
+
+  if (!position) return null
+
+  return (
+    <group position={position}>
+      {/* Rotating ring on the plane */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
+        <ringGeometry args={[2.0, 2.4, 32]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.6} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Inner ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
+        <ringGeometry args={[1.2, 1.4, 32]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.3} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Vertical beam */}
+      <mesh ref={beamRef} position={[0, 4, 0]}>
+        <cylinderGeometry args={[0.03, 0.15, 8, 8]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.3} />
+      </mesh>
+      {/* Ground glow disc */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+        <circleGeometry args={[3.5, 32]} />
+        <meshBasicMaterial color="#f59e0b" transparent opacity={0.06} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  )
+}
+
 // Smooth camera fly-to animation
 function CameraFlyTo({ target }) {
   const { camera } = useThree()
@@ -140,38 +192,46 @@ function CameraFlyTo({ target }) {
   return null
 }
 
-// 3D route lines between connected systems
+// 3D route lines — smooth arcs between connected systems
 function RouteLines({ connections }) {
-  if (!connections || connections.length === 0) return null
+  const lines = useMemo(() => {
+    if (!connections || connections.length === 0) return []
+    return connections.map((c) => {
+      const sx = (c.source_nx - 0.5) * 70, sz = (c.source_nz - 0.5) * 70
+      const dx = (c.dest_nx - 0.5) * 70, dz = (c.dest_nz - 0.5) * 70
+      const dist = Math.sqrt((dx - sx) ** 2 + (dz - sz) ** 2)
+      const arcHeight = 1.5 + Math.min(dist * 0.08, 4)
+      // Smooth arc with 12 points
+      const points = []
+      for (let t = 0; t <= 1; t += 1 / 12) {
+        const x = sx + (dx - sx) * t
+        const z = sz + (dz - sz) * t
+        const y = Math.sin(t * Math.PI) * arcHeight + 0.2
+        points.push([x, y, z])
+      }
+      return { points, transits: c.transits }
+    })
+  }, [connections])
+
+  if (lines.length === 0) return null
 
   return (
     <group>
-      {connections.map((c, i) => {
-        const src = [(c.source_nx - 0.5) * 70, 0.2, (c.source_nz - 0.5) * 70]
-        const dst = [(c.dest_nx - 0.5) * 70, 0.2, (c.dest_nz - 0.5) * 70]
-        // Arc through a midpoint above the plane for visibility
-        const mid = [(src[0] + dst[0]) / 2, 1.5 + Math.min(c.transits, 5) * 0.5, (src[2] + dst[2]) / 2]
-        const alpha = Math.min(1, 0.3 + (c.transits / 5) * 0.4)
-
-        return (
-          <Line
-            key={i}
-            points={[src, mid, dst]}
-            color="#2dd4bf"
-            lineWidth={Math.max(1, Math.min(3, c.transits))}
-            transparent
-            opacity={alpha}
-            dashed
-            dashSize={0.8}
-            gapSize={0.4}
-          />
-        )
-      })}
+      {lines.map((line, i) => (
+        <Line
+          key={i}
+          points={line.points}
+          color="#2dd4bf"
+          lineWidth={Math.max(1.5, Math.min(4, line.transits * 1.5))}
+          transparent
+          opacity={Math.min(0.8, 0.4 + (line.transits / 5) * 0.3)}
+        />
+      ))}
     </group>
   )
 }
 
-// Territory markers — glowing discs on the galactic plane
+// Territory markers — glowing discs + rings + labels on the galactic plane
 function TerritoryMarkers({ territory }) {
   if (!territory || territory.length === 0) return null
 
@@ -189,29 +249,48 @@ function TerritoryMarkers({ territory }) {
         const color = entityColorMap[t.dominant_entity]
         const x = (t.nx - 0.5) * 70
         const z = (t.nz - 0.5) * 70
-        const radius = 1.5 + Math.min(t.total_kills, 15) * 0.3
+        const radius = 2 + Math.min(t.total_kills, 15) * 0.4
 
         return (
-          <mesh key={t.system_id} position={[x, -0.05, z]} rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[radius, 24]} />
-            <meshBasicMaterial color={color} transparent opacity={0.12 + t.dominance * 0.08} side={THREE.DoubleSide} />
-          </mesh>
+          <group key={t.system_id} position={[x, 0, z]}>
+            {/* Territory fill disc */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+              <circleGeometry args={[radius, 32]} />
+              <meshBasicMaterial color={color} transparent opacity={0.15 + t.dominance * 0.1} side={THREE.DoubleSide} />
+            </mesh>
+            {/* Border ring */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+              <ringGeometry args={[radius - 0.1, radius, 32]} />
+              <meshBasicMaterial color={color} transparent opacity={0.4} side={THREE.DoubleSide} />
+            </mesh>
+            {/* Territory label */}
+            <Html position={[0, 0.3, 0]} style={{ pointerEvents: 'none' }} distanceFactor={30}>
+              <div style={{
+                fontFamily: 'monospace', fontSize: 8, color,
+                textShadow: `0 0 4px ${color}, 0 0 8px rgba(0,0,0,0.9)`,
+                opacity: 0.7, whiteSpace: 'nowrap', textAlign: 'center',
+              }}>
+                {t.system_name}
+                <div style={{ fontSize: 7, color: '#888' }}>{t.total_kills} kills</div>
+              </div>
+            </Html>
+          </group>
         )
       })}
     </group>
   )
 }
 
-// Kill flash markers — animated spheres that pulse and fade at recent kill locations
+// Kill flash markers — pulsing beams at hotzone locations
 function KillFlashes({ hotzones }) {
-  const meshRefs = useRef([])
+  const groupRefs = useRef([])
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
-    meshRefs.current.forEach((mesh, i) => {
-      if (!mesh) return
-      const pulse = 1 + Math.sin(t * 3 + i * 1.5) * 0.3
-      mesh.scale.setScalar(pulse)
+    groupRefs.current.forEach((group, i) => {
+      if (!group) return
+      const pulse = 1 + Math.sin(t * 2.5 + i * 1.2) * 0.2
+      group.scale.y = pulse
     })
   })
 
@@ -219,22 +298,27 @@ function KillFlashes({ hotzones }) {
 
   return (
     <group>
-      {hotzones.slice(0, 15).map((hz, i) => {
+      {hotzones.slice(0, 20).map((hz, i) => {
         const x = (hz.nx - 0.5) * 70
         const z = (hz.nz - 0.5) * 70
         const dangerColor = hz.danger_level === 'extreme' ? '#ff2222'
           : hz.danger_level === 'high' ? '#ff6600' : '#ffaa00'
-        const size = 0.15 + Math.min(hz.kills, 20) * 0.02
+        const height = 0.5 + Math.min(hz.kills, 20) * 0.15
+        const intensity = Math.min(hz.kills, 20) / 20
 
         return (
-          <mesh
-            key={hz.system_id}
-            ref={(el) => { meshRefs.current[i] = el }}
-            position={[x, 0.5, z]}
-          >
-            <sphereGeometry args={[size, 8, 8]} />
-            <meshBasicMaterial color={dangerColor} transparent opacity={0.6} />
-          </mesh>
+          <group key={hz.system_id} ref={(el) => { groupRefs.current[i] = el }}>
+            {/* Vertical kill beam */}
+            <mesh position={[x, height / 2 + 0.1, z]}>
+              <cylinderGeometry args={[0.06, 0.12, height, 6]} />
+              <meshBasicMaterial color={dangerColor} transparent opacity={0.4 + intensity * 0.3} />
+            </mesh>
+            {/* Ground impact disc */}
+            <mesh position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.4 + intensity * 0.6, 16]} />
+              <meshBasicMaterial color={dangerColor} transparent opacity={0.15 + intensity * 0.1} side={THREE.DoubleSide} />
+            </mesh>
+          </group>
         )
       })}
     </group>
@@ -792,6 +876,7 @@ export default function MapView3D() {
           <Stars radius={120} depth={60} count={3000} factor={3} saturation={0.1} fade speed={0} />
 
           <CameraFlyTo target={flyTarget} />
+          <SelectionBeacon position={flyTarget} />
           <SpaceDust />
 
           {/* Galaxy disc */}
@@ -826,10 +911,10 @@ export default function MapView3D() {
           {/* Bloom post-processing */}
           <EffectComposer>
             <Bloom
-              luminanceThreshold={0.8}
-              luminanceSmoothing={0.3}
-              intensity={1.5}
-              radius={0.8}
+              luminanceThreshold={0.6}
+              luminanceSmoothing={0.4}
+              intensity={2.0}
+              radius={0.9}
             />
           </EffectComposer>
         </Suspense>
