@@ -174,6 +174,106 @@ function AnomalyMarker({ position, system, onHover, onClick }) {
   )
 }
 
+// Heat map — continuous danger gradient on the galactic plane
+function HeatMap({ hotzones }) {
+  const meshRef = useRef()
+  const materialRef = useRef()
+
+  const { uniforms, positions: heatPositions } = useMemo(() => {
+    if (!hotzones || hotzones.length === 0) {
+      return { uniforms: null, positions: [] }
+    }
+    const maxKills = Math.max(...hotzones.map(h => h.kills), 1)
+    const heatData = hotzones.slice(0, 32).map(hz => ({
+      x: (hz.nx - 0.5) * 70,
+      z: (hz.nz - 0.5) * 70,
+      intensity: hz.kills / maxKills,
+    }))
+
+    // Pack into uniforms
+    const posArray = new Float32Array(32 * 2).fill(9999)
+    const intArray = new Float32Array(32).fill(0)
+    heatData.forEach((h, i) => {
+      posArray[i * 2] = h.x
+      posArray[i * 2 + 1] = h.z
+      intArray[i] = h.intensity
+    })
+
+    return {
+      uniforms: {
+        uHeatPos: { value: posArray },
+        uHeatInt: { value: intArray },
+        uCount: { value: heatData.length },
+        uTime: { value: 0 },
+      },
+      positions: heatData,
+    }
+  }, [hotzones])
+
+  useFrame(({ clock }) => {
+    if (materialRef.current && uniforms) {
+      materialRef.current.uniforms.uTime.value = clock.elapsedTime
+    }
+  })
+
+  if (!uniforms || positions.length === 0) return null
+
+  return (
+    <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+      <planeGeometry args={[80, 80, 1, 1]} />
+      <shaderMaterial
+        ref={materialRef}
+        transparent
+        depthWrite={false}
+        uniforms={uniforms}
+        vertexShader={`
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `}
+        fragmentShader={`
+          uniform float uHeatPos[64];
+          uniform float uHeatInt[32];
+          uniform int uCount;
+          uniform float uTime;
+          varying vec2 vUv;
+
+          void main() {
+            vec2 worldPos = (vUv - 0.5) * 80.0;
+            float heat = 0.0;
+
+            for (int i = 0; i < 32; i++) {
+              if (i >= uCount) break;
+              vec2 hPos = vec2(uHeatPos[i * 2], uHeatPos[i * 2 + 1]);
+              float dist = length(worldPos - hPos);
+              float falloff = uHeatInt[i] * exp(-dist * dist / 40.0);
+              heat += falloff;
+            }
+
+            heat = clamp(heat, 0.0, 1.0);
+
+            // Color ramp: blue → yellow → red
+            vec3 cold = vec3(0.1, 0.15, 0.4);
+            vec3 warm = vec3(0.9, 0.6, 0.1);
+            vec3 hot = vec3(1.0, 0.15, 0.1);
+
+            vec3 color = heat < 0.5
+              ? mix(cold, warm, heat * 2.0)
+              : mix(warm, hot, (heat - 0.5) * 2.0);
+
+            float alpha = heat * 0.18;
+            if (alpha < 0.005) discard;
+
+            gl_FragColor = vec4(color, alpha);
+          }
+        `}
+      />
+    </mesh>
+  )
+}
+
 // Selection beacon — animated ring + vertical beam at selected system
 function SelectionBeacon({ position }) {
   const ringRef = useRef()
@@ -409,6 +509,69 @@ function RadarSweep() {
       <shapeGeometry args={[shape]} />
       <meshBasicMaterial color="#22c55e" transparent opacity={0.04} side={THREE.DoubleSide} />
     </mesh>
+  )
+}
+
+// Animated particles flowing along route lines
+function RouteParticles({ connections }) {
+  const pointsRef = useRef()
+  const particleData = useMemo(() => {
+    if (!connections || connections.length === 0) return null
+    const positions = []
+    const meta = [] // store route index + t offset per particle
+    const PARTICLES_PER_ROUTE = 4
+
+    connections.forEach((c, routeIdx) => {
+      const sx = (c.source_nx - 0.5) * 70, sz = (c.source_nz - 0.5) * 70
+      const dx = (c.dest_nx - 0.5) * 70, dz = (c.dest_nz - 0.5) * 70
+      for (let p = 0; p < PARTICLES_PER_ROUTE; p++) {
+        positions.push(sx, 0.5, sz)
+        meta.push({ routeIdx, sx, sz, dx, dz, offset: p / PARTICLES_PER_ROUTE })
+      }
+    })
+
+    return {
+      positions: new Float32Array(positions),
+      meta,
+      count: meta.length,
+    }
+  }, [connections])
+
+  useFrame(({ clock }) => {
+    if (!pointsRef.current || !particleData) return
+    const posArr = pointsRef.current.geometry.attributes.position.array
+    const t = clock.elapsedTime
+
+    particleData.meta.forEach((m, i) => {
+      const progress = ((t * 0.3 + m.offset) % 1)
+      const x = m.sx + (m.dx - m.sx) * progress
+      const z = m.sz + (m.dz - m.sz) * progress
+      const dist = Math.sqrt((m.dx - m.sx) ** 2 + (m.dz - m.sz) ** 2)
+      const arcH = 1.0 + Math.min(dist * 0.06, 3)
+      const y = Math.sin(progress * Math.PI) * arcH + 0.3
+
+      posArr[i * 3] = x
+      posArr[i * 3 + 1] = y
+      posArr[i * 3 + 2] = z
+    })
+
+    pointsRef.current.geometry.attributes.position.needsUpdate = true
+  })
+
+  if (!particleData) return null
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particleData.count}
+          array={particleData.positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial color="#2dd4bf" size={0.25} transparent opacity={0.8} sizeAttenuation depthWrite={false} />
+    </points>
   )
 }
 
@@ -1005,8 +1168,14 @@ export default function MapView3D() {
               />
             ))}
 
+          {/* Heat map gradient */}
+          <HeatMap hotzones={wtData?.hotzones} />
+
           {/* 3D route lines */}
           <RouteLines connections={wtData?.gate_connections} />
+
+          {/* Animated route particles */}
+          <RouteParticles connections={wtData?.gate_connections} />
 
           {/* Territory discs */}
           <TerritoryMarkers territory={wtData?.territory} />
