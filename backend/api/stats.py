@@ -517,15 +517,22 @@ async def get_watchtower_overlay(request: Request) -> dict:
             "conflict_zones": [],
         }
 
-    # Fetch all 3 endpoints in parallel
+    # Fetch all endpoints in parallel — shared intel + hotzones + predictions + topology
     async with httpx.AsyncClient() as client:
-        hz_raw, threat_raw, asm_raw = await asyncio.gather(
+        hz_raw, threat_raw, asm_raw, shared_raw, topology_raw, killers_raw = await asyncio.gather(
             _fetch_watchtower(client, "/hotzones?window=7d&limit=50"),
             _fetch_watchtower(client, "/predictions/map"),
             _fetch_watchtower(client, "/assemblies"),
+            _fetch_watchtower(client, "/shared/intel"),
+            _fetch_watchtower(client, "/topology"),
+            _fetch_watchtower(client, "/leaderboard/top_killers"),
         )
 
-    # If all three failed, serve stale cache
+    # Store shared intel for enrichment use (character names, entity data)
+    if shared_raw:
+        _store_shared_intel(conn, shared_raw)
+
+    # If all failed, serve stale cache
     if hz_raw is None and threat_raw is None and asm_raw is None:
         logger.warning("All WatchTower fetches failed, serving stale cache")
         return _wt_cache or {
@@ -536,6 +543,7 @@ async def get_watchtower_overlay(request: Request) -> dict:
             "top_killers": [],
             "territory": [],
             "conflict_zones": [],
+            "shared_intel": {},
         }
 
     # --- Hotzones: join with coords ---
@@ -596,20 +604,15 @@ async def get_watchtower_overlay(request: Request) -> dict:
             }
         )
 
-    # --- Additional WatchTower data ---
-    killers_raw, topology_raw = None, None
-    async with httpx.AsyncClient() as client2:
-        killers_raw, topology_raw = await asyncio.gather(
-            _fetch_watchtower(client2, "/leaderboard/top_killers"),
-            _fetch_watchtower(client2, "/topology"),
-        )
-
     gate_connections = _build_gate_topology(coord_lookup, topology_raw)
-    top_killers = _build_top_killers(conn, coord_lookup, killers_raw)
     # Derive territory + conflicts from WatchTower hotzones (already fetched)
     # instead of parsing local killmail payloads (which caused DB locks)
     territory = _build_territory_from_hotzones(hotzones)
     conflict_zones = _build_conflict_zones_from_hotzones(hotzones)
+
+    # Build top killers with character name resolution from shared intel
+    char_names = (shared_raw or {}).get("character_names", {})
+    top_killers = _build_top_killers(conn, coord_lookup, killers_raw, char_names)
 
     result = {
         "hotzones": hotzones,
@@ -624,6 +627,30 @@ async def get_watchtower_overlay(request: Request) -> dict:
     _wt_cache = result
     _wt_cache_time = now
     return result
+
+
+# Module-level cache for shared intel character names
+_shared_char_names: dict[str, str] = {}
+
+
+def get_shared_char_names() -> dict[str, str]:
+    """Return cached character name lookup from shared intel."""
+    return _shared_char_names
+
+
+def _store_shared_intel(conn: sqlite3.Connection, shared: dict) -> None:
+    """Store shared intel data for use by enrichment and other modules."""
+    global _shared_char_names  # noqa: PLW0603
+
+    char_names = shared.get("character_names", {})
+    if char_names:
+        _shared_char_names.update(char_names)
+        logger.info(
+            "Shared intel: %d character names, %d entities, %d routes",
+            len(char_names),
+            len(shared.get("entities", [])),
+            len(shared.get("system_routes", [])),
+        )
 
 
 def _build_gate_topology(
@@ -679,6 +706,7 @@ def _build_top_killers(
     conn: sqlite3.Connection,
     coord_lookup: dict[str, dict],
     killers_raw: dict | None,
+    char_names: dict | None = None,
 ) -> list[dict]:
     """Position top killers on the map by last known killmail location."""
     if not killers_raw:

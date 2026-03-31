@@ -154,6 +154,16 @@ def _resolve_entity_name(conn: sqlite3.Connection, address: str) -> str:
     if not address:
         return ""
 
+    # Check shared intel character names first (fastest, most complete)
+    try:
+        from backend.api.stats import get_shared_char_names
+
+        char_names = get_shared_char_names()
+        if address in char_names:
+            return char_names[address]
+    except ImportError:
+        pass
+
     # Check objects table for character type
     row = conn.execute(
         "SELECT current_state FROM objects WHERE object_id = ? AND object_type = 'character'",
