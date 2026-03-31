@@ -15,11 +15,19 @@ import * as THREE from 'three'
 import { useApi } from '../hooks/useApi'
 import { getDisplayName } from '../displayNames'
 
+// Unified color palette — dark sci-fi command center
+// Primary: amber (#f59e0b) — Monolith brand, UI elements
+// Danger: red (#ef4444) — critical threats, kills
+// Warning: orange (#f97316) — high severity
+// Caution: amber (#eab308) — medium severity
+// Neutral: slate (#6b7280) — low, inactive
+// Intel: teal (#2dd4bf) — routes, connections, data flow
+// Conflict: rose (#f43f5e) — contested zones
 const SEVERITY_COLORS = {
-  critical: '#ff4444',
-  high: '#ff8800',
-  medium: '#ffcc00',
-  low: '#6b7280',
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#64748b',
 }
 
 function getMaxSeverity(sys) {
@@ -68,22 +76,14 @@ function GalaxyField({ positions, systems, onSystemClick }) {
         <meshBasicMaterial color="#223355" transparent opacity={0.06} />
       </mesh>
 
-      {/* Nebula clouds — colored gas regions */}
-      <mesh position={[12, 0.5, -8]}>
-        <sphereGeometry args={[7, 12, 12]} />
-        <meshBasicMaterial color="#ff4466" transparent opacity={0.025} />
-      </mesh>
-      <mesh position={[-15, 0.3, 10]}>
-        <sphereGeometry args={[9, 12, 12]} />
-        <meshBasicMaterial color="#4488ff" transparent opacity={0.02} />
-      </mesh>
-      <mesh position={[8, -0.2, 15]}>
-        <sphereGeometry args={[6, 12, 12]} />
-        <meshBasicMaterial color="#aa44ff" transparent opacity={0.02} />
-      </mesh>
-      <mesh position={[-10, 0.4, -12]}>
+      {/* Nebula clouds — subtle, monochrome-ish */}
+      <mesh position={[14, 0.3, -10]}>
         <sphereGeometry args={[8, 12, 12]} />
-        <meshBasicMaterial color="#44ffaa" transparent opacity={0.015} />
+        <meshBasicMaterial color="#334488" transparent opacity={0.018} />
+      </mesh>
+      <mesh position={[-12, 0.2, 12]}>
+        <sphereGeometry args={[10, 12, 12]} />
+        <meshBasicMaterial color="#223366" transparent opacity={0.015} />
       </mesh>
 
       {/* Galactic plane grid — subtle reference */}
@@ -216,7 +216,7 @@ function HeatMap({ hotzones }) {
     }
   })
 
-  if (!uniforms || positions.length === 0) return null
+  if (!uniforms || !heatPositions || heatPositions.length === 0) return null
 
   return (
     <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
@@ -245,26 +245,26 @@ function HeatMap({ hotzones }) {
             float heat = 0.0;
 
             for (int i = 0; i < 32; i++) {
-              if (i >= uCount) break;
+              float active = step(float(i) + 0.5, float(uCount));
               vec2 hPos = vec2(uHeatPos[i * 2], uHeatPos[i * 2 + 1]);
               float dist = length(worldPos - hPos);
-              float falloff = uHeatInt[i] * exp(-dist * dist / 40.0);
-              heat += falloff;
+              float falloff = uHeatInt[i] * exp(-dist * dist / 50.0);
+              heat += falloff * active;
             }
 
             heat = clamp(heat, 0.0, 1.0);
 
-            // Color ramp: blue → yellow → red
-            vec3 cold = vec3(0.1, 0.15, 0.4);
-            vec3 warm = vec3(0.9, 0.6, 0.1);
-            vec3 hot = vec3(1.0, 0.15, 0.1);
+            // Sleek color ramp: dark teal → amber → red
+            vec3 cold = vec3(0.05, 0.12, 0.2);
+            vec3 warm = vec3(0.85, 0.55, 0.08);
+            vec3 hot = vec3(0.9, 0.12, 0.08);
 
             vec3 color = heat < 0.5
               ? mix(cold, warm, heat * 2.0)
               : mix(warm, hot, (heat - 0.5) * 2.0);
 
-            float alpha = heat * 0.18;
-            if (alpha < 0.005) discard;
+            float alpha = heat * 0.15;
+            if (alpha < 0.003) discard;
 
             gl_FragColor = vec4(color, alpha);
           }
