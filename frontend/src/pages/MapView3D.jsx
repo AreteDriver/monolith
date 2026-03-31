@@ -577,9 +577,15 @@ export default function MapView3D() {
     const sys = allSystems.find(s => s.system_id === systemId)
     if (!sys || sys.nx == null) return
     setFlyTarget([(sys.nx - 0.5) * 70, 0, (sys.nz - 0.5) * 70])
-    // Find matching anomaly system for the Intel Card
+    // Find matching anomaly system for the Intel Card, or create a minimal one
     const anomaly = anomalySystems.find(a => a.system_id === systemId)
-    if (anomaly) setSelectedSystem(anomaly)
+    setSelectedSystem(anomaly || {
+      system_id: systemId,
+      name: sys.name || systemId,
+      nx: sys.nx,
+      nz: sys.nz,
+      count: 0, critical: 0, high: 0, medium: 0, low: 0,
+    })
   }, [bgData, anomalySystems])
 
   const totalAnomalies = anomalySystems.reduce((sum, s) => sum + s.count, 0)
