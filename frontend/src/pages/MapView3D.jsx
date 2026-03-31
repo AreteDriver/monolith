@@ -41,21 +41,40 @@ function getMaxSeverity(sys) {
 function GalaxyField({ positions, systems, onSystemClick }) {
   const ref = useRef()
 
-  // Handle click on background systems via raycasting
-  const handleClick = useCallback((e) => {
-    if (!systems || !e.index) return
+  // Click on invisible galactic plane → find nearest system
+  const handlePlaneClick = useCallback((e) => {
+    if (!systems || systems.length === 0) return
     e.stopPropagation()
-    const idx = e.index
-    if (idx >= 0 && idx < systems.length) {
-      onSystemClick(systems[idx])
+    const point = e.point // THREE.Vector3 intersection on the plane
+    const clickX = point.x
+    const clickZ = point.z
+
+    // Find nearest system within 2 units
+    let nearest = null
+    let nearestDist = 4 // max click distance squared
+    for (const sys of systems) {
+      const sx = (sys.nx - 0.5) * 70
+      const sz = (sys.nz - 0.5) * 70
+      const d = (clickX - sx) ** 2 + (clickZ - sz) ** 2
+      if (d < nearestDist) {
+        nearestDist = d
+        nearest = sys
+      }
     }
+    if (nearest) onSystemClick(nearest)
   }, [systems, onSystemClick])
 
   if (!positions || positions.length === 0) return null
 
   return (
     <group>
-      <Points ref={ref} positions={positions} stride={3} onClick={handleClick}>
+      {/* Invisible click plane on galactic disc */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} onClick={handlePlaneClick} visible={false}>
+        <planeGeometry args={[80, 80]} />
+        <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} />
+      </mesh>
+
+      <Points ref={ref} positions={positions} stride={3}>
         <PointMaterial
           transparent
           color="#aabbcc"
