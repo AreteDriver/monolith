@@ -89,21 +89,7 @@ function GalaxyField({ positions, systems, onSystemClick }) {
         />
       </Points>
 
-      {/* Galactic core — subtle glow */}
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[3, 16, 16]} />
-        <meshBasicMaterial color="#334466" transparent opacity={0.06} />
-      </mesh>
 
-      {/* Nebula clouds — subtle, monochrome-ish */}
-      <mesh position={[14, 0.3, -10]}>
-        <sphereGeometry args={[8, 12, 12]} />
-        <meshBasicMaterial color="#334488" transparent opacity={0.018} />
-      </mesh>
-      <mesh position={[-12, 0.2, 12]}>
-        <sphereGeometry args={[10, 12, 12]} />
-        <meshBasicMaterial color="#223366" transparent opacity={0.015} />
-      </mesh>
 
       {/* Galactic plane grid — subtle reference */}
       <gridHelper args={[160, 40, '#1a2233', '#0d1118']} position={[0, -0.1, 0]} />
@@ -1104,7 +1090,7 @@ export default function MapView3D() {
       {/* Canvas layer — pinned behind overlays */}
       <div className="absolute inset-0" style={{ zIndex: 0 }}>
         <Canvas
-          camera={{ position: [80, 50, 80], fov: 50, near: 0.1, far: 500 }}
+          camera={{ position: [100, 70, 100], fov: 50, near: 0.1, far: 500 }}
           style={{ background: '#030308' }}
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
         >
