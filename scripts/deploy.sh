@@ -2,7 +2,7 @@
 # deploy.sh — Monolith pre-flight checks + deploy to Fly.io
 set -euo pipefail
 
-FLYCTL="/home/arete/.fly/bin/flyctl"
+FLYCTL="${FLYCTL:-flyctl}"
 APP="monolith-evefrontier"
 RED='\033[0;31m'
 GREEN='\033[0;32m'

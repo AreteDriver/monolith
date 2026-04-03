@@ -19,11 +19,11 @@ curl -s https://watchtower-evefrontier.fly.dev/api/health | python3 -m json.tool
 curl -s https://aegismonolith.xyz/api/health | python3 -m json.tool
 
 # If either is down, restart on Fly.io
-/home/arete/.fly/bin/flyctl machine list -a watchtower-evefrontier
-/home/arete/.fly/bin/flyctl machine start <machine-id> -a watchtower-evefrontier
+flyctl machine list -a watchtower-evefrontier
+flyctl machine start <machine-id> -a watchtower-evefrontier
 
-/home/arete/.fly/bin/flyctl machine list -a monolith-evefrontier
-/home/arete/.fly/bin/flyctl machine start <machine-id> -a monolith-evefrontier
+flyctl machine list -a monolith-evefrontier
+flyctl machine start <machine-id> -a monolith-evefrontier
 ```
 
 **Expected live data (verified 2026-03-27):**

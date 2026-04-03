@@ -62,7 +62,7 @@ python eval/system_metrics.py --db monolith.db
 python -m uvicorn backend.main:app --reload
 
 # deploy
-/home/arete/.fly/bin/flyctl deploy --wait-timeout 600
+flyctl deploy --wait-timeout 600
 ```
 
 ## Database Schema (Key Tables)
