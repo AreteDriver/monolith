@@ -14,6 +14,7 @@
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^0.1.3",
     "postprocessing": "^6.39.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
