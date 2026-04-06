@@ -30,7 +30,10 @@ class EngagementChecker(BaseChecker):
         """Run engagement session detection rules."""
         anomalies: list[Anomaly] = []
         anomalies.extend(self._check_es1_orphaned_killmail())
-        anomalies.extend(self._check_es2_ghost_engagement())
+        # ES2 (GHOST_ENGAGEMENT) disabled — high FP rate. Victims with zero
+        # prior chain history are normal for new players and incomplete
+        # ingestion windows. Re-evaluate with minimum history window.
+        # anomalies.extend(self._check_es2_ghost_engagement())
         return anomalies
 
     def _get_killmail_events(self) -> list[dict]:

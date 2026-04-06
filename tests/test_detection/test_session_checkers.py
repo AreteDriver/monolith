@@ -105,16 +105,14 @@ def test_es1_killmail_with_preceding_gate_jump(db_conn):
 
 
 def test_es2_victim_no_prior_events(db_conn):
-    """Victim with zero prior events triggers ES2."""
+    """ES2 is disabled (high FP rate) — verify it produces no anomalies."""
     now = int(time.time())
     _seed_killmail(db_conn, "km-3", "0xkiller3", "0xghost_victim", now)
 
     checker = EngagementChecker(db_conn)
     anomalies = checker.check()
     es2 = [a for a in anomalies if a.rule_id == "ES2"]
-    assert len(es2) == 1
-    assert es2[0].severity == "CRITICAL"
-    assert es2[0].evidence["victim_id"] == "0xghost_victim"
+    assert len(es2) == 0
 
 
 def test_es2_nested_victim_id_extracted(db_conn):
@@ -152,7 +150,7 @@ def test_es2_nested_victim_id_extracted(db_conn):
 
 
 def test_es2_nested_victim_id_no_history(db_conn):
-    """Nested victim_id with genuinely zero history still triggers ES2."""
+    """ES2 is disabled — nested victim_id with zero history produces nothing."""
     now = int(time.time())
     raw = json.dumps(
         {
@@ -178,8 +176,7 @@ def test_es2_nested_victim_id_no_history(db_conn):
     checker = EngagementChecker(db_conn)
     anomalies = checker.check()
     es2 = [a for a in anomalies if a.rule_id == "ES2"]
-    assert len(es2) == 1
-    assert es2[0].evidence["victim_id"] == "9999999"
+    assert len(es2) == 0
 
 
 def test_es2_victim_with_prior_events(db_conn):
