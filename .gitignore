@@ -32,3 +32,4 @@ htmlcov/
 
 docs/chain-samples/*.json
 .vercel
+.pdf-venv/
