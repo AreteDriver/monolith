@@ -9,13 +9,17 @@ RUN npm run build
 FROM python:3.12-slim
 WORKDIR /app
 
-# Install Litestream + curl
-ADD https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz /tmp/litestream.tar.gz
-RUN tar -C /usr/local/bin -xzf /tmp/litestream.tar.gz && rm /tmp/litestream.tar.gz
-
+# curl (Litestream disabled — see below)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Litestream temporarily disabled (2026-04-09): retention pruning was broken,
+# shadow WAL grew to 1.3GB on the 3GB volume, filled the disk, locked SQLite,
+# and stalled chain ingestion for 5 days. Volume extended to 10GB; using Fly
+# scheduled snapshots (5 retention) for backup until Litestream config is fixed.
+# To re-enable: restore the ADD/RUN above, restore COPY litestream.yml, and
+# wrap CMD back in `litestream replicate -config /app/litestream.yml -exec`.
 
 # Install Python dependencies
 COPY pyproject.toml ./
@@ -29,8 +33,8 @@ COPY demo_seed.py ./
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/dist frontend/dist
 
-# Litestream config
-COPY litestream.yml ./litestream.yml
+# Litestream config (disabled — retained for easy re-enable)
+# COPY litestream.yml ./litestream.yml
 
 # Create data directory
 RUN mkdir -p /data
@@ -41,4 +45,4 @@ ENV MONOLITH_PORT=8000
 
 EXPOSE 8000
 
-CMD ["litestream", "replicate", "-config", "/app/litestream.yml", "-exec", "python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000"]
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
