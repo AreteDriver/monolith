@@ -27,6 +27,9 @@ primary_region = 'iad'
   source = 'monolith_data'
   destination = '/data'
 
+[[restart]]
+  policy = 'always'
+
 [[vm]]
   memory = '2048mb'
   cpu_kind = 'shared'

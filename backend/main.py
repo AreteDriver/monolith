@@ -77,6 +77,7 @@ async def chain_poll_loop(
     heartbeats: dict | None = None,
 ) -> None:
     """Background task: poll chain events, then process into object state."""
+    loop = asyncio.get_event_loop()
     while True:
         if heartbeats is not None:
             heartbeats["chain_poll"] = time.time()
@@ -84,8 +85,8 @@ async def chain_poll_loop(
             stored = await reader.poll(client)
             if stored > 0:
                 logger.info("Chain poll: %d new events", stored)
-            # Process any unprocessed events into object state
-            processed = processor.process_unprocessed()
+            # Process any unprocessed events into object state — sync DB work
+            processed = await loop.run_in_executor(None, processor.process_unprocessed)
             if processed > 0:
                 logger.info("Event processor: %d events → object state", processed)
         except Exception:
@@ -97,11 +98,12 @@ async def snapshot_loop(
     snapshotter: StateSnapshotter, interval: int, heartbeats: dict | None = None
 ) -> None:
     """Background task: compute state deltas on interval."""
+    loop = asyncio.get_event_loop()
     while True:
         if heartbeats is not None:
             heartbeats["snapshot"] = time.time()
         try:
-            deltas = snapshotter.process_all_objects()
+            deltas = await loop.run_in_executor(None, snapshotter.process_all_objects)
             if deltas > 0:
                 logger.info("Snapshotter: %d state deltas", deltas)
         except Exception:
@@ -345,6 +347,53 @@ def _batched_delete(
     return total
 
 
+def _run_table_prune(conn: sqlite3.Connection) -> tuple[int, int, int]:
+    """Synchronous table pruning — runs in executor to avoid blocking event loop."""
+    now = int(time.time())
+    seven_days_ago = now - (7 * 86400)
+    thirty_days_ago = now - (30 * 86400)
+
+    ws_pruned = _batched_delete(
+        conn,
+        "world_states",
+        """SELECT rowid FROM world_states
+           WHERE snapshot_time < ?
+             AND rowid NOT IN (
+               SELECT rowid FROM (
+                 SELECT rowid, ROW_NUMBER() OVER (
+                   PARTITION BY object_id ORDER BY snapshot_time DESC
+                 ) as rn
+                 FROM world_states
+               ) WHERE rn <= 2
+             )""",
+        (seven_days_ago,),
+    )
+
+    st_pruned = _batched_delete(
+        conn,
+        "state_transitions",
+        "SELECT rowid FROM state_transitions WHERE timestamp < ?",
+        (thirty_days_ago,),
+    )
+
+    sc_pruned = _batched_delete(
+        conn,
+        "service_checks",
+        """SELECT rowid FROM service_checks
+           WHERE checked_at < ?
+             AND id NOT IN (
+               SELECT id FROM (
+                 SELECT id, ROW_NUMBER() OVER (
+                   PARTITION BY service_name ORDER BY checked_at DESC
+                 ) as rn
+                 FROM service_checks
+               ) WHERE rn <= 500
+             )""",
+        (seven_days_ago,),
+    )
+    return ws_pruned, st_pruned, sc_pruned
+
+
 async def table_prune_loop(
     conn: sqlite3.Connection, interval: int = 21600, heartbeats: dict | None = None
 ) -> None:
@@ -354,64 +403,22 @@ async def table_prune_loop(
     object_id, deletes anything older than 7 days. Prunes state_transitions
     older than 30 days. Deletes in batches to avoid long write locks.
     """
+    loop = asyncio.get_event_loop()
     # Delay to avoid competing with startup I/O
     await asyncio.sleep(300)
     while True:
         if heartbeats is not None:
             heartbeats["table_prune"] = time.time()
         try:
-            now = int(time.time())
-
-            # Prune world_states older than 7 days, keeping 2 most recent per object_id
-            seven_days_ago = now - (7 * 86400)
-            ws_pruned = _batched_delete(
-                conn,
-                "world_states",
-                """SELECT rowid FROM world_states
-                   WHERE snapshot_time < ?
-                     AND rowid NOT IN (
-                       SELECT rowid FROM (
-                         SELECT rowid, ROW_NUMBER() OVER (
-                           PARTITION BY object_id ORDER BY snapshot_time DESC
-                         ) as rn
-                         FROM world_states
-                       ) WHERE rn <= 2
-                     )""",
-                (seven_days_ago,),
+            ws_pruned, st_pruned, sc_pruned = await loop.run_in_executor(
+                None, _run_table_prune, conn
             )
             if ws_pruned > 0:
                 logger.info("Table pruning: deleted %d stale world_states rows", ws_pruned)
-
-            # Prune state_transitions older than 30 days
-            thirty_days_ago = now - (30 * 86400)
-            st_pruned = _batched_delete(
-                conn,
-                "state_transitions",
-                "SELECT rowid FROM state_transitions WHERE timestamp < ?",
-                (thirty_days_ago,),
-            )
             if st_pruned > 0:
                 logger.info("Table pruning: deleted %d stale state_transitions rows", st_pruned)
-
-            # Prune service_checks older than 7 days, keeping last 500 per service
-            sc_pruned = _batched_delete(
-                conn,
-                "service_checks",
-                """SELECT rowid FROM service_checks
-                   WHERE checked_at < ?
-                     AND id NOT IN (
-                       SELECT id FROM (
-                         SELECT id, ROW_NUMBER() OVER (
-                           PARTITION BY service_name ORDER BY checked_at DESC
-                         ) as rn
-                         FROM service_checks
-                       ) WHERE rn <= 500
-                     )""",
-                (seven_days_ago,),
-            )
             if sc_pruned > 0:
                 logger.info("Table pruning: deleted %d stale service_checks rows", sc_pruned)
-
             if ws_pruned > 0 or st_pruned > 0:
                 logger.info(
                     "Table pruning complete — world_states: %d, state_transitions: %d",
@@ -556,24 +563,25 @@ async def service_health_loop(
             )
             results.extend(ext_results)
 
-            # Internal checks (sync, fast DB reads)
+            # Internal checks (sync DB reads — run in executor)
+            loop = asyncio.get_event_loop()
             results.extend(
                 check_loop_health(heartbeats, expected_intervals, settings.loop_stall_multiplier)
             )
-            results.append(check_event_lag(conn))
-            results.append(check_detection_errors(conn))
+            results.append(await loop.run_in_executor(None, check_event_lag, conn))
+            results.append(await loop.run_in_executor(None, check_detection_errors, conn))
 
             # Record + alert on transitions
             for result in results:
-                transition = record_check(conn, result)
+                transition = await loop.run_in_executor(None, record_check, conn, result)
                 if transition and settings.discord_webhook_url:
                     old, new = transition.split("->")
-                    # Get consecutive_failures from DB for the alert
-                    state_row = conn.execute(
-                        "SELECT consecutive_failures FROM service_state WHERE service_name = ?",
-                        (result.service_name,),
-                    ).fetchone()
-                    failures = state_row["consecutive_failures"] if state_row else 0
+                    # Get consecutive_failures from in-memory state
+                    from backend.alerts.service_health import get_health_state
+
+                    all_state = get_health_state()
+                    mem = all_state.get(result.service_name, {})
+                    failures = mem.get("consecutive_failures", 0)
                     await send_status_alert(
                         settings.discord_webhook_url,
                         result.service_name,
