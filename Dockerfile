@@ -12,7 +12,10 @@ WORKDIR /app
 # curl (Litestream disabled — see below)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
+# git is needed so pip can install arete-graph-utils from git+https://...
+# until it's published to PyPI.
 
 # Litestream temporarily disabled (2026-04-09): retention pruning was broken,
 # shadow WAL grew to 1.3GB on the 3GB volume, filled the disk, locked SQLite,
