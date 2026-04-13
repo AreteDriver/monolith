@@ -38,6 +38,7 @@ from backend.api.objects import router as objects_router
 from backend.api.orbital_zones import router as orbital_zones_router
 from backend.api.public import limiter
 from backend.api.public import router as public_router
+from backend.api.regions import router as regions_router
 from backend.api.reports import router as reports_router
 from backend.api.stats import router as stats_router
 from backend.api.status import router as status_router
@@ -877,6 +878,7 @@ app.include_router(anomalies_router)
 app.include_router(reports_router)
 app.include_router(objects_router)
 app.include_router(stats_router)
+app.include_router(regions_router)
 app.include_router(submit_router)
 app.include_router(systems_router)
 app.include_router(subscriptions_router)

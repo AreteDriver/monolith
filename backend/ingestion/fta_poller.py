@@ -30,26 +30,14 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # FTA deployed addresses (Stillness testnet)
-FTA_PACKAGE_ID = (
-    "0x4d22d8e0cdc3fe27249f1f7ffb8a0b721ea32c80d33817e9fe394de07c771965"
-)
-FTA_OBJECT_ID = (
-    "0x9f68faee73d9817cbf96ea86a0674465731e79da647466a5fe38242816225fc4"
-)
+FTA_PACKAGE_ID = "0x4d22d8e0cdc3fe27249f1f7ffb8a0b721ea32c80d33817e9fe394de07c771965"
+FTA_OBJECT_ID = "0x9f68faee73d9817cbf96ea86a0674465731e79da647466a5fe38242816225fc4"
 
 # FTA sub-table IDs for targeted polling
-FTA_GATE_REGISTRY_TABLE = (
-    "0xda486d92d86793b2987a5edeef2f137cba7ca5f3cef207ec9b49826daa8af8fe"
-)
-FTA_BLACKLIST_TABLE = (
-    "0x7ac35342d6d6dfec9e4da0dc64cbdfef78ee5fb6b58c4785f5839ed20d415651"
-)
-FTA_BOUNTY_CHARACTER_TABLE = (
-    "0x2c5e9c125d7f67b28850b89026a12968f7d562a58bb9a7ecc1d29bbabfa1efbd"
-)
-FTA_JUMP_HISTORY_TABLE = (
-    "0x8137286a1bd2b7f1507b1369e1c31ca05835ce99a7e2f055659f08b598a17d94"
-)
+FTA_GATE_REGISTRY_TABLE = "0xda486d92d86793b2987a5edeef2f137cba7ca5f3cef207ec9b49826daa8af8fe"
+FTA_BLACKLIST_TABLE = "0x7ac35342d6d6dfec9e4da0dc64cbdfef78ee5fb6b58c4785f5839ed20d415651"
+FTA_BOUNTY_CHARACTER_TABLE = "0x2c5e9c125d7f67b28850b89026a12968f7d562a58bb9a7ecc1d29bbabfa1efbd"
+FTA_JUMP_HISTORY_TABLE = "0x8137286a1bd2b7f1507b1369e1c31ca05835ce99a7e2f055659f08b598a17d94"
 
 SUI_GRAPHQL_URL = "https://graphql.testnet.sui.io/graphql"
 
@@ -144,9 +132,7 @@ class FTAPoller:
 
     def _get_state(self, key: str, default: str = "") -> str:
         """Get persisted FTA poller state."""
-        row = self.conn.execute(
-            "SELECT value FROM fta_state WHERE key = ?", (key,)
-        ).fetchone()
+        row = self.conn.execute("SELECT value FROM fta_state WHERE key = ?", (key,)).fetchone()
         if row:
             return row[0] if isinstance(row, tuple) else row["value"]
         return default
@@ -237,19 +223,11 @@ class FTAPoller:
 
             # Process object changes (gate reg/dereg, bounty, blacklist)
             obj_changes = effects.get("objectChanges", {}).get("nodes", [])
-            created_ids = [
-                o["address"] for o in obj_changes
-                if o.get("idCreated")
-            ]
-            deleted_ids = [
-                o["address"] for o in obj_changes
-                if o.get("idDeleted")
-            ]
+            created_ids = [o["address"] for o in obj_changes if o.get("idCreated")]
+            deleted_ids = [o["address"] for o in obj_changes if o.get("idDeleted")]
 
             # FTA object was mutated — record version change
-            fta_mutated = any(
-                o["address"] == FTA_OBJECT_ID for o in obj_changes
-            )
+            fta_mutated = any(o["address"] == FTA_OBJECT_ID for o in obj_changes)
             if fta_mutated and (created_ids or deleted_ids):
                 event_count += self._store_fta_event(
                     event_type="FTA_StateMutation",
@@ -270,7 +248,10 @@ class FTAPoller:
         if event_count:
             logger.info(
                 "FTA poller: %d events from %d transactions (checkpoint %s→%s)",
-                event_count, len(nodes), last_checkpoint, max_checkpoint,
+                event_count,
+                len(nodes),
+                last_checkpoint,
+                max_checkpoint,
             )
 
         return event_count
@@ -301,9 +282,7 @@ class FTAPoller:
             return False  # No change
 
         # Extract key metrics from object contents
-        contents = (
-            obj.get("asMoveObject", {}).get("contents", {}).get("json", {})
-        )
+        contents = obj.get("asMoveObject", {}).get("contents", {}).get("json", {})
         snapshot = {
             "version": version,
             "developer_balance": contents.get("developer_balance", "0"),
@@ -316,7 +295,9 @@ class FTAPoller:
 
         logger.info(
             "FTA snapshot: version %s → %s, dev_balance=%s",
-            last_version, version, snapshot["developer_balance"],
+            last_version,
+            version,
+            snapshot["developer_balance"],
         )
         return True
 

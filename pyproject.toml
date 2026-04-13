@@ -19,6 +19,8 @@ dependencies = [
     "anthropic>=0.43.0",
     "aiosqlite>=0.20.0",
     "slowapi>=0.1.9",
+    "networkx>=3.0",
+    "arete-graph-utils @ git+https://github.com/AreteDriver/arete-graph-utils.git@main",
 ]
 
 [project.optional-dependencies]
