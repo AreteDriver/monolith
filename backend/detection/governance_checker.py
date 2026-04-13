@@ -90,9 +90,7 @@ class GovernanceChecker(BaseChecker):
                 parsed = raw
 
             parsed_json = parsed.get("parsedJson", parsed)
-            to_addr = self._extract_address(
-                parsed_json, "recipient", "to", "newOwner"
-            )
+            to_addr = self._extract_address(parsed_json, "recipient", "to", "newOwner")
             if not to_addr:
                 continue
 
@@ -132,9 +130,7 @@ class GovernanceChecker(BaseChecker):
                             source_type="chain_event",
                             source_id=t.get("transaction_hash", ""),
                             timestamp=t.get("timestamp", 0),
-                            derivation=(
-                                f"GV1: OwnerCap transfer #{i + 1} to {recipient[:16]}"
-                            ),
+                            derivation=(f"GV1: OwnerCap transfer #{i + 1} to {recipient[:16]}"),
                         )
                         for i, t in enumerate(transfers[:5])
                     ],
@@ -179,9 +175,7 @@ class GovernanceChecker(BaseChecker):
 
             assembly_id = event.get("object_id", "")
             parsed_json = parsed.get("parsedJson", parsed)
-            depositor = self._extract_address(
-                parsed_json, "sender", "owner", "from", "depositor"
-            )
+            depositor = self._extract_address(parsed_json, "sender", "owner", "from", "depositor")
             if not assembly_id or not depositor:
                 continue
 
@@ -264,9 +258,7 @@ class GovernanceChecker(BaseChecker):
                 parsed = raw
 
             parsed_json = parsed.get("parsedJson", parsed)
-            operator = self._extract_address(
-                parsed_json, "sender", "owner", "creator"
-            )
+            operator = self._extract_address(parsed_json, "sender", "owner", "creator")
             if not operator:
                 # Fall back to object owner from objects table
                 obj_id = event.get("object_id", "")

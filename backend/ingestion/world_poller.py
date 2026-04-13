@@ -237,9 +237,7 @@ class WorldPoller:
         # Skip if tribes were loaded within the last 24 hours
         existing = self.conn.execute("SELECT COUNT(*) FROM tribe_cache").fetchone()[0]
         if existing > 0:
-            row = self.conn.execute(
-                "SELECT MAX(last_confirmed_at) FROM tribe_cache"
-            ).fetchone()
+            row = self.conn.execute("SELECT MAX(last_confirmed_at) FROM tribe_cache").fetchone()
             age = time.time() - row[0] if row and row[0] is not None else 0
             if age < 86400:
                 return 0
