@@ -150,3 +150,119 @@ def test_store_report(db_conn):
         "SELECT report_id FROM anomalies WHERE anomaly_id = 'ANM-001'"
     ).fetchone()
     assert anomaly["report_id"] == report["report_id"]
+
+
+# ── Additional coverage — uncovered branches ────────────────────────────────
+
+
+def test_build_report_bad_evidence_json():
+    """Malformed evidence_json falls back to raw string wrapper."""
+    row = _make_anomaly_row()
+    row["evidence_json"] = "not valid json {"
+    report = build_report(row)
+    evidence = json.loads(report["evidence_json"])
+    assert evidence["raw"] == "not valid json {"
+
+
+def test_build_report_empty_evidence():
+    """Empty evidence_json produces default summary from anomaly_type."""
+    row = _make_anomaly_row()
+    row["evidence_json"] = ""
+    report = build_report(row)
+    assert report["summary"] == "ORPHAN_OBJECT detected"
+
+
+def test_build_report_title_system_zero():
+    """Title omits system when system_id is '0'."""
+    row = _make_anomaly_row()
+    row["system_id"] = "0"
+    report = build_report(row)
+    assert "System" not in report["title"]
+
+
+def test_build_report_title_with_system():
+    """Title includes system when system_id is non-zero."""
+    row = _make_anomaly_row()
+    row["system_id"] = "30012602"
+    report = build_report(row)
+    assert "System 30012602" in report["title"]
+
+
+def test_build_report_title_short_object_id():
+    """Title does not truncate short object IDs."""
+    row = _make_anomaly_row()
+    row["object_id"] = "short-id"
+    report = build_report(row)
+    assert "..." not in report["title"]
+
+
+def test_chain_references_post_destruction_event():
+    """Post-destruction event adds extra chain reference."""
+    row = _make_anomaly_row()
+    row["evidence_json"] = json.dumps({
+        "description": "Test",
+        "post_destruction_event": {"transaction_hash": "0xpost123"},
+    })
+    report = build_report(row)
+    refs = json.loads(report["chain_references"])
+    post_refs = [r for r in refs if r.get("label") == "post_destruction"]
+    assert len(post_refs) == 1
+    assert post_refs[0]["hash"] == "0xpost123"
+
+
+def test_reproduction_context_with_snapshot_window():
+    """Reproduction context includes observation window from evidence."""
+    row = _make_anomaly_row()
+    row["evidence_json"] = json.dumps({
+        "description": "Test",
+        "old_snapshot_time": 1000,
+        "new_snapshot_time": 2000,
+    })
+    report = build_report(row)
+    ctx = json.loads(report["reproduction_context"])
+    assert ctx["observation_window_seconds"] == 1000
+    assert ctx["snapshot_start"] == 1000
+    assert ctx["snapshot_end"] == 2000
+
+
+def test_build_report_unknown_anomaly_type():
+    """Unknown anomaly_type gets generic investigation steps."""
+    row = _make_anomaly_row("TOTALLY_UNKNOWN_TYPE")
+    report = build_report(row)
+    steps = json.loads(report["recommended_investigation"])
+    assert len(steps) == 1
+    assert "manual investigation" in steps[0].lower()
+
+
+def test_store_report_duplicate(db_conn):
+    """Duplicate report store returns False."""
+    now = int(time.time())
+    db_conn.execute(
+        "INSERT INTO anomalies (anomaly_id, anomaly_type, severity, category, "
+        "detector, rule_id, object_id, system_id, detected_at, evidence_json, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ("ANM-DUP", "ORPHAN_OBJECT", "MEDIUM", "CONTINUITY",
+         "test", "C1", "obj-1", "", now, "{}", "UNVERIFIED"),
+    )
+    db_conn.commit()
+
+    report = build_report({**_make_anomaly_row(), "anomaly_id": "ANM-DUP"})
+    assert store_report(report, db_conn) is True
+    # Try storing again — should return False (duplicate)
+    assert store_report(report, db_conn) is False
+
+
+def test_build_report_no_object_in_db(db_conn):
+    """Build report with conn but object not in DB gives minimal entities."""
+    row = _make_anomaly_row()
+    row["object_id"] = "non-existent-obj"
+    report = build_report(row, db_conn)
+    assert report["affected_entities"]["object_id"] == "non-existent-obj"
+    assert "object_type" not in report["affected_entities"]
+
+
+def test_build_report_no_conn_no_enrichment():
+    """Build report without conn skips DB enrichment."""
+    row = _make_anomaly_row()
+    report = build_report(row, conn=None)
+    assert "object_type" not in report["affected_entities"]

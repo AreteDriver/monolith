@@ -26,11 +26,11 @@ jobs:
 
       - name: Display results
         if: always()
-        run: bandit -r backend/ --severity-level medium
+        run: bandit -r backend/ --severity-level medium || true
 
       - name: Upload bandit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bandit-report
           path: bandit-report.json

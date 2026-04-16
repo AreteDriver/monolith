@@ -32,7 +32,7 @@ Monolith ingests 13 Sui on-chain event types in real time, runs 39 deterministic
 - **Discord alerting** — webhook embeds for CRITICAL/HIGH, rate-limited
 - **Webhook subscriptions** — push anomaly events to any HTTP endpoint
 - **Public API v1** — read anomalies, stats, health, object history (rate limited: 60 req/min)
-- **465 tests passing**, 80% coverage gate
+- **654+ tests passing**, 80% coverage gate
 - **MIT Licensed**
 
 ### Detection Rules
@@ -154,7 +154,7 @@ npm run dev
 ```bash
 source .venv/bin/activate
 python -m pytest tests/ -v
-# 465 tests passing
+# 654+ tests passing
 ```
 
 ---
@@ -220,7 +220,7 @@ Monolith is the detection layer of the **Aegis Stack** — a unified toolkit for
 | **Detection** | [Monolith](https://github.com/AreteDriver/monolith) (this repo) | 39 anomaly detection rules, 19 checkers, threat heatmap, auto-filed bug reports with chain evidence |
 | **Operations** | [Frontier Tribe OS](https://github.com/AreteDriver/frontier-tribe-os) | Tribe management — census, production, treasury, intel, alerts, threat analysis |
 
-**Combined**: 1,227+ tests | 3 live deployments | On-chain Sui Move contracts | 24,502 systems mapped | Dual payment rails (Sui + Stripe)
+**Combined**: 1,700+ tests | 3 live deployments | On-chain Sui Move contracts | 24,502 systems mapped | Dual payment rails (Sui + Stripe)
 
 - [WatchTower Live Demo](https://watchtower-evefrontier.vercel.app/)
 - [Monolith Live Demo](https://aegismonolith.xyz/)

@@ -118,3 +118,67 @@ def test_oz2_tier_zero_no_trigger(db_conn):
     anomalies = checker.check()
     oz2 = [a for a in anomalies if a.rule_id == "OZ2"]
     assert len(oz2) == 0
+
+
+# ── Exception handling ───────────────────────────────────────────────────────
+
+
+def test_oz1_handles_missing_table(db_conn):
+    """OZ1: Returns empty when orbital_zones table is missing."""
+    db_conn.execute("DROP TABLE IF EXISTS orbital_zones")
+    db_conn.commit()
+
+    checker = OrbitalZoneChecker(db_conn)
+    anomalies = checker._check_oz1_blind_spot()
+    assert anomalies == []
+
+
+def test_oz2_handles_missing_table(db_conn):
+    """OZ2: Returns empty when tables are missing."""
+    db_conn.execute("DROP TABLE IF EXISTS feral_ai_events")
+    db_conn.execute("DROP TABLE IF EXISTS orbital_zones")
+    db_conn.commit()
+
+    checker = OrbitalZoneChecker(db_conn)
+    anomalies = checker._check_oz2_tier_escalation()
+    assert anomalies == []
+
+
+def test_oz1_zone_with_null_name(db_conn):
+    """OZ1: Zone with NULL name uses zone_id in description."""
+    stale = int(time.time()) - BLIND_SPOT_THRESHOLD - 60
+    _seed_zone(db_conn, "zone-noname", zone_name=None, last_polled=stale)
+
+    checker = OrbitalZoneChecker(db_conn)
+    anomalies = checker.check()
+    oz1 = [a for a in anomalies if a.rule_id == "OZ1"]
+    assert len(oz1) == 1
+    assert "zone-noname" in oz1[0].evidence["description"]
+
+
+def test_oz2_zone_with_null_system(db_conn):
+    """OZ2: Zone with NULL system_id defaults to empty string."""
+    now = int(time.time())
+    _seed_zone(db_conn, "zone-nosys", zone_name="Hot Zone", system_id=None,
+               tier=2, last_polled=now)
+    for i in range(4):
+        _seed_feral_event(db_conn, f"fe-nosys-{i}", "zone-nosys",
+                          system_id="", detected_at=now - 60 * i)
+
+    checker = OrbitalZoneChecker(db_conn)
+    anomalies = checker.check()
+    oz2 = [a for a in anomalies if a.rule_id == "OZ2"]
+    assert len(oz2) == 1
+    assert oz2[0].system_id == ""
+
+
+def test_oz1_multiple_stale_zones(db_conn):
+    """OZ1: Multiple stale zones each produce an anomaly."""
+    stale = int(time.time()) - BLIND_SPOT_THRESHOLD - 120
+    _seed_zone(db_conn, "zone-s1", zone_name="Alpha", last_polled=stale)
+    _seed_zone(db_conn, "zone-s2", zone_name="Beta", last_polled=stale)
+
+    checker = OrbitalZoneChecker(db_conn)
+    anomalies = checker.check()
+    oz1 = [a for a in anomalies if a.rule_id == "OZ1"]
+    assert len(oz1) == 2

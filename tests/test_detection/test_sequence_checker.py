@@ -90,3 +90,75 @@ def test_s4_no_gap_within_threshold(db_conn):
 
     gaps = [a for a in anomalies if a.anomaly_type == "BLOCK_PROCESSING_GAP"]
     assert len(gaps) == 0
+
+
+# ── S2 direct method tests (disabled in check() but logic still exists) ──────
+
+
+def test_s2_direct_high_event_count(db_conn):
+    """S2: Direct call to _check_s2 flags >50 non-fuel events per tx."""
+    for i in range(55):
+        _insert_event(db_conn, f"spam:{i}", "tx-spam", 100, "0xpkg::gate::GateEvent")
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker._check_s2_duplicate_transactions()
+
+    assert len(anomalies) == 1
+    assert anomalies[0].anomaly_type == "DUPLICATE_TRANSACTION"
+    assert anomalies[0].evidence["event_count"] == 55
+
+
+def test_s2_direct_under_threshold(db_conn):
+    """S2: Direct call with <=50 events does not flag."""
+    for i in range(50):
+        _insert_event(db_conn, f"ok:{i}", "tx-ok", 100, "0xpkg::gate::GateEvent")
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker._check_s2_duplicate_transactions()
+    assert len(anomalies) == 0
+
+
+def test_s2_direct_fuel_excluded(db_conn):
+    """S2: Direct call excludes fuel events from count."""
+    fuel_type = "0xd12a::fuel::FuelEvent"
+    for i in range(60):
+        _insert_event(db_conn, f"fuel-only:{i}", "tx-fuel", 100, fuel_type)
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker._check_s2_duplicate_transactions()
+    assert len(anomalies) == 0
+
+
+def test_s4_single_block_no_gap(db_conn):
+    """S4: Single block number produces no gap anomaly."""
+    _insert_event(db_conn, "single-1", "tx-1", 500)
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker.check()
+    gaps = [a for a in anomalies if a.anomaly_type == "BLOCK_PROCESSING_GAP"]
+    assert len(gaps) == 0
+
+
+def test_s4_multiple_gaps(db_conn):
+    """S4: Multiple large gaps each produce an anomaly."""
+    _insert_event(db_conn, "evt-a", "tx-a", 1000)
+    _insert_event(db_conn, "evt-b", "tx-b", 1200)  # gap 200
+    _insert_event(db_conn, "evt-c", "tx-c", 1500)  # gap 300
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker.check()
+    gaps = [a for a in anomalies if a.anomaly_type == "BLOCK_PROCESSING_GAP"]
+    assert len(gaps) == 2
+    assert gaps[0].evidence["gap_size"] == 200
+    assert gaps[1].evidence["gap_size"] == 300
+
+
+def test_s4_zero_block_numbers_excluded(db_conn):
+    """S4: Block number 0 is excluded from gap analysis."""
+    _insert_event(db_conn, "evt-zero", "tx-z", 0)
+    _insert_event(db_conn, "evt-real", "tx-r", 500)
+
+    checker = SequenceChecker(db_conn)
+    anomalies = checker.check()
+    gaps = [a for a in anomalies if a.anomaly_type == "BLOCK_PROCESSING_GAP"]
+    assert len(gaps) == 0
