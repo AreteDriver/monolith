@@ -138,7 +138,7 @@ def format_json(report: dict) -> dict:
         "plain_english": report.get("plain_english", ""),
         "generated_at": report.get("generated_at", 0),
         "generated_at_iso": _format_timestamp(report.get("generated_at", 0)),
-        "version": "0.4.0",
+        "version": "0.5.0",
     }
 
 

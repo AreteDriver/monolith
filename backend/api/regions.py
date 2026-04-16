@@ -51,6 +51,11 @@ def build_knn_graph(
 ) -> nx.Graph:
     """Build a k-nearest-neighbors proximity graph on (x, z) coordinates.
 
+    Uses scipy.spatial.cKDTree for O(n log n) nearest-neighbor queries,
+    which is necessary at the ~24K system scale of the live galaxy map.
+    The naive O(n²) fallback that preceded this was causing 60s+ request
+    timeouts on the first (uncached) call.
+
     Args:
         systems: List of dicts with keys `system_id`, `x`, `z`.
         k: Number of nearest neighbors per node.
@@ -58,6 +63,9 @@ def build_knn_graph(
     Returns:
         Undirected `networkx.Graph` with system_id as node label.
     """
+    import numpy as np
+    from scipy.spatial import cKDTree
+
     g = nx.Graph()
     for s in systems:
         g.add_node(s["system_id"], x=s["x"], z=s["z"])
@@ -67,20 +75,20 @@ def build_knn_graph(
 
     k = max(1, min(k, len(systems) - 1))
 
-    # O(n²) brute-force neighbor search — fine for 10K-30K systems at cache rate
-    for i, s in enumerate(systems):
-        sx, sz = s["x"], s["z"]
-        dists: list[tuple[float, str]] = []
-        for j, t in enumerate(systems):
+    coords = np.asarray([(float(s["x"]), float(s["z"])) for s in systems], dtype=np.float64)
+    ids = [s["system_id"] for s in systems]
+
+    tree = cKDTree(coords)
+    # Query k + 1 neighbors because the nearest neighbor of any point is
+    # itself (distance 0); we drop that to keep k actual neighbors.
+    _, indices = tree.query(coords, k=k + 1)
+
+    for i, neighbors in enumerate(indices):
+        src = ids[i]
+        for j in neighbors[1:]:
             if i == j:
                 continue
-            dx = t["x"] - sx
-            dz = t["z"] - sz
-            # Use squared distance to avoid sqrt until needed
-            dists.append((dx * dx + dz * dz, t["system_id"]))
-        dists.sort(key=lambda pair: pair[0])
-        for _, neighbor_id in dists[:k]:
-            g.add_edge(s["system_id"], neighbor_id)
+            g.add_edge(src, ids[j])
     return g
 
 

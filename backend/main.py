@@ -957,7 +957,7 @@ async def health() -> dict:
 
     return {
         "status": "ok",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "chain": settings.chain,
         "uptime_seconds": int(time.time() - START_TIME),
         "last_event_time": last_event_time,

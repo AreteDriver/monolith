@@ -56,7 +56,7 @@ def _build_embed(anomaly: dict) -> dict:
                 "inline": True,
             },
         ],
-        "footer": {"text": "MONOLITH v0.4.0 — EVE Frontier Blockchain Integrity Monitor"},
+        "footer": {"text": "MONOLITH v0.5.0 — EVE Frontier Blockchain Integrity Monitor"},
     }
 
 

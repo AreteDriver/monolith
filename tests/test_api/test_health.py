@@ -22,7 +22,7 @@ def test_health_returns_ok(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
-    assert data["version"] == "0.4.0"
+    assert data["version"] == "0.5.0"
     assert "uptime_seconds" in data
     assert "row_counts" in data
 
