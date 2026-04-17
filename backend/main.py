@@ -31,6 +31,7 @@ from backend.alerts.service_health import (
     record_check,
 )
 from backend.alerts.subscription_dispatch import dispatch_to_subscribers
+from backend.api.admin import router as admin_router
 from backend.api.anomalies import router as anomalies_router
 from backend.api.error_tracker import capture_error
 from backend.api.error_tracker import router as error_tracker_router
@@ -881,6 +882,7 @@ app.include_router(public_router)
 app.include_router(nexus_router, prefix="/api")
 app.include_router(orbital_zones_router)
 app.include_router(error_tracker_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 app.include_router(status_router)
 
 

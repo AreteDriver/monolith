@@ -188,6 +188,8 @@ All settings via env vars with `MONOLITH_` prefix (pydantic-settings):
 | GET | `/api/orbital-zones/threats` | Threat level aggregation across zones |
 | GET | `/api/orbital-zones/feral-ai/events` | Feral AI event feed |
 | GET | `/api/orbital-zones/cycle` | Current universe cycle metadata |
+| GET | `/api/admin/errors` | Recent unhandled exceptions (X-Admin-Key required) |
+| POST | `/api/admin/universe-reset` | Flush polled world data after a Frontier cycle transition (X-Admin-Key required) |
 
 ## Frontend Dev Tools
 
