@@ -677,7 +677,7 @@ def test_fta_jump_handler(db_conn):
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "FTA_JumpPermit",
+        "fta::jump::FTA_JumpPermit",
         "fta-gate-1",
         {
             "source_gate_id": "fta-gate-1",
@@ -702,7 +702,7 @@ def test_fta_state_mutation_handler(db_conn):
 
     processor = EventProcessor(db_conn)
     event = _make_event(
-        "FTA_StateMutation",
+        "fta::state::FTA_StateMutation",
         "",
         {
             "created_objects": ["obj-1", "obj-2"],
@@ -711,14 +711,9 @@ def test_fta_state_mutation_handler(db_conn):
         },
     )
 
-    with patch(
-        "backend.ingestion.event_processor.FTA_OBJECT_ID",
-        "fta-test-object",
-        create=True,
-    ):
-        # The import happens inside the handler, so we patch the source
-        with patch("backend.ingestion.fta_poller.FTA_OBJECT_ID", "fta-test-object"):
-            processor._dispatch_event(event)
+    # Patch at the source module where it's imported from
+    with patch("backend.ingestion.fta_poller.FTA_OBJECT_ID", "fta-test-object"):
+        processor._dispatch_event(event)
 
     obj = db_conn.execute(
         "SELECT current_state FROM objects WHERE object_id = 'fta-test-object'"
