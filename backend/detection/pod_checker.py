@@ -29,7 +29,7 @@ query GetObject($address: SuiAddress!) {
     address
     version
     owner {
-      ... on AddressOwner { owner { address } }
+      ... on AddressOwner { address { address } }
       ... on Shared { initialSharedVersion }
     }
     asMoveObject {
@@ -193,8 +193,8 @@ class PodChecker(BaseChecker):
         chain_owner_data = chain_obj.get("owner", {})
         chain_owner = ""
         if isinstance(chain_owner_data, dict):
-            # AddressOwner has nested owner.address
-            inner = chain_owner_data.get("owner", {})
+            # AddressOwner nests owner as address { address } (Sui GraphQL schema ~2026-04)
+            inner = chain_owner_data.get("address", {})
             if isinstance(inner, dict):
                 chain_owner = inner.get("address", "")
 

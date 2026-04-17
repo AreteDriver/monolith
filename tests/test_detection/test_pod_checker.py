@@ -54,7 +54,7 @@ async def test_p1_matching_state(db_conn):
             "object": {
                 "address": obj_id,
                 "version": 5,
-                "owner": {"owner": {"address": "0xowner1"}},
+                "owner": {"address": {"address": "0xowner1"}},
                 "asMoveObject": {
                     "contents": {
                         "json": json.dumps({"state": "ONLINE"}),
@@ -87,7 +87,7 @@ async def test_p1_owner_mismatch(db_conn):
             "object": {
                 "address": obj_id,
                 "version": 10,
-                "owner": {"owner": {"address": "0xowner_chain"}},
+                "owner": {"address": {"address": "0xowner_chain"}},
                 "asMoveObject": {"contents": {"json": "{}"}},
             }
         }
