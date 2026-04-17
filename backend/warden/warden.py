@@ -20,9 +20,6 @@ from backend.warden.sui_queries import (
 
 logger = logging.getLogger(__name__)
 
-# Default max autonomous cycles before requiring human review
-DEFAULT_MAX_CYCLES = 24
-
 
 class Warden:
     """Autonomous threat analysis system.
@@ -35,24 +32,16 @@ class Warden:
         self,
         conn: sqlite3.Connection,
         sui_rpc_url: str,
-        max_cycles: int = DEFAULT_MAX_CYCLES,
     ):
         self.conn = conn
         self.sui_rpc_url = sui_rpc_url
-        self.max_cycles = max_cycles
-        self.cycles_run = 0
 
     async def run_cycle(self, client: httpx.AsyncClient | None = None) -> dict:
         """Run one verification cycle.
 
         Returns dict with cycle results: verified, dismissed, errors.
         """
-        if self.cycles_run >= self.max_cycles:
-            logger.info("Warden: max cycles (%d) reached — pausing", self.max_cycles)
-            return {"status": "paused", "reason": "max_cycles"}
-
-        self.cycles_run += 1
-        results = {"verified": 0, "dismissed": 0, "errors": 0, "cycle": self.cycles_run}
+        results = {"verified": 0, "dismissed": 0, "errors": 0}
 
         # Get unverified anomalies that reference an object_id
         unverified = self._get_unverified_anomalies(limit=10)
@@ -87,8 +76,7 @@ class Warden:
 
         results["status"] = "completed"
         logger.info(
-            "Warden cycle %d: %d verified, %d dismissed, %d errors",
-            self.cycles_run,
+            "Warden cycle: %d verified, %d dismissed, %d errors",
             results["verified"],
             results["dismissed"],
             results["errors"],
@@ -194,7 +182,3 @@ class Warden:
             self.conn.commit()
         except sqlite3.OperationalError:
             logger.warning("Failed to append provenance to %s", anomaly_id)
-
-    def reset_cycles(self) -> None:
-        """Reset cycle counter (call after human review)."""
-        self.cycles_run = 0

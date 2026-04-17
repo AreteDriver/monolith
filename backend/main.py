@@ -301,11 +301,6 @@ async def warden_loop(
                     results["verified"],
                     results["dismissed"],
                 )
-            elif results.get("status") == "paused":
-                logger.info("Warden paused — max cycles reached, awaiting reset")
-                # Wait longer before checking again
-                await asyncio.sleep(interval * 10)
-                continue
         except Exception:
             logger.exception("Warden error")
         await asyncio.sleep(interval)

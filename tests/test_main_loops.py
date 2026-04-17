@@ -250,30 +250,6 @@ async def test_warden_loop_completed():
 
 
 @pytest.mark.asyncio
-async def test_warden_loop_paused():
-    """warden_loop waits longer when paused."""
-    warden = MagicMock()
-    warden.run_cycle = AsyncMock(return_value={"status": "paused"})
-
-    sleep_calls = []
-
-    async def track_sleep(seconds):
-        sleep_calls.append(seconds)
-        if len(sleep_calls) >= 2:
-            raise asyncio.CancelledError()
-
-    with (
-        patch("backend.main.asyncio.sleep", side_effect=track_sleep),
-        pytest.raises(asyncio.CancelledError),
-    ):
-        await warden_loop(warden, interval=300)
-
-    # First sleep is startup delay (120), second should be interval*10 (3000)
-    assert sleep_calls[0] == 120  # startup delay
-    assert sleep_calls[1] == 3000  # paused → longer wait
-
-
-@pytest.mark.asyncio
 async def test_warden_loop_handles_exception():
     """warden_loop catches exceptions."""
     warden = MagicMock()

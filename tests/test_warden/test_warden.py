@@ -38,15 +38,6 @@ async def test_warden_idle_no_anomalies(conn):
 
 
 @pytest.mark.asyncio
-async def test_warden_max_cycles_pauses(conn):
-    """Warden pauses after max_cycles."""
-    warden = Warden(conn, "https://fake-rpc.example.com", max_cycles=2)
-    warden.cycles_run = 2
-    result = await warden.run_cycle()
-    assert result["status"] == "paused"
-
-
-@pytest.mark.asyncio
 async def test_warden_chain_unreachable(conn, respx_mock):
     """Warden skips cycle when chain is unreachable."""
     rpc_url = "https://fake-rpc.example.com"
@@ -110,14 +101,6 @@ async def test_warden_dismisses_c1_missing(conn, respx_mock):
         "SELECT status FROM anomalies WHERE anomaly_id = 'MNLT-TEST-C1-MISS'"
     ).fetchone()
     assert row["status"] == "DISMISSED"
-
-
-def test_warden_reset_cycles(conn):
-    """reset_cycles resets the counter."""
-    warden = Warden(conn, "https://fake-rpc.example.com")
-    warden.cycles_run = 10
-    warden.reset_cycles()
-    assert warden.cycles_run == 0
 
 
 @pytest.mark.asyncio
