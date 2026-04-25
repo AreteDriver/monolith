@@ -3,7 +3,7 @@
 **Archived**: 2026-04-25
 **Last version**: v0.5.0
 **Tests at archive**: 728 (84% coverage, CI gate 80%)
-**Live deployment at archive**: `monolith-evefrontier.fly.dev` (suspended 2026-04-25)
+**Live deployment at archive**: `monolith-evefrontier.fly.dev` (destroyed 2026-04-25 — app, machines, and 10GB volume all removed)
 
 ---
 
@@ -54,8 +54,9 @@ event shapes and EVE Frontier object semantics, and don't generalize.
 - Read the code, the tests, and the commit history.
 - Read the original [README.md](./README.md) and [CLAUDE.md](./CLAUDE.md)
   for the as-built architecture.
-- Resurrect the Fly app from `fly.toml` if needed (machine was
-  suspended, not destroyed; config and image are intact).
+- Re-deploy from scratch using `fly.toml` if ever needed. The Fly app,
+  machines, and data volume were destroyed on archive day; the runtime
+  state is gone, but the deploy config is intact in this repo.
 
 ## What is no longer happening
 
