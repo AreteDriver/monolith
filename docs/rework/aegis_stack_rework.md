@@ -48,7 +48,7 @@ Monolith as `arete-sentinel-core` is the engine. The hackathon work already prov
 
 - **Fintech fraud detection** — transaction streams, unusual patterns, velocity checks
 - **Crypto forensics** — the current domain, now positionable as a standalone offering
-- **Supply chain integrity** — logistics event streams (your Toyota domain directly)
+- **Supply chain integrity** — logistics event streams (your enterprise-operations domain directly)
 - **Industrial SCADA** — sensor anomalies in manufacturing environments
 - **Audit logs** — security event stream analysis
 
@@ -227,7 +227,7 @@ Reasoning:
 
 - Large, mature market with established willingness to pay
 - Your blockchain experience is adjacent and credible (crypto is fintech-adjacent)
-- Your Toyota operations background gives you TPS/standard-work credibility for talking to risk teams
+- Your enterprise operations background gives you TPS/standard-work credibility for talking to risk teams
 - Regulatory tailwinds (bank AI governance pressure) create urgency
 - Lower enterprise sales complexity than SCADA or supply chain (fintech buys faster)
 
