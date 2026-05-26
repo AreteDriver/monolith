@@ -13,8 +13,7 @@ def _insert_event(conn, event_id, system_id, sender, timestamp=None):
         "INSERT INTO chain_events (event_id, event_type, object_id, system_id, "
         "transaction_hash, timestamp, raw_json, processed) "
         "VALUES (?, 'test', '', ?, ?, ?, ?, 0)",
-        (event_id, system_id, f"tx-{event_id}", ts,
-         json.dumps({"sender": sender})),
+        (event_id, system_id, f"tx-{event_id}", ts, json.dumps({"sender": sender})),
     )
     conn.commit()
 

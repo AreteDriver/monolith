@@ -159,11 +159,11 @@ def test_oz1_zone_with_null_name(db_conn):
 def test_oz2_zone_with_null_system(db_conn):
     """OZ2: Zone with NULL system_id defaults to empty string."""
     now = int(time.time())
-    _seed_zone(db_conn, "zone-nosys", zone_name="Hot Zone", system_id=None,
-               tier=2, last_polled=now)
+    _seed_zone(db_conn, "zone-nosys", zone_name="Hot Zone", system_id=None, tier=2, last_polled=now)
     for i in range(4):
-        _seed_feral_event(db_conn, f"fe-nosys-{i}", "zone-nosys",
-                          system_id="", detected_at=now - 60 * i)
+        _seed_feral_event(
+            db_conn, f"fe-nosys-{i}", "zone-nosys", system_id="", detected_at=now - 60 * i
+        )
 
     checker = OrbitalZoneChecker(db_conn)
     anomalies = checker.check()

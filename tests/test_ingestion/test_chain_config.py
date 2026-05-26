@@ -31,7 +31,9 @@ def test_parse_config_dict():
     """parse_config extracts fields from dict response."""
     raw = {
         "contracts": {"world": {"address": "0xpackage123"}},
-        "rpcUrls": {"default": {"http": "https://rpc.example.com", "webSocket": "wss://rpc.example.com"}},
+        "rpcUrls": {
+            "default": {"http": "https://rpc.example.com", "webSocket": "wss://rpc.example.com"}
+        },
         "cycleStartDate": "2026-01-01",
         "indexerUrl": "https://indexer.example.com",
         "chainId": "sui:testnet",
@@ -114,11 +116,14 @@ async def test_fetch_chain_config_success(config_conn, respx_mock):
     """fetch_chain_config fetches from API and caches result."""
     url = "https://world-api.example.com"
     respx_mock.get(f"{url}/config").mock(
-        return_value=httpx.Response(200, json={
-            "contracts": {"world": {"address": "0xlivepkg"}},
-            "rpcUrls": {"default": {"http": "https://rpc.live"}},
-            "cycleStartDate": "2026-04-01",
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "contracts": {"world": {"address": "0xlivepkg"}},
+                "rpcUrls": {"default": {"http": "https://rpc.live"}},
+                "cycleStartDate": "2026-04-01",
+            },
+        )
     )
 
     config = await fetch_chain_config(url, config_conn)
@@ -163,9 +168,7 @@ async def test_fetch_chain_config_api_error_uses_cache(config_conn, respx_mock):
 async def test_fetch_chain_config_no_cache_no_api(config_conn, respx_mock):
     """fetch_chain_config returns empty config when API fails and no cache."""
     url = "https://world-api.example.com"
-    respx_mock.get(f"{url}/config").mock(
-        return_value=httpx.Response(500, text="down")
-    )
+    respx_mock.get(f"{url}/config").mock(return_value=httpx.Response(500, text="down"))
 
     config = await fetch_chain_config(url, config_conn)
     assert config["package_id"] == ""
@@ -177,10 +180,13 @@ async def test_fetch_chain_config_trailing_slash(config_conn, respx_mock):
     """fetch_chain_config strips trailing slash from URL."""
     url = "https://world-api.example.com/"
     respx_mock.get("https://world-api.example.com/config").mock(
-        return_value=httpx.Response(200, json={
-            "contracts": {"world": {"address": "0xslash"}},
-            "rpcUrls": {"default": {}},
-        })
+        return_value=httpx.Response(
+            200,
+            json={
+                "contracts": {"world": {"address": "0xslash"}},
+                "rpcUrls": {"default": {}},
+            },
+        )
     )
 
     config = await fetch_chain_config(url, config_conn)

@@ -76,5 +76,3 @@ def test_universe_reset_valid_key_flushes_poller(client):
     assert body["total_rows"] == 67
     assert "repopulate" in body["message"]
     poller.flush_polled_data.assert_called_once()
-
-

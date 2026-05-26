@@ -199,10 +199,12 @@ def test_build_report_title_short_object_id():
 def test_chain_references_post_destruction_event():
     """Post-destruction event adds extra chain reference."""
     row = _make_anomaly_row()
-    row["evidence_json"] = json.dumps({
-        "description": "Test",
-        "post_destruction_event": {"transaction_hash": "0xpost123"},
-    })
+    row["evidence_json"] = json.dumps(
+        {
+            "description": "Test",
+            "post_destruction_event": {"transaction_hash": "0xpost123"},
+        }
+    )
     report = build_report(row)
     refs = json.loads(report["chain_references"])
     post_refs = [r for r in refs if r.get("label") == "post_destruction"]
@@ -213,11 +215,13 @@ def test_chain_references_post_destruction_event():
 def test_reproduction_context_with_snapshot_window():
     """Reproduction context includes observation window from evidence."""
     row = _make_anomaly_row()
-    row["evidence_json"] = json.dumps({
-        "description": "Test",
-        "old_snapshot_time": 1000,
-        "new_snapshot_time": 2000,
-    })
+    row["evidence_json"] = json.dumps(
+        {
+            "description": "Test",
+            "old_snapshot_time": 1000,
+            "new_snapshot_time": 2000,
+        }
+    )
     report = build_report(row)
     ctx = json.loads(report["reproduction_context"])
     assert ctx["observation_window_seconds"] == 1000
@@ -241,8 +245,19 @@ def test_store_report_duplicate(db_conn):
         "INSERT INTO anomalies (anomaly_id, anomaly_type, severity, category, "
         "detector, rule_id, object_id, system_id, detected_at, evidence_json, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ("ANM-DUP", "ORPHAN_OBJECT", "MEDIUM", "CONTINUITY",
-         "test", "C1", "obj-1", "", now, "{}", "UNVERIFIED"),
+        (
+            "ANM-DUP",
+            "ORPHAN_OBJECT",
+            "MEDIUM",
+            "CONTINUITY",
+            "test",
+            "C1",
+            "obj-1",
+            "",
+            now,
+            "{}",
+            "UNVERIFIED",
+        ),
     )
     db_conn.commit()
 

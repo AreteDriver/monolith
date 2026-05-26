@@ -367,8 +367,16 @@ def test_process_unprocessed_exception_in_handler(db_conn):
             "INSERT INTO chain_events (event_id, event_type, object_id, object_type, "
             "system_id, transaction_hash, timestamp, raw_json, processed) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
-            (eid, etype, oid, "assembly", "sys-1", f"tx-{i}", now + i,
-             json.dumps({"parsedJson": {}})),
+            (
+                eid,
+                etype,
+                oid,
+                "assembly",
+                "sys-1",
+                f"tx-{i}",
+                now + i,
+                json.dumps({"parsedJson": {}}),
+            ),
         )
     db_conn.commit()
 
@@ -472,8 +480,7 @@ def test_ownership_transfer_with_previous_owner(db_conn):
         "INSERT INTO objects (object_id, object_type, current_owner,"
         " current_state, last_seen, created_at) "
         "VALUES (?, ?, ?, ?, ?, ?)",
-        ("asm-prev", "smartassemblies", "0xold",
-         json.dumps({"state": "ONLINE"}), now, now),
+        ("asm-prev", "smartassemblies", "0xold", json.dumps({"state": "ONLINE"}), now, now),
     )
     db_conn.commit()
 
@@ -669,8 +676,7 @@ def test_fta_jump_handler(db_conn):
     """FTA_JumpPermit tracks gate usage and creates fta_gate object."""
     now = int(time.time())
     db_conn.execute(
-        "INSERT INTO objects (object_id, object_type, last_seen, created_at) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO objects (object_id, object_type, last_seen, created_at) VALUES (?, ?, ?, ?)",
         ("fta-gate-1", "gate", now - 100, now - 100),
     )
     db_conn.commit()
@@ -687,9 +693,7 @@ def test_fta_jump_handler(db_conn):
     )
     processor._dispatch_event(event)
 
-    obj = db_conn.execute(
-        "SELECT * FROM objects WHERE object_id = 'fta-gate-1'"
-    ).fetchone()
+    obj = db_conn.execute("SELECT * FROM objects WHERE object_id = 'fta-gate-1'").fetchone()
     assert obj is not None
     state = json.loads(obj["current_state"])
     assert state["last_jump_character"] == "char-fta"

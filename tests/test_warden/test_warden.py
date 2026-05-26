@@ -135,10 +135,13 @@ async def test_warden_a1_state_divergence(conn, respx_mock):
     respx_mock.post(rpc_url).mock(
         side_effect=[
             _json_response({"jsonrpc": "2.0", "id": 1, "result": "99999"}),
-            _json_response({
-                "jsonrpc": "2.0", "id": 1,
-                "result": {"data": {"content": {"fields": {"state": "ONLINE"}}}},
-            }),
+            _json_response(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "result": {"data": {"content": {"fields": {"state": "ONLINE"}}}},
+                }
+            ),
         ]
     )
 
@@ -200,8 +203,18 @@ def test_warden_append_provenance(conn):
     # Set initial provenance
     conn.execute(
         "UPDATE anomalies SET provenance_json = ? WHERE anomaly_id = 'MNLT-PROV-1'",
-        (json.dumps([{"source_type": "initial", "source_id": "test",
-                       "timestamp": 0, "derivation": "seed"}]),),
+        (
+            json.dumps(
+                [
+                    {
+                        "source_type": "initial",
+                        "source_id": "test",
+                        "timestamp": 0,
+                        "derivation": "seed",
+                    }
+                ]
+            ),
+        ),
     )
     conn.commit()
 
